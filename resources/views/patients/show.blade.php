@@ -132,9 +132,19 @@
     <!-- Inner Sidebar (Izquierda) -->
     <div class="col-md-4 col-lg-3 col-xl-2 patient-inner-sidebar p-3 d-flex flex-column">
         <div class="d-flex flex-column align-items-center text-center mb-4 pb-2 border-bottom border-light">
-            <div class="icon-box rounded-circle shadow-sm bg-primary bg-gradient text-white d-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px; font-size: 2rem;">
-                <i class="bi bi-person-fill"></i>
+            <div class="icon-box rounded-circle shadow-sm bg-primary bg-gradient text-white d-flex align-items-center justify-content-center mb-3" id="patientAvatarBox" style="width: 70px; height: 70px; font-size: 2rem; cursor: pointer; overflow: hidden; position: relative;" onclick="document.getElementById('patientPhotoInput').click()" onmouseover="document.getElementById('avatarOverlay').style.opacity=1" onmouseout="document.getElementById('avatarOverlay').style.opacity=0">
+                @if($patient->photo_path)
+                    <img src="{{ asset('storage/' . $patient->photo_path) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;" id="patientAvatarImage">
+                    <i class="bi bi-person-fill" id="patientAvatarIcon" style="display: none;"></i>
+                @else
+                    <img src="" alt="Foto" style="width: 100%; height: 100%; object-fit: cover; display: none;" id="patientAvatarImage">
+                    <i class="bi bi-person-fill" id="patientAvatarIcon"></i>
+                @endif
+                <div id="avatarOverlay" class="text-white w-100 h-100 d-flex align-items-center justify-content-center" style="position: absolute; top:0; left:0; background: rgba(0,0,0,0.4); opacity: 0; transition: 0.2s; font-size: 1.2rem;">
+                    <i class="bi bi-camera"></i>
+                </div>
             </div>
+            <input type="file" id="patientPhotoInput" accept="image/*" hidden>
             <h5 class="fw-bold mb-2 text-dark" style="font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
             <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-sm mb-2"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
         </div>
@@ -150,7 +160,7 @@
             <a href="{{ route('patients.index') }}" class="sidebar-link"><i class="bi bi-arrow-left"></i> Volver a Lista</a>
             <a href="{{ route('patient.visits.create', $patient) }}" class="sidebar-link"><i class="bi bi-person-plus"></i> Nueva Visita</a>
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('cirugias-tab')"><i class="bi bi-bandaid"></i> Cirugías</button>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent"><i class="bi bi-person-badge"></i> Asignar Medico</button>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('asignacion-tab')"><i class="bi bi-person-badge"></i> Asignar Médico</button>
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" data-bs-toggle="modal" data-bs-target="#uploadStudyModal"><i class="bi bi-cloud-arrow-up"></i> Subir Estudio</button>
             <a href="{{ route('patients.edit', $patient) }}" class="sidebar-link"><i class="bi bi-pencil"></i> Editar Perfil</a>
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('comentarios-tab')"><i class="bi bi-chat-left-text"></i> Comentarios</button>
@@ -313,48 +323,141 @@
 
         <div class="tab-content pb-4" id="bottomTabsContent">
             
-            <!-- Tab: Asignación -->
+            <!-- Tab: Asignación (Consola V2) -->
             <div class="tab-pane fade show active" id="asignacion" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-person-lines-fill text-primary me-2"></i> Estado de Asignación Médica</h5>
-                    <button class="btn btn-outline-primary rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 py-1">
-                        <i class="bi bi-plus-lg"></i> Vincular Médico
-                    </button>
+                
+                @if(session('error'))
+                    <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border-0 rounded-4 shadow-sm mb-4"><i class="bi bi-exclamation-triangle-fill"></i> {{ session('error') }}</div>
+                @endif
+
+                <!-- Formulario de Ingreso a Consola -->
+                <div class="bg-white rounded-4 shadow-sm p-4 mb-4" style="border: 1px solid rgba(0,0,0,0.05);">
+                    <div class="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
+                        <div class="bg-primary bg-gradient text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px;"><i class="bi bi-person-add fs-4"></i></div>
+                        <h5 class="fw-bold text-dark mb-0 fs-5">Volcar Paciente a Sala de Espera (Consola)</h5>
+                    </div>
+
+                    <form action="{{ route('console.assignments.store') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="patient_id" value="{{ $patient->id }}">
+                        
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-6">
+                                <label class="fw-bold text-dark mb-2">Motivo / Práctica (Tipo)</label>
+                                <select name="event_type" class="form-select form-select-lg bg-light border-0 shadow-none text-dark" required>
+                                    <option value="" disabled selected>Seleccione el flujo...</option>
+                                    <option value="Ingreso (espera)">Ingreso (espera)</option>
+                                    <option value="Dilatación">Dilatación</option>
+                                    <option value="Estudios Visuales">Estudios Visuales</option>
+                                    <option value="Atención Médica">Atención Médica</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="fw-bold text-dark mb-2">Médico Destino <span class="text-muted small fw-normal">(Opcional)</span></label>
+                                <select name="doctor_id" class="form-select form-select-lg bg-light border-0 shadow-none text-dark">
+                                    <option value="">Cualquier médico disponible / Staff</option>
+                                    @foreach($doctors as $doc)
+                                        <option value="{{ $doc->id }}">Dr. {{ $doc->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 text-start">
+                            <label class="fw-bold text-dark mb-2">Observaciones Internas <span class="text-muted small fw-normal">(Visibles en la Consola Global)</span></label>
+                            <textarea name="notes" rows="2" class="form-control bg-light border-0 shadow-none text-dark" placeholder="Detalles extra como dilatación, paciente particular, urgencias..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 shadow-sm fw-bold d-flex align-items-center gap-2 py-2" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); font-size: 1.05rem;">
+                                Ingresar a Cola <i class="bi bi-send-fill text-white shadow-sm ms-2"></i>
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
-                @if($patient->assignments && $patient->assignments->count() > 0)
-                    <div class="row g-4">
-                        @foreach($patient->assignments as $assignment)
-                            <div class="col-md-6 col-xl-4">
-                                <div class="bg-white p-4 rounded-4 border-start border-4 {{ $assignment->status == 'active' ? 'border-primary' : 'border-secondary' }} h-100 shadow-sm" style="border: 1px solid rgba(0,0,0,0.05);">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle"><i class="bi bi-person-badge fs-5"></i></div>
-                                            <h6 class="fw-bold text-dark mb-0 fs-5">Dr. {{ $assignment->doctor->name ?? 'N/A' }}</h6>
-                                        </div>
-                                        @if($assignment->status == 'active')
-                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1">Vigente</span>
-                                        @else
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-3 py-1">Histórico</span>
-                                        @endif
-                                    </div>
-                                    <div class="d-flex flex-column gap-2 text-muted small">
-                                        <div class="d-flex justify-content-between"><span class="fw-bold">Inicio vinc.</span> <span class="badge bg-light text-dark border">{{ $assignment->started_at ? $assignment->started_at->format('d/m/Y') : 'S/D' }}</span></div>
-                                        @if($assignment->ended_at)
-                                        <div class="d-flex justify-content-between"><span class="fw-bold">Fin vinc.</span> <span class="badge bg-light text-dark border">{{ $assignment->ended_at->format('d/m/Y') }}</span></div>
-                                        @endif
-                                    </div>
-                                </div>
+                <!-- Resumen Diario (En Curso vs Finalizados) -->
+                @php
+                    $todayAssignments = collect($patient->assignments ?? [])->where('started_at', '>=', \Carbon\Carbon::today())->sortBy('started_at');
+                    $enCurso = $todayAssignments->where('status', 'in_progress');
+                    $finalizados = $todayAssignments->where('status', 'completed');
+                @endphp
+
+                <div class="row g-4 pb-4">
+                    <!-- EN CURSO -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 rounded-4 overflow-hidden h-100 shadow-sm" style="border: 1px solid rgba(32, 201, 151, 0.2) !important;">
+                            <div class="card-header border-0 fw-bold d-flex align-items-center gap-2" style="background-color: #20c997 !important; color: #fff; padding: 12px 20px;">
+                                <i class="bi bi-play-fill fs-5"></i> En curso
                             </div>
-                        @endforeach
+                            <div class="card-body p-0 bg-white">
+                                @if($enCurso->count() > 0)
+                                    <div class="table-responsive">
+                                        <table class="table mb-0 align-middle">
+                                            <thead class="text-muted" style="font-size: 0.8rem; background: #fff !important; border-bottom: 2px solid rgba(0,0,0,0.05);">
+                                                <tr>
+                                                    <th class="ps-4 fw-bold border-0">Inicio</th>
+                                                    <th class="fw-bold border-0">Evento</th>
+                                                    <th class="fw-bold border-0 text-center">Estado/Médico</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($enCurso as $asg)
+                                                <tr>
+                                                    <td class="ps-4 fw-medium text-dark">{{ $asg->started_at->format('H:i') }}</td>
+                                                    <td class="fw-bold text-dark">{{ $asg->event_type }}</td>
+                                                    <td class="text-center"><span class="badge bg-light text-dark border">{{ $asg->doctor->name ?? 'En Espera' }}</span></td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="text-center py-5 text-muted small bg-light bg-opacity-50">
+                                        Sin eventos en curso
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
                     </div>
-                @else
-                    <div class="py-5 text-center bg-light rounded-4" style="border: 2px dashed #dee2e6;">
-                        <i class="bi bi-person-x fs-1 text-secondary opacity-50 mb-3 d-block"></i>
-                        <h5 class="fw-bold text-dark">Sin asignación activa</h5>
-                        <p class="text-muted">El paciente no está vinculado a ningún médico fijo en este momento.</p>
+
+                    <!-- FINALIZADOS HOY -->
+                    <div class="col-lg-6">
+                        <div class="card border-0 rounded-4 overflow-hidden h-100 shadow-sm" style="border: 1px solid rgba(0, 0, 0, 0.05) !important;">
+                            <div class="card-header text-dark border-bottom fw-bold d-flex align-items-center gap-2" style="background-color: #f8f9fa; padding: 12px 20px;">
+                                <i class="bi bi-check-circle text-secondary fs-5"></i> Finalizados hoy
+                            </div>
+                            <div class="card-body p-0 bg-white">
+                                @if($finalizados->count() > 0)
+                                    <div class="table-responsive">
+                                        <table class="table mb-0 align-middle">
+                                            <thead class="text-muted" style="font-size: 0.8rem; background: #fff !important; border-bottom: 2px solid rgba(0,0,0,0.05);">
+                                                <tr>
+                                                    <th class="ps-4 fw-bold border-0">Inicio</th>
+                                                    <th class="fw-bold border-0">Fin</th>
+                                                    <th class="fw-bold border-0">Evento</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($finalizados as $asg)
+                                                <tr>
+                                                    <td class="ps-4 fw-medium text-muted">{{ $asg->started_at->format('H:i') }}</td>
+                                                    <td class="fw-medium text-muted">{{ $asg->ended_at ? $asg->ended_at->format('H:i') : '-' }}</td>
+                                                    <td class="fw-bold text-secondary">{{ $asg->event_type }}</td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="text-center py-5 text-muted small bg-light bg-opacity-50">
+                                        Sin eventos finalizados
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
                     </div>
-                @endif
+                </div>
             </div>
 
             <!-- Tab: Diagnóstico -->
@@ -727,90 +830,103 @@
 
             <!-- Tab: Historia Clínica -->
             <div class="tab-pane fade" id="historial" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-4 pb-2">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-journal-medical text-primary me-2"></i> Historial Clínico Integral</h5>
-                    <a href="{{ route('patient.visits.create', $patient) }}" class="btn btn-gradient-primary rounded-pill px-4 shadow-sm text-white d-flex align-items-center gap-2">
-                        <i class="bi bi-plus-lg"></i> Cargar Nueva Evolución
-                    </a>
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-journal-medical text-primary me-2"></i> Historia Clínica</h5>
+                    <div class="d-flex gap-2">
+                        @if($patient->visits->count() > 0)
+                        <a href="{{ route('patients.history.print', $patient) }}" target="_blank" class="btn btn-dark rounded-pill px-3 shadow-sm text-white d-flex align-items-center gap-2 fw-medium" title="Vista para Imprimir / Pantalla Completa" style="font-size: 0.85rem;">
+                            <i class="bi bi-printer"></i> Imprimir Full
+                        </a>
+                        <button class="btn btn-outline-secondary rounded-pill px-3 fw-bold d-flex align-items-center gap-2 transition-all shadow-sm" style="font-size: 0.85rem;" onclick="toggleHistorialOrder()" id="btnOrderHistorial">
+                            <i class="bi bi-sort-down fs-5"></i> <span id="textOrderHistorial">Más recientes primero</span>
+                        </button>
+                        @endif
+                        <a href="{{ route('patient.visits.create', $patient) }}" class="btn btn-gradient-primary rounded-pill px-4 shadow-sm text-white d-flex align-items-center gap-2">
+                            <i class="bi bi-plus-lg"></i> Cargar Nueva Evolución
+                        </a>
+                    </div>
                 </div>
 
                 @if($patient->visits->count() > 0)
-                    <div class="accordion accordion-flush bg-white rounded-4 shadow-sm" style="border: 1px solid rgba(0,0,0,0.05); overflow: hidden;" id="visitsAccordion">
-                        @foreach($patient->visits as $visit)
-                        <div class="accordion-item {{ $loop->last ? 'border-bottom-0' : '' }}">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button {{ $loop->first ? '' : 'collapsed' }} bg-light py-4" type="button" data-bs-toggle="collapse" data-bs-target="#visit-{{ $visit->id }}" aria-expanded="{{ $loop->first ? 'true' : 'false' }}">
-                                    <div class="w-100 d-flex justify-content-between align-items-center pe-3">
-                                        <div class="d-flex align-items-center gap-3">
-                                            <div class="bg-white p-2 rounded-circle shadow-sm text-primary"><i class="bi bi-calendar-check fs-4"></i></div>
-                                            <div>
-                                                <span class="fw-bold text-dark fs-6 d-block mb-1">Visita del {{ $visit->created_at->format('d/m/Y - H:i') }}</span>
-                                                <span class="text-secondary fw-medium small"><i class="bi bi-chat-left-text me-1"></i> Motivo: {{ Str::limit($visit->motivo_consulta ?? 'Control general', 60) }}</span>
-                                            </div>
-                                        </div>
-                                        <div class="text-end">
-                                            <span class="badge bg-white text-dark border px-4 py-2 rounded-pill shadow-sm fs-6"><i class="bi bi-person-badge text-primary me-2"></i>Dr(a). {{ $visit->doctor->name ?? 'Staff' }}</span>
-                                        </div>
-                                    </div>
-                                </button>
-                            </h2>
-                            <div id="visit-{{ $visit->id }}" class="accordion-collapse collapse {{ $loop->first ? 'show' : '' }}" data-bs-parent="#visitsAccordion">
-                                <div class="accordion-body p-4 bg-white border-top">
-                                    <div class="row g-4">
-                                        @if($visit->diagnostico)
-                                        <div class="col-12">
-                                            <div class="p-4 bg-danger bg-opacity-10 rounded-4 border border-danger border-opacity-25 shadow-sm">
-                                                <h6 class="fw-bold text-danger mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i> Diagnóstico Definitivo</h6>
-                                                <div class="text-danger fw-bold" style="white-space: pre-line; font-size: 1rem;">{{ $visit->diagnostico }}</div>
-                                            </div>
-                                        </div>
-                                        @endif
-                                        
-                                        <div class="col-md-6 border-end pe-4">
-                                            <div class="p-4 bg-light rounded-4 h-100">
-                                                <h6 class="fw-bold text-primary border-bottom border-primary border-opacity-25 pb-2 mb-3"><i class="bi bi-eye me-2"></i> Anamnesis Oftalmológica</h6>
-                                                @if($visit->antecedentes_oftalmologicos)<p class="mb-3"><strong class="text-muted d-block small text-uppercase fw-bold mb-1">Antecedentes</strong> <span class="text-dark bg-white d-block p-2 rounded shadow-sm">{{ $visit->antecedentes_oftalmologicos }}</span></p>@endif
-                                                @if($visit->tratamiento_oftalmologico)<p class="mb-4"><strong class="text-muted d-block small text-uppercase fw-bold mb-1">Tratamiento</strong> <span class="text-dark bg-white d-block p-2 rounded shadow-sm">{{ $visit->tratamiento_oftalmologico }}</span></p>@endif
-                                                
-                                                <h6 class="fw-bold text-success border-bottom border-success border-opacity-25 pb-2 mb-3 mt-4"><i class="bi bi-person me-2"></i> Anamnesis General</h6>
-                                                @if($visit->antecedentes_generales)<p class="mb-3"><strong class="text-muted d-block small text-uppercase fw-bold mb-1">Antecedentes</strong> <span class="text-dark bg-white d-block p-2 rounded shadow-sm">{{ $visit->antecedentes_generales }}</span></p>@endif
-                                                @if($visit->tratamientos_generales)<p class="mb-0"><strong class="text-muted d-block small text-uppercase fw-bold mb-1">Tratamiento</strong> <span class="text-dark bg-white d-block p-2 rounded shadow-sm">{{ $visit->tratamientos_generales }}</span></p>@endif
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6 ps-4">
-                                            <div class="p-4 bg-light rounded-4 h-100">
-                                                <h6 class="fw-bold text-primary border-bottom border-primary border-opacity-25 pb-2 mb-3"><i class="bi bi-heart-pulse me-2"></i> Examen General Biomicroscópico</h6>
-                                                
-                                                <div class="bg-white rounded-3 shadow-sm p-2 mb-4">
-                                                    <table class="table table-sm table-borderless mb-0">
-                                                        <tr class="border-bottom"><td class="text-muted w-25 fw-bold px-3 py-2">P.I.O.</td><td class="fw-bold text-dark px-3 py-2">{{ $visit->pio ?? 'S/D' }}</td></tr>
-                                                        <tr class="border-bottom"><td class="text-muted fw-bold px-3 py-2">BMC</td><td class="fw-bold text-dark px-3 py-2">{{ $visit->bmc ?? 'S/D' }}</td></tr>
-                                                        <tr><td class="text-muted fw-bold px-3 py-2">OBI</td><td class="fw-bold text-dark px-3 py-2">{{ $visit->obi ?? 'S/D' }}</td></tr>
-                                                        @if($visit->otros_examen)<tr class="border-top"><td class="text-muted fw-bold px-3 py-2 bg-light rounded-bottom">Otros</td><td class="fw-bold text-dark px-3 py-2 bg-light rounded-bottom">{{ $visit->otros_examen }}</td></tr>@endif
-                                                    </table>
-                                                </div>
-                                                
-                                                <h6 class="fw-bold text-primary mb-3 mt-4"><i class="bi bi-eyeglasses me-2"></i> Agudeza Visual</h6>
-                                                <div class="d-flex gap-3">
-                                                    <div class="w-50 bg-white border-0 rounded-4 p-3 shadow-sm text-center border-bottom border-4 border-danger">
-                                                        <span class="d-block text-danger fw-bold border-bottom pb-2 mb-2 fs-5">OD <i class="bi bi-eye ms-1 opcity-50"></i></span>
-                                                        <div class="d-flex justify-content-between mb-2"><span class="small text-muted fw-medium">Lejos</span> <span class="badge bg-light text-dark border fs-6">{{ $visit->av_od_lejos ?? '-' }}</span></div>
-                                                        <div class="d-flex justify-content-between"><span class="small text-muted fw-medium">Cerca</span> <span class="badge bg-light text-dark border fs-6">{{ $visit->av_od_cerca ?? '-' }}</span></div>
-                                                    </div>
-                                                    <div class="w-50 bg-white border-0 rounded-4 p-3 shadow-sm text-center border-bottom border-4 border-success">
-                                                        <span class="d-block text-success fw-bold border-bottom pb-2 mb-2 fs-5">OI <i class="bi bi-eye ms-1 opcity-50"></i></span>
-                                                        <div class="d-flex justify-content-between mb-2"><span class="small text-muted fw-medium">Lejos</span> <span class="badge bg-light text-dark border fs-6">{{ $visit->av_oi_lejos ?? '-' }}</span></div>
-                                                        <div class="d-flex justify-content-between"><span class="small text-muted fw-medium">Cerca</span> <span class="badge bg-light text-dark border fs-6">{{ $visit->av_oi_cerca ?? '-' }}</span></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                    <!-- UI Tipo Documento (Legacy style + Modern) -->
+                    <div class="bg-white rounded-4 shadow-sm p-4 p-md-5 mx-0" style="border: 1px solid rgba(0,0,0,0.05);">
+                        <!-- Cabecera de Documento -->
+                        <div class="row w-100 mb-5 pb-4" style="border-bottom: 2px solid rgba(0,0,0,0.05);">
+                            <div class="col-8">
+                                <h4 class="fw-bold text-dark mb-1 d-flex align-items-center"><i class="bi bi-suit-spade text-primary opacity-50 me-2 fs-3 d-none"></i>Paciente: {{ strtolower($patient->first_name . ' ' . $patient->last_name) }}</h4>
+                                <p class="text-muted mb-0 fw-bold fs-6">D.N.I.: {{ $patient->dni }}</p>
+                            </div>
+                            <div class="col-4 border-start ps-4">
+                                @if($patient->medical_notes)
+                                    <h6 class="fw-bold text-dark mb-1">Antecedentes:</h6>
+                                    <p class="text-secondary small mb-0" style="white-space: pre-line; line-height: 1.4;">{{ $patient->medical_notes }}</p>
+                                @endif
                             </div>
                         </div>
-                        @endforeach
+
+                        <!-- Contenedor Flex para ordenar -->
+                        <div id="visitasListContainer" class="d-flex flex-column gap-5">
+                            @foreach($patient->visits as $visit)
+                            <div class="visit-item">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <h6 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;"><i class="bi bi-record-circle text-primary me-2"></i> Visita: {{ $visit->created_at->format('d-M-Y') }}</h6>
+                                    <h6 class="text-secondary mb-0 fw-bold" style="font-size: 1.05rem;">Médico: {{ $visit->doctor->name ?? 'Staff' }}</h6>
+                                </div>
+                                <hr class="my-3 border-secondary opacity-10" style="border-width: 2px;">
+                                
+                                <div class="px-2" style="font-size: 0.95rem;">
+                                    @if($visit->motivo_consulta)
+                                        <div class="row align-items-start mb-3">
+                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Motivo:</div>
+                                            <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $visit->motivo_consulta }}</div>
+                                        </div>
+                                    @endif
+
+                                    @if($visit->diagnostico)
+                                        <div class="row align-items-start mb-3">
+                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Diagnóstico:</div>
+                                            <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $visit->diagnostico }}</div>
+                                        </div>
+                                    @endif
+
+                                    @if($visit->tratamiento_oftalmologico || $visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
+                                        <div class="row align-items-start mb-3">
+                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Tratamiento:</div>
+                                            <div class="col-9 col-md-10 text-secondary">
+                                                @if($visit->tratamiento_oftalmologico)
+                                                    <div style="white-space: pre-line; margin-bottom: 1.5rem; padding-top:2px;">{{ $visit->tratamiento_oftalmologico }}</div>
+                                                @endif
+                                                
+                                                @if($visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
+                                                    <div class="row mt-3 mb-1 font-monospace">
+                                                        <div class="col-12 col-lg-8 offset-lg-4">
+                                                            @if($visit->av_od_lejos)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OD Lejos:</div><div class="col-6">{{ $visit->av_od_lejos }}</div></div>@endif
+                                                            @if($visit->av_oi_lejos)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OI Lejos:</div><div class="col-6">{{ $visit->av_oi_lejos }}</div></div>@endif
+                                                            @if($visit->av_od_cerca)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OD Cerca:</div><div class="col-6">{{ $visit->av_od_cerca }}</div></div>@endif
+                                                            @if($visit->av_oi_cerca)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OI Cerca:</div><div class="col-6">{{ $visit->av_oi_cerca }}</div></div>@endif
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if($visit->pio || $visit->bmc || $visit->obi || $visit->otros_examen || $visit->antecedentes_oftalmologicos)
+                                        <div class="row align-items-start mb-2 mt-4 pt-3 border-top border-light">
+                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Examen Gral:</div>
+                                            <div class="col-9 col-md-10 text-secondary" style="padding-top:2px;">
+                                                @if($visit->antecedentes_oftalmologicos)<p class="mb-1"><span class="fw-bold text-dark">Ant. Oftalm.:</span> {{ $visit->antecedentes_oftalmologicos }}</p>@endif
+                                                @if($visit->pio)<p class="mb-1"><span class="fw-bold text-dark">PIO:</span> {{ $visit->pio }}</p>@endif
+                                                @if($visit->bmc)<p class="mb-1"><span class="fw-bold text-dark">BMC:</span> {{ $visit->bmc }}</p>@endif
+                                                @if($visit->obi)<p class="mb-1"><span class="fw-bold text-dark">OBI:</span> {{ $visit->obi }}</p>@endif
+                                                @if($visit->otros_examen)<p class="mb-1"><span class="fw-bold text-dark">Otros:</span> <span style="white-space: pre-line;">{{ $visit->otros_examen }}</span></p>@endif
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
                     </div>
                 @else
                     <div class="py-5 text-center bg-light rounded-4" style="border: 2px dashed #dee2e6;">
@@ -898,6 +1014,69 @@ document.addEventListener('DOMContentLoaded', function() {
             items.forEach(item => grid.appendChild(item));
         });
     }
+});
+
+// Sorting Documento Clínico JS
+function toggleHistorialOrder() {
+    const container = document.getElementById('visitasListContainer');
+    const btnText = document.getElementById('textOrderHistorial');
+    const btnIcon = document.querySelector('#btnOrderHistorial i');
+    if (!container) return;
+
+    if (container.classList.contains('flex-column')) {
+        // Switch to Descending View (Ascending Temporal = Viejas arriba, Nuevas abajo)
+        container.classList.remove('flex-column');
+        container.classList.add('flex-column-reverse');
+        btnText.innerText = "Más antiguas primero";
+        btnIcon.className = "bi bi-sort-up fs-5";
+    } else {
+        // Switch to Default View (Nuevas arriba)
+        container.classList.remove('flex-column-reverse');
+        container.classList.add('flex-column');
+        btnText.innerText = "Más recientes primero";
+        btnIcon.className = "bi bi-sort-down fs-5";
+    }
+}
+
+// ----- Patient Photo Upload Logic -----
+document.getElementById('patientPhotoInput').addEventListener('change', function() {
+    if (!this.files || !this.files[0]) return;
+    
+    let file = this.files[0];
+    let formData = new FormData();
+    formData.append('photo', file);
+    
+    // Show loading UI on overlay
+    const overlay = document.getElementById('avatarOverlay');
+    overlay.innerHTML = '<div class="spinner-border text-light spinner-border-sm" role="status"></div>';
+    overlay.style.opacity = 1;
+    
+    fetch('{{ route("patients.uploadPhoto", $patient) }}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            document.getElementById('patientAvatarImage').src = data.photo_url;
+            document.getElementById('patientAvatarImage').style.display = 'block';
+            document.getElementById('patientAvatarIcon').style.display = 'none';
+        } else {
+            alert('Error al subir la imagen: ' + (data.message || 'Intente nuevamente.'));
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        alert('Error de red al subir la imagen.');
+    })
+    .finally(() => {
+        overlay.innerHTML = '<i class="bi bi-camera"></i>';
+        overlay.style.opacity = 0;
+        document.getElementById('patientPhotoInput').value = '';
+    });
 });
 </script>
 @endsection

@@ -238,33 +238,70 @@ class AppointmentController extends Controller
             ->whereDate('date', $date->format('Y-m-d'))
             ->whereIn('status', ['pending', 'confirmed'])
             ->get()
-            ->keyBy('time');
+            ->groupBy('time')
+            ->toArray(); // Convierto a array para modificarlo fácilmente
 
         $slots = [];
         $start = Carbon::parse($date->format('Y-m-d') . ' ' . $schedule->start_time);
         $end = Carbon::parse($date->format('Y-m-d') . ' ' . $schedule->end_time);
 
-        while ($start < $end) {
+        while ($start <= $end) {
             $timeString = $start->format('H:i:00');
             $timeDisplay = $start->format('H:i');
+            $nextInterval = (clone $start)->addMinutes($schedule->slot_duration_minutes);
             
+            // 1. Render EXACT match or Free Slot
             if (isset($appointments[$timeString])) {
-                $app = $appointments[$timeString];
-                $slots[] = [
-                    'time' => $timeDisplay,
-                    'status' => 'booked',
-                    'patient_name' => $app->patient->last_name . ', ' . $app->patient->first_name,
-                    'appointment_id' => $app->id
-                ];
+                foreach ($appointments[$timeString] as $app) {
+                    $slots[] = [
+                        'time' => $timeDisplay,
+                        'status' => 'booked',
+                        'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', '),
+                        'appointment_id' => $app['id']
+                    ];
+                }
+                unset($appointments[$timeString]);
             } else {
-                $slots[] = [
-                    'time' => $timeDisplay,
-                    'status' => 'free'
-                ];
+                if ($start < $end) {
+                    $slots[] = [
+                        'time' => $timeDisplay,
+                        'status' => 'free'
+                    ];
+                }
+            }
+
+            // 2. Render SObreturnos (OFF-INTERVAL entries strictly between this slot and next)
+            if ($start < $end) {
+                foreach ($appointments as $tStr => $apps) {
+                    if ($tStr > $timeString && $tStr < $nextInterval->format('H:i:00')) {
+                        foreach ($apps as $app) {
+                            $slots[] = [
+                                'time' => Carbon::parse($tStr)->format('H:i'),
+                                'status' => 'booked',
+                                'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ') . ' (Extra)',
+                                'appointment_id' => $app['id']
+                            ];
+                        }
+                        unset($appointments[$tStr]);
+                    }
+                }
             }
 
             $start->addMinutes($schedule->slot_duration_minutes);
         }
+        
+        // 3. Any leftovers (before shift start or after shift end)
+        foreach ($appointments as $tStr => $apps) {
+             foreach ($apps as $app) {
+                    $slots[] = [
+                        'time' => Carbon::parse($tStr)->format('H:i'),
+                        'status' => 'booked',
+                        'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ') . ' (Extra)',
+                        'appointment_id' => $app['id']
+                    ];
+             }
+        }
+
 
         return response()->json([
             'slots' => $slots,

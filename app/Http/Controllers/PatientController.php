@@ -111,8 +111,34 @@ class PatientController extends Controller
                         ->orWhere('first_name', 'like', "%{$search}%")
                         ->limit(10)
                         ->get(['id', 'first_name', 'last_name', 'dni']);
-
         return response()->json($patients);
+    }
+
+    /**
+     * Upload Profile Photo
+     */
+    public function uploadPhoto(Request $request, Patient $patient)
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+        ]);
+
+        if ($request->hasFile('photo')) {
+            if ($patient->photo_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($patient->photo_path)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($patient->photo_path);
+            }
+
+            $path = $request->file('photo')->store('patients/photos', 'public');
+            $patient->photo_path = $path;
+            $patient->save();
+
+            return response()->json([
+                'success' => true,
+                'photo_url' => asset('storage/' . $path)
+            ]);
+        }
+
+        return response()->json(['success' => false, 'message' => 'No file provided'], 400);
     }
 
     /**
@@ -176,6 +202,19 @@ class PatientController extends Controller
         // Here we could soft-delete to preserve medical records
         $patient->delete();
         return redirect()->route('patients.index')->with('success', 'Paciente eliminado.');
+    }
+
+    public function printHistory(Patient $patient)
+    {
+        $patient->load([
+            'visits' => function($q) { clone $q->oldest(); }, 
+            'visits.doctor'
+        ]);
+        
+        // Cargar las visitas explícitamente ordenadas por oldest (la relación 'visits' tiene latest() definido)
+        $visits = $patient->visits()->with('doctor')->oldest()->get();
+
+        return view('patients.print', compact('patient', 'visits'));
     }
 
     /**

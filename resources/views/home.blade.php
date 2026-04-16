@@ -106,7 +106,7 @@
         <div class="carousel-item active">
             <div class="slide-wrapper">
                 <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-center">
-                    <h4 class="fw-bold text-dark mb-5 text-center" style="letter-spacing: -1px;">Pulso en Vivo y Crecimiento Mensual</h4>
+                    <h4 class="fw-bold text-dark mb-5 text-center" style="letter-spacing: -1px;">Estadísticas</h4>
                     
                     <div class="row g-4 mb-4">
                         <!-- KPI 1: Histórico -->

@@ -29,8 +29,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/patients/search', [App\Http\Controllers\PatientController::class, 'apiSearch']);
 
     // Clinical Visits routes
+    Route::post('patients/{patient}/photo', [App\Http\Controllers\PatientController::class, 'uploadPhoto'])->name('patients.uploadPhoto');
     Route::get('patients/{patient}/visits/create', [App\Http\Controllers\VisitController::class, 'create'])->name('patient.visits.create');
     Route::post('patients/{patient}/visits', [App\Http\Controllers\VisitController::class, 'store'])->name('patient.visits.store');
+    Route::get('patients/{patient}/history/print', [App\Http\Controllers\PatientController::class, 'printHistory'])->name('patients.history.print');
     
     // Patient Flow Console (Phase 15 Pivot)
     Route::get('console', [App\Http\Controllers\ConsoleController::class, 'index'])->name('console.index');
@@ -50,6 +52,7 @@ Route::middleware('auth')->group(function () {
     // Internal Chat & Real-Time Sync
     Route::get('api/messages/{user}', [App\Http\Controllers\MessageController::class, 'getHistory']);
     Route::post('api/messages', [App\Http\Controllers\MessageController::class, 'store']);
+    Route::post('api/messages/read', [App\Http\Controllers\MessageController::class, 'markRead']);
     Route::get('api/notifications/poll', [App\Http\Controllers\NotificationController::class, 'poll']);
 
     // Agenda Settings (Doctor Blocks)
@@ -59,4 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::post('agenda/settings/config', [App\Http\Controllers\AgendaSettingsController::class, 'storeConfig'])->name('agenda.config.store');
     Route::post('agenda/settings/blocks', [App\Http\Controllers\AgendaSettingsController::class, 'storeBlock'])->name('agenda.blocks.store');
     Route::delete('agenda/settings/blocks/{block}', [App\Http\Controllers\AgendaSettingsController::class, 'destroyBlock'])->name('agenda.blocks.destroy');
+    // Chat IT (Asistente Médico IA)
+    Route::get('/chat-it', [App\Http\Controllers\ChatItController::class, 'index'])->name('chatit.index');
+    Route::post('/chat-it/ask', [App\Http\Controllers\ChatItController::class, 'ask'])->name('chatit.ask');
 });

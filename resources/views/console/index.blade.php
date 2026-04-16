@@ -107,7 +107,7 @@
                     <i class="bi bi-person-fill fs-3"></i>
                 </div>
                 <div>
-                    <h6 class="mb-0 fw-bold text-dark fs-5">{{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}</h6>
+                    <h6 class="mb-0 fw-bold text-dark fs-5 text-capitalize">{{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}</h6>
                     <small class="text-muted text-uppercase" style="font-size:0.75rem;">OS: {{ $patient->obra_social ?? 'Particular' }}</small>
                 </div>
             </div>
@@ -192,7 +192,6 @@
                             <option value="Dilatación" {{ $currentStatus == 'Ingreso (espera)' ? 'selected' : '' }}>Dilatación</option>
                             <option value="Estudios Visuales">Estudios Visuales</option>
                             <option value="Atención Médica" {{ $currentStatus == 'Dilatación' ? 'selected' : '' }}>Atención Médica</option>
-                            <option value="Recepción">Recepción (Trámites)</option>
                             <option value="FINALIZAR" class="text-danger fw-bold">✓ Alta Final</option>
                         </select>
                     </div>
@@ -252,7 +251,7 @@
                     <i class="bi bi-person-check-fill fs-3"></i>
                 </div>
                 <div>
-                    <h6 class="mb-0 fw-bold text-dark fs-5">{{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}</h6>
+                    <h6 class="mb-0 fw-bold text-dark fs-5 text-capitalize">{{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}</h6>
                     <small class="text-muted text-uppercase" style="font-size:0.75rem;">Alta Diaria</small>
                 </div>
             </div>
@@ -311,7 +310,9 @@
                         <label class="form-label text-muted small fw-bold">Estado Inicial</label>
                         <select name="event_type" class="form-select bg-light border-0 shadow-none py-2" required>
                             <option value="Ingreso (espera)" selected>Ingreso (espera)</option>
-                            <option value="Recepción">Recepción Inmediata</option>
+                            <option value="Dilatación">Dilatación</option>
+                            <option value="Estudios Visuales">Estudios Visuales</option>
+                            <option value="Atención Médica">Atención Médica</option>
                         </select>
                     </div>
 

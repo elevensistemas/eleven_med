@@ -25,7 +25,10 @@
 
 <div class="modern-card p-0">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover align-middle mb-0" style="--bs-table-border-color: #cbd5e1; border-bottom: 2px solid #cbd5e1;">
+            <style>
+                .table > :not(caption) > * > * { border-bottom-width: 2px; border-bottom-color: #d1d5db; }
+            </style>
             <thead class="bg-light">
                 <tr>
                     <th scope="col" class="py-3 ps-4 text-muted text-uppercase fw-semibold" style="font-size: 0.8rem;">Paciente</th>

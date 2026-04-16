@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Patient;
 use App\Models\PatientAssignment;
 use App\Models\User;
+use App\Events\DoctorAssignedAlert;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -16,18 +17,25 @@ class ConsoleController extends Controller
         // All patients for the "Add New" dropdown
         $patients = Patient::orderBy('last_name')->get();
 
-        // Active Patients: Patients who have assignments TODAY.
-        // We load their assignments of today.
+        // Active Patients
         $activePatients = Patient::whereHas('assignments', function ($q) {
                 $q->whereDate('started_at', Carbon::today())
-                  ->where('status', 'in_progress'); // Must have an active step
+                  ->where('status', 'in_progress');
             })
             ->with(['assignments' => function ($q) {
                 $q->whereDate('started_at', Carbon::today())->orderBy('started_at', 'asc');
             }, 'assignments.doctor'])
             ->get();
             
-        // Completed patients today (for the history section / bottom list if we want it)
+        // Filter active assignments by the active session_id only
+        $activePatients->each(function($patient) {
+            $activeSessionId = $patient->assignments->where('status', 'in_progress')->first()->session_id ?? null;
+            if ($activeSessionId) {
+                $patient->setRelation('assignments', $patient->assignments->where('session_id', $activeSessionId)->values());
+            }
+        });
+
+        // Completed patients today
         $finishedPatients = Patient::whereHas('assignments', function ($q) {
                 $q->whereDate('started_at', Carbon::today());
             })
@@ -39,6 +47,14 @@ class ConsoleController extends Controller
                 $q->whereDate('started_at', Carbon::today())->orderBy('started_at', 'asc');
             }, 'assignments.doctor'])
             ->get();
+            
+        // Filter finished to only show their latest session block
+        $finishedPatients->each(function($patient) {
+            $latestSessionId = $patient->assignments->sortByDesc('started_at')->first()->session_id ?? null;
+            if ($latestSessionId) {
+                $patient->setRelation('assignments', $patient->assignments->where('session_id', $latestSessionId)->values());
+            }
+        });
 
         return view('console.index', compact('doctors', 'patients', 'activePatients', 'finishedPatients'));
     }
@@ -66,6 +82,7 @@ class ConsoleController extends Controller
         }
 
         $patient->assignments()->create([
+            'session_id' => (string) \Illuminate\Support\Str::uuid(),
             'event_type' => $validated['event_type'],
             'doctor_id' => $validated['doctor_id'] ?? null,
             'notes' => $validated['notes'] ?? null,
@@ -75,6 +92,11 @@ class ConsoleController extends Controller
 
         try {
             broadcast(new \App\Events\PatientArrived($patient))->toOthers();
+            
+            if (!empty($validated['doctor_id'])) {
+                $fullName = trim($patient->first_name . ' ' . $patient->last_name);
+                broadcast(new DoctorAssignedAlert($validated['doctor_id'], $fullName, $validated['event_type']))->toOthers();
+            }
         } catch (\Exception $e) {
             // Silently ignore broadcasting errors if Reverb is down, so the app remains stable
         }
@@ -103,13 +125,22 @@ class ConsoleController extends Controller
         }
         
         // 2. Crear el nuevo paso
+        $newDoctorId = $active ? $active->doctor_id : null; // keep same doctor unless specified
         $patient->assignments()->create([
+            'session_id' => $active ? $active->session_id : (string) \Illuminate\Support\Str::uuid(),
             'event_type' => $request->next_step,
-            'doctor_id' => $active ? $active->doctor_id : null, // keep same doctor unless specified
+            'doctor_id' => $newDoctorId,
             'notes' => null,
             'status' => 'in_progress',
             'started_at' => Carbon::now()
         ]);
+
+        try {
+            if ($newDoctorId) {
+                $fullName = trim($patient->first_name . ' ' . $patient->last_name);
+                broadcast(new DoctorAssignedAlert($newDoctorId, $fullName, $request->next_step))->toOthers();
+            }
+        } catch (\Exception $e) {}
 
         return back()->with('success', 'Paciente avanzado a: ' . $request->next_step);
     }

@@ -187,7 +187,7 @@
 
                     <div class="col-md-6">
                         <label class="form-label text-muted small fw-bold">Horario de Inicio *</label>
-                        <input type="time" name="time" class="form-control bg-light border-0 shadow-none" id="formTimeSelect" required readonly>
+                        <input type="time" name="time" class="form-control bg-light border-0 shadow-none" id="formTimeSelect" required>
                     </div>
                     
                     <div class="col-md-6">
@@ -411,14 +411,17 @@
                     if (slot.status === 'booked') {
                         html += `
                         <div class="slot-card slot-booked flex-row justify-content-between">
-                            <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-3 pe-2">
                                 <span class="slot-time d-block text-danger">${slot.time}</span>
                                 <div>
                                     <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-person-lock me-1"></i> ${slot.patient_name}</h6>
                                     <small class="text-danger">Ocupado</small>
                                 </div>
                             </div>
-                            <div class="dropdown">
+                            <div class="d-flex align-items-center dropdown">
+                                <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
+                                    + Sobreturno
+                                </button>
                                 <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                                 </button>
@@ -429,15 +432,22 @@
                         </div>`;
                     } else {
                         html += `
-                        <div class="slot-card slot-free gap-3 justify-content-between" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
-                            <div class="d-flex align-items-center gap-3">
+                        <div class="slot-card slot-free justify-content-between position-relative pe-2">
+                            <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
                                 <span class="slot-time d-block text-success">${slot.time}</span>
                                 <div>
                                     <h6 class="mb-0 text-success fw-bold">Turno Libre</h6>
                                     <small class="text-muted">Clic para asignar un paciente</small>
                                 </div>
                             </div>
-                            <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;"><i class="bi bi-plus text-white"></i></button>
+                            <div class="d-flex align-items-center dropdown z-2">
+                                <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
+                                    + Sobreturno
+                                </button>
+                                <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
+                                    <i class="bi bi-plus text-white"></i>
+                                </button>
+                            </div>
                         </div>`;
                     }
                 });

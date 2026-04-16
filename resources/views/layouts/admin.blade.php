@@ -19,15 +19,15 @@
         body { background-color: #f7f9fc; }
         .sidebar {
             width: 280px;
-            background: #ffffff;
-            border-right: 1px solid rgba(0,0,0,0.05);
+            background: linear-gradient(160deg, #f0f2f8 0%, #e2e6f0 100%);
+            border-right: 1px solid rgba(94, 106, 210, 0.1);
             position: fixed;
             height: 100vh;
             top: 0;
             left: 0;
             z-index: 1000;
             transition: all 0.3s ease;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.02);
+            box-shadow: 4px 0 24px rgba(94, 106, 210, 0.05);
         }
         .main-content {
             margin-left: 280px;
@@ -47,43 +47,57 @@
             gap: 10px;
         }
         .nav-sidebar .nav-link {
-            color: #555;
+            color: #4b5563;
             padding: 1rem 1.5rem;
-            font-weight: 500;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 12px;
-            transition: all 0.2s ease;
-            border-radius: 0 12px 12px 0;
+            transition: all 0.3s ease;
+            border-radius: 0 16px 16px 0;
             margin: 4px 1rem 4px 0;
+            position: relative;
         }
-        .nav-sidebar .nav-link i { font-size: 1.2rem; opacity: 0.7; }
+        .nav-sidebar .nav-link i { font-size: 1.2rem; opacity: 0.7; transition: all 0.3s ease; }
         .nav-sidebar .nav-link:hover, .nav-sidebar .nav-link.active {
-            color: var(--primary-color);
-            background: rgba(94, 106, 210, 0.08);
+            color: #5e6ad2;
+            background: #ffffff;
+            box-shadow: 0 4px 15px rgba(94, 106, 210, 0.08);
         }
-        .nav-sidebar .nav-link.active i { color: var(--primary-color); opacity: 1; }
+        .nav-sidebar .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10%;
+            height: 80%;
+            width: 4px;
+            background: #5e6ad2;
+            border-radius: 0 4px 4px 0;
+        }
+        .nav-sidebar .nav-link.active i { color: #5e6ad2; opacity: 1; transform: scale(1.1); }
         .topbar {
-            background: #fff;
+            background: linear-gradient(135deg, #ffffff 0%, #f4f6fc 100%);
             padding: 1rem 2rem;
             border-radius: 16px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.03);
+            box-shadow: 0 8px 30px rgba(94, 106, 210, 0.08);
             margin-bottom: 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid rgba(0,0,0,0.02);
+            border: 1px solid rgba(94, 106, 210, 0.15);
+            border-bottom: 3px solid rgba(94, 106, 210, 0.2);
             position: sticky;
             top: 2rem;
             z-index: 100;
         }
         .omnibar-search {
             display: flex;
-            background: rgba(94, 106, 210, 0.05);
+            background: linear-gradient(135deg, #ffffff 0%, rgba(94, 106, 210, 0.03) 100%);
             border-radius: 12px;
             overflow: hidden;
             width: 400px;
-            border: 1px solid rgba(94, 106, 210, 0.1);
+            border: 1px solid rgba(94, 106, 210, 0.2);
+            box-shadow: inset 0 2px 5px rgba(94, 106, 210, 0.03);
             transition: all 0.3s ease;
         }
         .omnibar-search:focus-within {
@@ -116,7 +130,7 @@
         }
         .omnibar-icon {
             color: var(--primary-color);
-            background: rgba(94, 106, 210, 0.06);
+            background: linear-gradient(135deg, rgba(94, 106, 210, 0.01) 0%, rgba(94, 106, 210, 0.06) 100%);
             width: 42px;
             height: 42px;
             display: flex;
@@ -127,7 +141,8 @@
             cursor: pointer;
             position: relative;
             transition: all 0.2s;
-            border: 1px solid rgba(94, 106, 210, 0.05);
+            border: 1px solid rgba(94, 106, 210, 0.2);
+            box-shadow: 0 2px 8px rgba(94, 106, 210, 0.05);
         }
         .omnibar-icon:hover {
             background: var(--primary-color);
@@ -326,12 +341,12 @@
             <a href="{{ route('config.index') }}" class="nav-link {{ request()->is('configuracion*') ? 'active' : '' }}">
                 <i class="bi bi-sliders"></i> Módulo Configuración
             </a>
-            <a href="#messengerDrawer" data-bs-toggle="offcanvas" class="nav-link cursor-pointer">
-                <i class="bi bi-chat-dots"></i> Chat Interno <span class="badge bg-primary ms-auto rounded-pill d-none" id="globalChatBadge">0</span>
+            <a href="{{ route('chatit.index') }}" class="nav-link {{ request()->routeIs('chatit.index') ? 'active' : '' }} mt-2" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.05) 0%, transparent 100%);">
+                <i class="bi bi-asterisk text-primary"></i> <span class="fw-bold text-primary">Chat IT (IA)</span>
             </a>
         </div>
         <div class="p-4 mt-auto">
-            <div class="card bg-light border-0 rounded-4 p-3 text-center">
+            <div class="card border-0 rounded-4 p-3 text-center" style="background: #ffffff; box-shadow: 0 4px 15px rgba(94, 106, 210, 0.05);">
                 <i class="bi bi-shield-check fs-4 text-success mb-2"></i>
                 <small class="text-muted d-block fw-bold">Sistema Seguro</small>
                 <small class="text-muted" style="font-size: 0.75rem;">Oftalmología Core v2.0</small>
@@ -353,7 +368,7 @@
             <div class="d-flex align-items-center gap-3">
                 
                 <!-- Date/Time Badge (Elegante) -->
-                <div id="omnibar-clock" class="d-none d-lg-flex" style="background: rgba(94, 106, 210, 0.05); color: var(--primary-color); padding: 0.5rem 1.2rem; border-radius: 12px; font-weight: 600; font-size: 0.9rem; align-items: center; gap: 0.8rem; border: 1px solid rgba(94, 106, 210, 0.08);">
+                <div id="omnibar-clock" class="d-none d-lg-flex" style="background: linear-gradient(135deg, #ffffff 0%, rgba(94, 106, 210, 0.05) 100%); color: var(--primary-color); padding: 0.5rem 1.2rem; border-radius: 12px; font-weight: 600; font-size: 0.9rem; align-items: center; gap: 0.8rem; border: 1px solid rgba(94, 106, 210, 0.2); box-shadow: 0 2px 8px rgba(94, 106, 210, 0.05);">
                     <i class="bi bi-calendar3"></i> <span id="omnibar-date">--</span>
                     <span class="text-muted opacity-50">|</span>
                     <i class="bi bi-clock"></i> <span id="omnibar-time">--</span>
@@ -431,7 +446,7 @@
                     </button>
                 </div>
 
-                <div class="dropdown user-dropdown ms-3 pl-3" style="border-left: 1px solid rgba(150,150,150,0.3);">
+                <div class="dropdown user-dropdown ms-3 pl-3" style="border-left: 2px solid rgba(94, 106, 210, 0.15);">
                     <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle px-2" data-bs-toggle="dropdown" aria-expanded="false">
                         <img src="{{ Auth::user()->avatar_url }}" width="42" height="42" class="rounded-circle shadow-sm me-2 object-fit-cover">
                         <div class="d-none d-md-block">
@@ -556,7 +571,11 @@
             <div class="p-2 bg-white border-top">
                 <form id="chatForm" class="d-flex align-items-center gap-2 m-0">
                     <input type="hidden" id="chatTargetUser" value="">
-                    <input type="text" class="form-control rounded-pill border-0 bg-light px-3 shadow-none" id="chatInputMessage" placeholder="Escribe un mensaje..." required autocomplete="off" style="font-size: 0.95rem;">
+                    <label for="chatAttachment" class="btn btn-light rounded-circle shadow-sm m-0 d-flex align-items-center justify-content-center text-secondary" style="width: 38px; height: 38px; cursor: pointer;" title="Adjuntar archivo">
+                        <i class="bi bi-paperclip fs-5"></i>
+                    </label>
+                    <input type="file" id="chatAttachment" class="d-none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                    <input type="text" class="form-control rounded-pill border-0 bg-light px-3 shadow-none" id="chatInputMessage" placeholder="Escribe un mensaje..." autocomplete="off" style="font-size: 0.95rem;">
                     <button type="submit" class="btn btn-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; min-width: 38px;"><i class="bi bi-send-fill"></i></button>
                 </form>
             </div>
@@ -564,9 +583,12 @@
     </div>
 
     <!-- Bubble Toggle Button -->
+    @php
+        $globalUnreadChats = \App\Models\Message::where('receiver_id', Auth::id())->where('is_read', false)->count();
+    @endphp
     <button id="floatingChatBtn" class="position-fixed shadow-lg rounded-circle btn btn-primary border-0 p-0 d-flex align-items-center justify-content-center" style="bottom: 20px; right: 20px; width: 60px; height: 60px; z-index: 1050; background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);" onclick="toggleFloatingChat()">
         <i class="bi bi-chat-fill text-white fs-4 mt-1"></i>
-        <span id="globalChatBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none border border-white" style="font-size: 0.75rem;">0</span>
+        <span id="globalChatBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white {{ $globalUnreadChats > 0 ? '' : 'd-none' }}" style="font-size: 0.75rem;">{{ $globalUnreadChats }}</span>
     </button>
     
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -578,8 +600,13 @@
             if (widget.classList.contains('d-none')) {
                 widget.classList.remove('d-none');
                 widget.classList.add('d-flex');
-                document.getElementById('globalChatBadge').classList.add('d-none');
-                document.getElementById('globalChatBadge').innerText = '0';
+                
+                // Hide badge immediately on click for instant visual feedback
+                let globalBadge = document.getElementById('globalChatBadge');
+                if (globalBadge) {
+                    globalBadge.classList.add('d-none');
+                    globalBadge.innerText = '0';
+                }
             } else {
                 widget.classList.add('d-none');
                 widget.classList.remove('d-flex');
@@ -612,6 +639,23 @@
                         appendMessageUI(msg, msg.sender_id == authId);
                     });
                     container.scrollTop = container.scrollHeight;
+                    
+                    // Hide badge optimistically to guarantee UI compliance immediately
+                    let badge = document.getElementById('globalChatBadge');
+                    if (badge) badge.classList.add('d-none');
+                    
+                    // Auto-mark as read and refresh it back if there are more
+                    axios.post(`{{ url('api/messages/read') }}`, { sender_id: userId }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') } })
+                        .then(markRes => {
+                            let badge = document.getElementById('globalChatBadge');
+                            if (markRes.data.unread_count > 0) {
+                                badge.innerText = markRes.data.unread_count;
+                                badge.classList.remove('d-none');
+                            } else {
+                                badge.innerText = '0';
+                                badge.classList.add('d-none');
+                            }
+                        });
                 });
         }
 
@@ -621,11 +665,40 @@
             let textColor = isMe ? '#fff' : '#222';
             let borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
             let extraClass = isMe ? '' : 'border';
+
+            let d = msg.created_at ? new Date(msg.created_at) : new Date();
+            let timeStr = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+
+            let tickHtml = '';
+            if (isMe) {
+                if (msg.is_read) {
+                    tickHtml = `<i class="bi bi-check2-all text-info ms-1 ds-msg-tick-${msg.id || 'temp'}" style="font-size: 1rem;"></i>`;
+                } else {
+                    tickHtml = `<i class="bi bi-check2 text-white opacity-75 ms-1 ds-msg-tick-${msg.id || 'temp'}" style="font-size: 1rem;"></i>`;
+                }
+            }
+
+            let fileHtml = '';
+            if (msg.attachment_path) {
+                let url = `{{ asset('storage') }}/${msg.attachment_path}`;
+                if (url.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i)) {
+                    fileHtml = `<div class="mb-1"><a href="${url}" target="_blank"><img src="${url}" class="img-fluid rounded shadow-sm" style="max-height: 140px; object-fit: cover;"></a></div>`;
+                } else {
+                    fileHtml = `<div class="mb-1"><a href="${url}" target="_blank" class="btn btn-sm btn-light w-100 text-start text-dark shadow-sm text-truncate d-block" style="border-radius: 8px;"><i class="bi bi-file-earmark-fill text-primary me-1"></i> Archivo Adjunto</a></div>`;
+                }
+            }
+
+            let msgContent = msg.content ? `<span style="font-size: 0.92rem; word-break: break-word;">${msg.content}</span>` : '';
             
             let html = `
-            <div class="d-flex w-100 ${alignmentUrl} mb-1">
-                <div class="px-3 py-2 shadow-sm ${extraClass}" style="border-radius: ${borderRadius}; background: ${bgColor}; color: ${textColor}; max-width: 85%;">
-                    <span style="font-size: 0.9rem;">${msg.content}</span>
+            <div class="d-flex w-100 ${alignmentUrl} mb-1" id="msg-wrapper-${msg.id || 'temp'}">
+                <div class="px-2 py-2 shadow-sm ${extraClass} position-relative d-flex flex-column" style="border-radius: ${borderRadius}; background: ${bgColor}; color: ${textColor}; max-width: 85%; min-width: 90px;">
+                    ${fileHtml}
+                    ${msgContent}
+                    <div class="d-flex justify-content-end align-items-end mt-1" style="line-height: 0.9;">
+                        <span style="font-size: 0.65rem; opacity: 0.8;">${timeStr}</span>
+                        ${tickHtml}
+                    </div>
                 </div>
             </div>`;
             document.getElementById('chatMessages').insertAdjacentHTML('beforeend', html);
@@ -634,21 +707,63 @@
         document.getElementById('chatForm').addEventListener('submit', function(e) {
             e.preventDefault();
             let input = document.getElementById('chatInputMessage');
+            let fileInput = document.getElementById('chatAttachment');
             let content = input.value;
             let targetId = document.getElementById('chatTargetUser').value;
-            if(!content.trim() || !targetId) return;
+            let file = fileInput.files[0];
+            
+            if((!content.trim() && !file) || !targetId) return;
 
             input.value = '';
+            fileInput.value = '';
             
-            let tempMsg = { content: content, sender_id: authId };
+            let tempMsgId = 'temp-'+Date.now();
+            let tempMsg = { id: tempMsgId, content: content, sender_id: authId, is_read: false, attachment_path: file ? 'uploading' : null };
             appendMessageUI(tempMsg, true);
             let container = document.getElementById('chatMessages');
             container.scrollTop = container.scrollHeight;
 
-            axios.post(`{{ url('api/messages') }}`, {
-                receiver_id: targetId,
-                content: content
-            }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') } });
+            // Reset UI for attachment
+            let attachLabel = document.querySelector('label[for="chatAttachment"]');
+            attachLabel.classList.replace('btn-success', 'btn-light');
+            attachLabel.classList.replace('text-white', 'text-secondary');
+            document.getElementById('chatInputMessage').placeholder = 'Escribe un mensaje...';
+
+            let formData = new FormData();
+            formData.append('receiver_id', targetId);
+            if(content.trim()) formData.append('content', content);
+            if(file) formData.append('attachment', file);
+
+            axios.post(`{{ url('api/messages') }}`, formData, { 
+                headers: { 
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Content-Type': 'multipart/form-data'
+                } 
+            }).then(res => {
+                let wrapper = document.getElementById('msg-wrapper-' + tempMsgId);
+                let tick = document.querySelector('.ds-msg-tick-' + tempMsgId);
+                if (wrapper) wrapper.id = 'msg-wrapper-' + res.data.message.id;
+                if (tick) {
+                    tick.classList.replace('ds-msg-tick-' + tempMsgId, 'ds-msg-tick-' + res.data.message.id);
+                }
+            }).catch(err => {
+                document.getElementById('msg-wrapper-' + tempMsgId).remove();
+                spawnToast('Error de Envío', 'No se pudo adjuntar el archivo. Verifica que no supere los 5MB o sea un formato inválido.', 'exclamation-circle-fill', 'danger');
+            });
+        });
+
+        document.getElementById('chatAttachment').addEventListener('change', function(e) {
+            let label = document.querySelector('label[for="chatAttachment"]');
+            if (this.files.length > 0) {
+                label.classList.replace('btn-light', 'btn-success');
+                label.classList.replace('text-secondary', 'text-white');
+                document.getElementById('chatInputMessage').placeholder = 'Archivo listo. Pulsa enviar...';
+                document.getElementById('chatInputMessage').focus();
+            } else {
+                label.classList.replace('btn-success', 'btn-light');
+                label.classList.replace('text-white', 'text-secondary');
+                document.getElementById('chatInputMessage').placeholder = 'Escribe un mensaje...';
+            }
         });
 
         // Global Toast Dispatcher
@@ -677,6 +792,10 @@
                 // 1. Direct Messages Listener
                 window.Echo.private(`chat.${authId}`)
                     .listen('MessageSent', (e) => {
+                        // Play ICQ Sound
+                        let audio = new Audio('{{ asset("sounds/icq.mp3") }}');
+                        audio.play().catch(err => console.log('Audio autoplay prevented'));
+
                         let widget = document.getElementById('floatingChatWidget');
                         let isChatOpen = !widget.classList.contains('d-none');
                         let isChatWithUser = !document.getElementById('activeChatArea').classList.contains('d-none') && document.getElementById('chatTargetUser').value == e.message.sender_id;
@@ -685,12 +804,36 @@
                             appendMessageUI(e.message, false);
                             let container = document.getElementById('chatMessages');
                             container.scrollTop = container.scrollHeight;
+                            
+                            // Auto mark as read since chat is open
+                            axios.post(`{{ url('api/messages/read') }}`, { sender_id: e.message.sender_id }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') } })
+                                .then(markRes => {
+                                    let badge = document.getElementById('globalChatBadge');
+                                    if(markRes.data.unread_count > 0) {
+                                        badge.innerText = markRes.data.unread_count;
+                                        badge.classList.remove('d-none');
+                                    } else {
+                                        badge.innerText = '0';
+                                        badge.classList.add('d-none');
+                                    }
+                                });
                         } else {
                             // Show Badge & Toast
                             let b = document.getElementById('globalChatBadge');
                             b.innerText = parseInt(b.innerText || 0) + 1;
                             b.classList.remove('d-none');
                             spawnToast('Nuevo Mensaje', `<b>${e.message.sender.name}</b>: ${e.message.content}`, 'chat-dots-fill', 'primary');
+                        }
+                    })
+                    .listen('MessageRead', (e) => {
+                        // Change single ticks to double blue ticks for this reader
+                        // Note: MessageRead broadcasts reader_id and sender_id. Here authId is sender_id.
+                        if (!document.getElementById('activeChatArea').classList.contains('d-none') && document.getElementById('chatTargetUser').value == e.reader_id) {
+                            document.querySelectorAll('.bi-check2.text-white').forEach(tick => {
+                                tick.classList.replace('bi-check2', 'bi-check2-all');
+                                tick.classList.replace('text-white', 'text-info');
+                                tick.classList.remove('opacity-75');
+                            });
                         }
                     });
 
@@ -716,6 +859,45 @@
                 window.Echo.private(`system`)
                     .listen('PatientArrived', (e) => {
                         spawnToast('Nuevo Ingreso', `El paciente <b>${e.patient_name}</b> acaba de ingresar a Recepción.`, 'door-open-fill', 'warning text-dark');
+                    });
+                    
+                // 3.5. Doctor Assignments Alert Listener
+                window.Echo.private(`doctor.alerts.${authId}`)
+                    .listen('DoctorAssignedAlert', (e) => {
+                        // Reproducir sonido especial 
+                        let audio = new Audio('{{ asset("sounds/icq.mp3") }}');
+                        audio.play().catch(err => console.log('Audio autoplay prevented'));
+
+                        spawnToast('¡Paciente Asignado!', `El paciente <b>${e.patientName}</b> está aguardando en <b>${e.eventType}</b>.`, 'heart-pulse-fill', 'danger');
+
+                        let bellBadge = document.querySelector('.bi-bell-fill .omnibar-badge');
+                        if (bellBadge) {
+                            bellBadge.innerText = parseInt(bellBadge.innerText || 0) + 1;
+                            bellBadge.classList.replace('bg-secondary', 'bg-danger');
+                        }
+
+                        let dmenu = document.querySelector('.bi-bell-fill').nextElementSibling;
+                        if(dmenu) {
+                            let empty = dmenu.querySelector('li > span.text-center');
+                            if(empty && empty.innerText.includes('Todo al día')) empty.parentElement.remove();
+                            
+                            let timeStr = new Date().getHours().toString().padStart(2,'0') + ':' + new Date().getMinutes().toString().padStart(2,'0');
+                            let html = `<li>
+                                <div class="dropdown-item py-2" style="white-space: normal;">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <small class="text-danger fw-bold"><i class="bi bi-clock me-1"></i> ${timeStr}</small>
+                                        <span class="badge bg-danger rounded-pill">Nuevo</span>
+                                    </div>
+                                    <div class="mt-1 text-wrap" style="font-size: 0.9rem;">
+                                        <b>${e.patientName}</b> asignado en <b>${e.eventType}</b>
+                                    </div>
+                                </div>
+                            </li>
+                            <li><hr class="dropdown-divider m-0"></li>`;
+                            
+                            let header = dmenu.querySelector('.dropdown-header');
+                            if(header) header.insertAdjacentHTML('afterend', html);
+                        }
                     });
             }
 

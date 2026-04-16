@@ -24,3 +24,8 @@ Broadcast::channel('system', function ($user) {
         return ['id' => $user->id];
     }
 });
+
+// Doctor Alerts Private Channel
+Broadcast::channel('doctor.alerts.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});

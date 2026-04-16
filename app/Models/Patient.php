@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Patient extends Model
 {
@@ -18,6 +19,28 @@ class Patient extends Model
     public function director(): BelongsTo
     {
         return $this->belongsTo(User::class, 'director_id');
+    }
+
+    /**
+     * Ensure first name is always title case
+     */
+    protected function firstName(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? mb_convert_case(mb_strtolower($value, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : '',
+            set: fn (?string $value) => $value ? mb_convert_case(mb_strtolower($value, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : '',
+        );
+    }
+
+    /**
+     * Ensure last name is always title case
+     */
+    protected function lastName(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? mb_convert_case(mb_strtolower($value, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : '',
+            set: fn (?string $value) => $value ? mb_convert_case(mb_strtolower($value, 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : '',
+        );
     }
 
     /**
