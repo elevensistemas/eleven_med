@@ -82,6 +82,11 @@ class Patient extends Model
         return $this->hasMany(Appointment::class)->latest('date')->orderBy('time', 'desc');
     }
 
+    public function todaysAppointments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Appointment::class)->whereDate('date', today())->orderBy('time', 'asc');
+    }
+
     public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PatientComment::class)->latest();
