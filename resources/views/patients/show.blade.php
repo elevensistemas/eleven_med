@@ -1056,76 +1056,108 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
         img.src = e.target.result;
     }
     
+    reader.onerror = function() {
+        alert('Error al leer el archivo local.');
+        resetOverlay();
+    }
+    
     img.onload = function() {
-        let canvas = document.createElement('canvas');
-        let ctx = canvas.getContext('2d');
-        
-        // Max dimensions
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > height) {
-            if (width > MAX_WIDTH) {
-                height *= MAX_WIDTH / width;
-                width = MAX_WIDTH;
-            }
-        } else {
-            if (height > MAX_HEIGHT) {
-                width *= MAX_HEIGHT / height;
-                height = MAX_HEIGHT;
-            }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        canvas.toBlob(function(blob) {
-            let formData = new FormData();
-            formData.append('photo', blob, 'photo.jpg');
+        try {
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
             
-            fetch('{{ route("patients.uploadPhoto", $patient) }}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
+            // Max dimensions
+            const MAX_WIDTH = 800;
+            const MAX_HEIGHT = 800;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
                 }
-            })
-            .then(response => {
-                if(!response.ok && response.status === 422) {
-                    return response.json().then(err => { throw err; });
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
                 }
-                return response.json();
-            })
-            .then(data => {
-                if(data.success) {
-                    // Cache bust the image URL to force reload
-                    document.getElementById('patientAvatarImage').src = data.photo_url + '?t=' + new Date().getTime();
-                    document.getElementById('patientAvatarImage').style.display = 'block';
-                    document.getElementById('patientAvatarIcon').style.display = 'none';
-                } else {
-                    alert('Error al subir la imagen: ' + (data.message || 'Intente nuevamente.'));
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            canvas.toBlob(function(blob) {
+                if (!blob) {
+                    alert('Error: No se pudo comprimir la imagen (blob nulo).');
+                    resetOverlay();
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error(error);
-                let errorMsg = 'Error de red al subir la imagen.';
-                if(error && error.errors && error.errors.photo) {
-                    errorMsg = error.errors.photo[0];
-                }
-                alert(errorMsg);
-            })
-            .finally(() => {
-                overlay.innerHTML = '<i class="bi bi-camera"></i>';
-                overlay.style.opacity = 0;
-                document.getElementById('patientPhotoInput').value = '';
-            });
-        }, 'image/jpeg', 0.8);
+
+                let formData = new FormData();
+                formData.append('photo', blob, 'photo.jpg');
+                
+                fetch('{{ route("patients.uploadPhoto", $patient) }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if(!response.ok) {
+                        return response.json().then(err => { throw err; }).catch(e => {
+                            throw new Error('Error HTTP: ' + response.status);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if(data.success) {
+                        // Cache bust the image URL to force reload
+                        document.getElementById('patientAvatarImage').src = data.photo_url + '?t=' + new Date().getTime();
+                        document.getElementById('patientAvatarImage').style.display = 'block';
+                        document.getElementById('patientAvatarIcon').style.display = 'none';
+                        // Opcional: mostrar un mini aviso de éxito
+                        // alert('¡Foto guardada con éxito!');
+                    } else {
+                        alert('Error al guardar: ' + (data.message || 'Intente nuevamente.'));
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    let errorMsg = 'Error al subir la imagen al servidor.';
+                    if(error && error.errors && error.errors.photo) {
+                        errorMsg = error.errors.photo[0];
+                    } else if (error.message) {
+                        errorMsg = error.message;
+                    }
+                    alert(errorMsg);
+                })
+                .finally(() => {
+                    resetOverlay();
+                });
+            }, 'image/jpeg', 0.8);
+        } catch (e) {
+            console.error(e);
+            alert('Error procesando la imagen en el navegador.');
+            resetOverlay();
+        }
     };
     
+    img.onerror = function() {
+        alert('El formato de imagen seleccionado no es soportado o está corrupto (ej: HEIC). Por favor, usa JPG o PNG.');
+        resetOverlay();
+    };
+    
+    function resetOverlay() {
+        overlay.innerHTML = '<i class="bi bi-camera"></i>';
+        overlay.style.opacity = 0;
+        document.getElementById('patientPhotoInput').value = '';
+    }
+
     reader.readAsDataURL(file);
 });
 </script>
