@@ -37,17 +37,91 @@ class HomeController extends Controller
                                         
         $growth = $newPatientsLastMonth > 0 ? (($newPatientsThisMonth - $newPatientsLastMonth) / $newPatientsLastMonth) * 100 : 100;
 
-        // 3. KPI: Patients attended today
-        $attendedToday = \App\Models\Appointment::whereDate('date', $now->toDateString())
-                                      ->whereIn('status', ['completed', 'confirmed', 'in_progress'])
-                                      ->count();
+        // 3. KPI: Patients attended today / Slots calculation
+        $dateStr = $now->toDateString();
+        $totalFreeToday = 0;
+        $totalExtraToday = 0;
+        $totalBookedToday = 0;
+
+        $doctors = \App\Models\User::role('médico')->get();
+        foreach ($doctors as $doctor) {
+            $schedule = \App\Models\DoctorSchedule::where('doctor_id', $doctor->id)
+                ->where('day_of_week', $now->dayOfWeek)
+                ->first();
+
+            if ($schedule) {
+                $appointments = \App\Models\Appointment::where('doctor_id', $doctor->id)
+                    ->whereDate('date', $dateStr)
+                    ->whereIn('status', ['pending', 'confirmed', 'in_progress', 'completed'])
+                    ->get()
+                    ->groupBy('time')
+                    ->toArray();
+
+                $start = \Carbon\Carbon::parse($dateStr . ' ' . $schedule->start_time);
+                $end = \Carbon\Carbon::parse($dateStr . ' ' . $schedule->end_time);
+
+                while ($start <= $end) {
+                    $timeString = $start->format('H:i:00');
+                    $nextInterval = (clone $start)->addMinutes($schedule->slot_duration_minutes);
+
+                    if (isset($appointments[$timeString])) {
+                        $totalBookedToday += count($appointments[$timeString]);
+                        unset($appointments[$timeString]);
+                    } else {
+                        if ($start < $end) {
+                            $totalFreeToday++;
+                        }
+                    }
+
+                    if ($start < $end) {
+                        foreach ($appointments as $tStr => $apps) {
+                            if ($tStr > $timeString && $tStr < $nextInterval->format('H:i:00')) {
+                                $totalExtraToday += count($apps);
+                                $totalBookedToday += count($apps);
+                                unset($appointments[$tStr]);
+                            }
+                        }
+                    }
+
+                    $start->addMinutes($schedule->slot_duration_minutes);
+                }
+
+                foreach ($appointments as $tStr => $apps) {
+                    $totalExtraToday += count($apps);
+                    $totalBookedToday += count($apps);
+                }
+            } else {
+                $appointmentsCount = \App\Models\Appointment::where('doctor_id', $doctor->id)
+                    ->whereDate('date', $dateStr)
+                    ->whereIn('status', ['pending', 'confirmed', 'in_progress', 'completed'])
+                    ->count();
+                $totalExtraToday += $appointmentsCount;
+                $totalBookedToday += $appointmentsCount;
+            }
+        }
+        $attendedToday = $totalBookedToday;
 
         // 4. CHART: Patients by Obra Social (Doughnut)
         $patientsByObraSocial = \App\Models\Patient::selectRaw('COALESCE(obra_social, "Particular") as os_name, count(*) as count')
                                 ->groupBy('os_name')
                                 ->orderByDesc('count')
                                 ->limit(5)
-                                ->get();
+                                ->get()
+                                ->map(function($item) {
+                                    if ($item->os_name === 'Particular') {
+                                        $item->color = '#198754';
+                                    } else {
+                                        $osList = \App\Models\ObraSocial::all();
+                                        $item->color = '#5e6ad2'; // Default blue
+                                        foreach ($osList as $os) {
+                                            if (stripos($item->os_name, $os->name) !== false) {
+                                                $item->color = $os->color;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    return $item;
+                                });
                                 
         // 5. CHART: Monthly Attendances (Bar) Year-to-Date
         // Fetch appointments per month for current year
@@ -71,6 +145,7 @@ class HomeController extends Controller
 
         return view('home', compact(
             'totalPatients', 'newPatientsThisMonth', 'growth', 'attendedToday',
+            'totalFreeToday', 'totalExtraToday', 'totalBookedToday',
             'patientsByObraSocial', 'annualData'
         ));
     }

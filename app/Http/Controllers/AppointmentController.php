@@ -125,6 +125,15 @@ class AppointmentController extends Controller
             'reason' => 'nullable|string'
         ]);
 
+        // Validation for past date and time
+        $appointmentDateTime = \Carbon\Carbon::parse($request->date . ' ' . $request->time);
+        if ($appointmentDateTime < now()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede agendar un turno en una fecha u hora pasada.'
+            ], 422);
+        }
+
         $validated['created_by'] = \Auth::id();
         $validated['status'] = 'pending';
 
@@ -194,7 +203,10 @@ class AppointmentController extends Controller
             $dayOfWeek = $currentDate->dayOfWeek; // 0 (Sunday) to 6 (Saturday)
 
             if (!isset($scheduleMap[$dayOfWeek])) {
-                $availability[$dateString] = 'unavailable';
+                $availability[$dateString] = [
+                    'status' => 'unavailable',
+                    'percentage' => 0
+                ];
             } else {
                 // Es un día laborable. Revisamos capacidad.
                 $sch = $scheduleMap[$dayOfWeek];
@@ -205,11 +217,17 @@ class AppointmentController extends Controller
 
                 $bookedCount = isset($appointments[$dateString]) ? $appointments[$dateString]->count() : 0;
 
+                $status = 'available';
                 if ($bookedCount >= $totalSlotsPossible && $totalSlotsPossible > 0) {
-                    $availability[$dateString] = 'full';
-                } else {
-                    $availability[$dateString] = 'available';
+                    $status = 'full';
                 }
+
+                $percentage = $totalSlotsPossible > 0 ? min(100, round(($bookedCount / $totalSlotsPossible) * 100)) : 0;
+
+                $availability[$dateString] = [
+                    'status' => $status,
+                    'percentage' => $percentage
+                ];
             }
         }
 
@@ -236,7 +254,7 @@ class AppointmentController extends Controller
 
         $appointments = Appointment::with('patient')->where('doctor_id', $doctorId)
             ->whereDate('date', $date->format('Y-m-d'))
-            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereIn('status', ['pending', 'confirmed', 'no_show'])
             ->get()
             ->groupBy('time')
             ->toArray(); // Convierto a array para modificarlo fácilmente
@@ -245,19 +263,23 @@ class AppointmentController extends Controller
         $start = Carbon::parse($date->format('Y-m-d') . ' ' . $schedule->start_time);
         $end = Carbon::parse($date->format('Y-m-d') . ' ' . $schedule->end_time);
 
+        $now = \Carbon\Carbon::now();
+
         while ($start <= $end) {
             $timeString = $start->format('H:i:00');
             $timeDisplay = $start->format('H:i');
             $nextInterval = (clone $start)->addMinutes($schedule->slot_duration_minutes);
+            $isPast = $start < $now;
             
             // 1. Render EXACT match or Free Slot
             if (isset($appointments[$timeString])) {
                 foreach ($appointments[$timeString] as $app) {
                     $slots[] = [
                         'time' => $timeDisplay,
-                        'status' => 'booked',
+                        'status' => $app['status'] === 'no_show' ? 'no_show' : 'booked',
                         'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', '),
-                        'appointment_id' => $app['id']
+                        'appointment_id' => $app['id'],
+                        'is_past' => $isPast
                     ];
                 }
                 unset($appointments[$timeString]);
@@ -265,7 +287,8 @@ class AppointmentController extends Controller
                 if ($start < $end) {
                     $slots[] = [
                         'time' => $timeDisplay,
-                        'status' => 'free'
+                        'status' => 'free',
+                        'is_past' => $isPast
                     ];
                 }
             }
@@ -277,9 +300,11 @@ class AppointmentController extends Controller
                         foreach ($apps as $app) {
                             $slots[] = [
                                 'time' => Carbon::parse($tStr)->format('H:i'),
-                                'status' => 'booked',
+                                'status' => $app['status'] === 'no_show' ? 'no_show' : 'booked',
                                 'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ') . ' (Extra)',
-                                'appointment_id' => $app['id']
+                                'appointment_id' => $app['id'],
+                                'is_extra' => true,
+                                'is_past' => \Carbon\Carbon::parse($tStr) < $now
                             ];
                         }
                         unset($appointments[$tStr]);
@@ -295,9 +320,11 @@ class AppointmentController extends Controller
              foreach ($apps as $app) {
                     $slots[] = [
                         'time' => Carbon::parse($tStr)->format('H:i'),
-                        'status' => 'booked',
+                        'status' => $app['status'] === 'no_show' ? 'no_show' : 'booked',
                         'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ') . ' (Extra)',
-                        'appointment_id' => $app['id']
+                        'appointment_id' => $app['id'],
+                        'is_extra' => true,
+                        'is_past' => \Carbon\Carbon::parse($tStr) < $now
                     ];
              }
         }
@@ -371,5 +398,17 @@ class AppointmentController extends Controller
         }
 
         return response()->json($results);
+    }
+
+    /**
+     * Marcar un turno como ausente (no show)
+     */
+    public function markNoShow(Appointment $appointment)
+    {
+        $appointment->update([
+            'status' => 'no_show'
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Turno marcado como ausente.']);
     }
 }

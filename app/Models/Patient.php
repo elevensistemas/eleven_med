@@ -67,6 +67,23 @@ class Patient extends Model
         return $this->hasOne(Visit::class)->latestOfMany();
     }
 
+    public function getObraSocialColorAttribute()
+    {
+        if (empty($this->obra_social)) {
+            return '#198754'; // Particular (Green)
+        }
+        
+        return \Illuminate\Support\Facades\Cache::remember('os_color_' . md5($this->obra_social), 3600, function() {
+            $osList = \App\Models\ObraSocial::all();
+            foreach ($osList as $os) {
+                if (stripos($this->obra_social, $os->name) !== false) {
+                    return $os->color;
+                }
+            }
+            return '#5e6ad2'; // Default blue
+        });
+    }
+
     public function assignments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PatientAssignment::class)->latest('started_at');

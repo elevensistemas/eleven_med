@@ -6,6 +6,26 @@
 @section('content')
 
 <style>
+    /* Background Image for Home Dashboard */
+    body {
+        background-image: url('{{ asset("images/console_bg.png") }}');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        position: relative;
+    }
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(241, 245, 249, 0.88); /* Light mode gray/white overlay */
+        z-index: -1;
+    }
+    body.theme-dark::before {
+        background-color: rgba(15, 23, 42, 0.88); /* Dark mode dark blue/gray overlay */
+    }
+
     /* -------------------------------------
      * UX: The "Diary" Pagination Architecture
      * ------------------------------------- */
@@ -35,9 +55,9 @@
     .pager-stealth-arrow {
         position: absolute; 
         top: 0; 
-        bottom: 0; 
+        bottom: 180px; /* Deja libre la esquina inferior para los botones flotantes */
         width: 80px;
-        z-index: 1050; 
+        z-index: 1040; 
         display: flex; 
         align-items: center; 
         justify-content: center;
@@ -90,7 +110,7 @@
     .stealth-indicators button.active { opacity: 0.8 !important; }
 </style>
 
-<div id="dashboardSlider" class="carousel slide" data-bs-ride="false" data-bs-interval="false" data-bs-touch="true">
+<div id="dashboardSlider" class="carousel slide" data-bs-ride="carousel" data-bs-interval="7000" data-bs-touch="true">
     
     <!-- Minimalist Progress Tracker -->
     <div class="carousel-indicators stealth-indicators">
@@ -105,44 +125,51 @@
         <!-- PÁGINA 1: KPIs y Pulso -->
         <div class="carousel-item active">
             <div class="slide-wrapper">
-                <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-center">
-                    <h4 class="fw-bold text-dark mb-5 text-center" style="letter-spacing: -1px;">Estadísticas</h4>
+                <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-md-center justify-content-start pt-3 pt-md-0">
                     
                     <div class="row g-4 mb-4">
                         <!-- KPI 1: Histórico -->
                         <div class="col-md-4">
-                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg" style="border-top: 5px solid var(--primary-color);">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-primary text-white mb-4" style="width: 80px; height: 80px;">
+                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); color: white;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-primary mb-4" style="width: 80px; height: 80px;">
                                     <i class="bi bi-person-hearts fs-1"></i>
                                 </div>
-                                <p class="text-muted small fw-bold text-uppercase mb-2">Base de Pacientes Clínicos</p>
-                                <h1 class="fw-bold text-dark display-4">{{ number_format($totalPatients) }}</h1>
-                                <small class="text-muted"><i class="bi bi-clock-history"></i> Histórico totalizado</small>
+                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Base de Pacientes Clínicos</p>
+                                <h1 class="fw-bold text-white display-4">{{ number_format($totalPatients) }}</h1>
+                                <small class="text-white-50"><i class="bi bi-clock-history"></i> Histórico totalizado</small>
                             </div>
                         </div>
 
                         <!-- KPI 2: Jornada Diaria -->
                         <div class="col-md-4">
-                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg" style="border-top: 5px solid var(--success-color, #20c997);">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm text-white mb-4" style="width: 80px; height: 80px; background-color: #20c997;">
+                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-success mb-4" style="width: 80px; height: 80px;">
                                     <i class="bi bi-calendar2-check-fill fs-1"></i>
                                 </div>
-                                <p class="text-muted small fw-bold text-uppercase mb-2">Tratamientos Hoy</p>
-                                <h1 class="fw-bold text-dark display-4">{{ number_format($attendedToday) }}</h1>
-                                <small class="text-success fw-bold"><i class="bi bi-arrow-up-right-circle"></i> En curso actualmente</small>
+                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Agenda del Día</p>
+                                <h1 class="fw-bold text-white display-4 mb-0">{{ number_format($totalBookedToday) }}</h1>
+                                <p class="fw-bold text-white small mb-3">Turnos Totales</p>
+                                <div class="d-flex justify-content-center gap-3 w-100">
+                                    <div class="bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25">
+                                        <i class="bi bi-check-circle"></i> Libres: {{ $totalFreeToday }}
+                                    </div>
+                                    <div class="bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25">
+                                        <i class="bi bi-exclamation-circle"></i> Sobre-turnos: {{ $totalExtraToday }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- KPI 3: Margen de Crecimiento -->
                         <div class="col-md-4">
-                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg" style="border-top: 5px solid var(--info-color, #0dcaf0);">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm text-white mb-4" style="width: 80px; height: 80px; background-color: #0dcaf0;">
+                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); color: white;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-info mb-4" style="width: 80px; height: 80px;">
                                     <i class="bi bi-graph-up-arrow fs-1"></i>
                                 </div>
-                                <p class="text-muted small fw-bold text-uppercase mb-2">Captación (Últimos 30d)</p>
-                                <h1 class="fw-bold text-dark display-4">+{{ number_format($newPatientsThisMonth) }}</h1>
-                                <span class="badge {{ $growth >= 0 ? 'bg-success' : 'bg-danger' }} rounded-pill bg-opacity-10 text-{{ $growth >= 0 ? 'success' : 'danger' }} px-3 py-2 mt-2 f-12">
-                                    {{ $growth >= 0 ? '▲' : '▼' }} {{ number_format($growth, 1) }}% de crecimiento comparado al último mes
+                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Captación (Últimos 30d)</p>
+                                <h1 class="fw-bold text-white display-4">+{{ number_format($newPatientsThisMonth) }}</h1>
+                                <span class="badge bg-white bg-opacity-25 rounded-pill text-white px-3 py-2 mt-2 f-12 shadow-sm border border-white border-opacity-25">
+                                    {{ $growth >= 0 ? '▲' : '▼' }} {{ number_format($growth, 1) }}% comparado al último mes
                                 </span>
                             </div>
                         </div>
@@ -154,7 +181,7 @@
         <!-- PÁGINA 2: Obras Sociales (Doughnut) -->
         <div class="carousel-item">
             <div class="slide-wrapper">
-                <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-center align-items-center">
+                <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-md-center justify-content-start align-items-center pt-3 pt-md-0">
                     <h4 class="fw-bold text-dark mb-4 text-center" style="letter-spacing: -1px;">Matriz Demográfica y Coberturas Médicas</h4>
                     
                     <div class="modern-card p-4 shadow-lg w-100" style="max-width: 900px;">
@@ -169,12 +196,12 @@
                             <div class="col-md-5 ps-md-5">
                                 <h5 class="fw-bold mb-4">Top 5 Coberturas Activas</h5>
                                 @foreach($patientsByObraSocial as $index => $os)
-                                    <div class="d-flex justify-content-between align-items-center mb-4 p-3 rounded-4 shadow-sm" style="background: rgba(0,0,0,0.02); border-left: 4px solid var(--primary-color);">
+                                    <div class="d-flex justify-content-between align-items-center mb-4 p-3 rounded-4 shadow-sm" style="background: rgba(0,0,0,0.02); border-left: 4px solid {{ $os->color }};">
                                         <div>
-                                            <span class="badge bg-dark rounded-circle me-2">{{ $index + 1 }}</span>
+                                            <span class="badge rounded-circle me-2" style="background-color: {{ $os->color }}; color: #fff;">{{ $index + 1 }}</span>
                                             <span class="fw-bold text-dark fs-6">{{ $os->os_name }}</span>
                                         </div>
-                                        <h5 class="fw-bold text-primary mb-0">{{ $os->count }} <small class="text-muted fw-normal fs-6">pts</small></h5>
+                                        <h5 class="fw-bold mb-0" style="color: {{ $os->color }};">{{ $os->count }} <small class="text-muted fw-normal fs-6">pts</small></h5>
                                     </div>
                                 @endforeach
                             </div>
@@ -187,7 +214,7 @@
         <!-- PÁGINA 3: Histórico Anual (Barras) -->
         <div class="carousel-item">
             <div class="slide-wrapper">
-                <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-center">
+                <div class="container-fluid px-0 h-100 d-flex flex-column justify-content-md-center justify-content-start pt-3 pt-md-0">
                     <h4 class="fw-bold text-dark mb-4 text-center" style="letter-spacing: -1px;">Evolución Cronológica de Visitas ({{ now()->year }})</h4>
                     
                     <div class="modern-card p-5 shadow-lg w-100 h-100 d-flex flex-column">
@@ -245,8 +272,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const labelsOs = osDataRaw.map(d => d.os_name);
     const valuesOs = osDataRaw.map(d => d.count);
     
-    // Colorful array matching dark/blue aesthetic
-    const chartColors = [primaryColor, successColor, infoColor, secondaryColor, '#ff6b6b'];
+    // Colorful array matching database dynamic colors
+    const chartColors = osDataRaw.map(d => d.color);
 
     new Chart(document.getElementById('osChart').getContext('2d'), {
         type: 'doughnut',

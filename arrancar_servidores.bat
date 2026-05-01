@@ -10,7 +10,7 @@ echo.
 start "Vite (Frontend)" cmd /k "echo Iniciando Vite... && npm run dev"
 
 :: Iniciar Servidor de Laravel
-start "Servidor Laravel (HTTP)" cmd /k "echo Iniciando Servidor Web... && C:\xampp\php\php.exe artisan serve"
+start "Servidor Laravel (HTTP)" cmd /k "echo Iniciando Servidor Web... && C:\xampp\php\php.exe artisan serve --port=8010"
 
 :: Iniciar Laravel Reverb
 start "Laravel Reverb (Websockets)" cmd /k "echo Iniciando Reverb... && C:\xampp\php\php.exe artisan reverb:start"

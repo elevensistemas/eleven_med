@@ -6,7 +6,7 @@
 @section('content')
 <style>
 /* Phase 18 Vanilla Calendar Styles */
-.cal-day-header { font-weight: bold; text-align: center; font-size: 0.8rem; color: #a0a0a0; padding-bottom: 5px; }
+.cal-day-header { font-weight: bold; text-align: center; font-size: 0.85rem; color: #7a8291; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
 .cal-day {
     aspect-ratio: 1;
     display: flex;
@@ -20,12 +20,42 @@
     color: #444;
 }
 .cal-day.empty { visibility: hidden; }
-.cal-day.unavailable { color: #ccc; cursor: default; }
-.cal-day.available { background-color: rgba(40, 167, 69, 0.1); color: #198754; border: 1px solid rgba(40, 167, 69, 0.3); }
-.cal-day.available:hover { background-color: #198754; color: #fff; transform: scale(1.1); }
-.cal-day.full { background-color: rgba(220, 53, 69, 0.15); color: #dc3545; border: 1px solid rgba(220, 53, 69, 0.5); }
-.cal-day.full:hover { background-color: #dc3545; color: #fff; transform: scale(1.1); }
-.cal-day.selected-day { box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.5); transform: scale(1.1); }
+.cal-day.unavailable { color: #8893a3; cursor: default; font-weight: 500; }
+.cal-day.available { 
+    font-weight: 800;
+    box-shadow: 0 4px 10px rgba(32, 201, 151, 0.2); 
+    
+    --cal-fill-color: rgba(32, 201, 151, 0.85);
+    --cal-bg-color: rgba(232, 245, 233, 0.6);
+    --cal-border-color: rgba(32, 201, 151, 0.5);
+    --cal-text-color: #198754;
+    --cal-text-filled: #ffffff;
+    
+    background: linear-gradient(to top, var(--cal-fill-color) var(--fill-percentage, 0%), var(--cal-bg-color) var(--fill-percentage, 0%));
+    border: 2px solid var(--cal-border-color);
+    color: var(--cal-text-color);
+}
+.cal-day.available[data-filled="true"] {
+    color: var(--cal-text-filled);
+}
+.cal-day.available:hover { 
+    transform: scale(1.15); 
+    box-shadow: 0 6px 14px rgba(25, 135, 84, 0.4); 
+    filter: brightness(1.1);
+}
+.cal-day.full { 
+    background: linear-gradient(135deg, #ff6b6b 0%, #dc3545 100%); 
+    color: #ffffff; 
+    border: none; 
+    box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+    font-weight: 700;
+}
+.cal-day.full:hover { 
+    background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%); 
+    color: #fff; 
+    transform: scale(1.15); 
+}
+.cal-day.selected-day { box-shadow: 0 0 0 4px rgba(94, 106, 210, 0.6); transform: scale(1.1); }
 
 /* Timeline Slots */
 .slot-card { 
@@ -42,31 +72,53 @@
 .slot-free { border-left: 4px solid #198754; cursor: pointer; }
 .slot-free:hover { background: #f4fbf6; border-color: #198754; }
 .slot-booked { border-left: 4px solid #dc3545; background: #fffcfc; }
+
+/* Dark mode fixes */
+body.theme-dark .agenda-timeline-col { background-color: transparent !important; }
+body.theme-dark .agenda-timeline-header { background-color: #111827 !important; border-color: rgba(255,255,255,0.05) !important; }
+body.theme-dark .agenda-express-footer { background-color: #111827 !important; border-color: rgba(255,255,255,0.05) !important; border-top-color: rgba(255,255,255,0.05) !important; }
+body.theme-dark .slot-card { background-color: #1e293b !important; border-color: rgba(255,255,255,0.05) !important; }
+body.theme-dark .slot-booked { background-color: rgba(220, 53, 69, 0.1) !important; }
+body.theme-dark .slot-free:hover { background-color: rgba(25, 135, 84, 0.15) !important; }
+body.theme-dark .slot-noshow { background-color: rgba(255,255,255,0.05) !important; border-left-color: #555 !important; }
+
+/* Dark Mode Celeste Calendar Fix */
+body.theme-dark .cal-day.available {
+    --cal-fill-color: rgba(13, 202, 240, 0.85) !important;
+    --cal-bg-color: rgba(13, 202, 240, 0.1) !important;
+    --cal-border-color: rgba(13, 202, 240, 0.5) !important;
+    --cal-text-color: #0dcaf0 !important;
+    --cal-text-filled: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(13, 202, 240, 0.2);
+}
+body.theme-dark .cal-day.available:hover {
+    box-shadow: 0 6px 14px rgba(13, 202, 240, 0.4); 
+}
 </style>
 
 <!-- Leyenda Global -->
 <div class="d-flex align-items-center justify-content-end gap-3 mb-4">
     <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background-color: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3);"></div> 
-        <small class="text-muted fw-bold">Día Disponible</small>
+        <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #20c997 0%, #198754 100%); box-shadow: 0 2px 6px rgba(32, 201, 151, 0.4);"></div> 
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">Día Disponible</small>
     </div>
     <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background-color: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.5);"></div> 
-        <small class="text-muted fw-bold">Día Saturado</small>
+        <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #ff6b6b 0%, #dc3545 100%); box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);"></div> 
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">Día Saturado</small>
     </div>
     <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background-color: transparent; border: 1px solid #ccc;"></div> 
-        <small class="text-muted fw-bold">Ausencia</small>
+        <div style="width:16px; height:16px; border-radius:50%; background-color: transparent; border: 2px solid #ccc;"></div> 
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">Ausencia</small>
     </div>
 </div>
 
 <!-- Iterar por Cada Médico Renderizando Agendas Múltiples -->
 @foreach($doctors as $doc)
-<div class="modern-card p-0 mb-3 shadow-sm border overflow-hidden">
-    <div class="bg-light px-3 py-2 border-bottom d-flex align-items-center justify-content-between">
-        <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
-            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
-                <i class="bi bi-person-fill" style="font-size: 1rem;"></i>
+<div class="modern-card p-0 mb-4 shadow-sm overflow-hidden" style="border: 2px solid rgba(94, 106, 210, 0.15); border-radius: 20px; box-shadow: 0 10px 40px rgba(94, 106, 210, 0.08) !important;">
+    <div class="px-4 py-3 d-flex align-items-center justify-content-between" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.08) 0%, transparent 100%); border-bottom: 2px solid rgba(94, 106, 210, 0.1);">
+        <h6 class="fw-bold mb-0 text-dark d-flex align-items-center" style="font-size: 1.1rem;">
+            <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 36px; height: 36px; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);">
+                <i class="bi bi-person-fill" style="font-size: 1.1rem;"></i>
             </div>
             Agenda de {{ $doc->name }}
         </h6>
@@ -77,11 +129,11 @@
     
     <div class="row g-0">
         <!-- Columna Izquierda: Mini Calendario JS -->
-        <div class="col-lg-5 p-3 border-end">
-            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:30px; height:30px;" onclick="changeMonth({{ $doc->id }}, -1)"><i class="bi bi-chevron-left"></i></button>
-                <h6 id="monthYearLabel_{{ $doc->id }}" class="mb-0 fw-bold text-dark text-capitalize"></h6>
-                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:30px; height:30px;" onclick="changeMonth({{ $doc->id }}, 1)"><i class="bi bi-chevron-right"></i></button>
+        <div class="col-lg-5 p-4 border-end" style="border-right-width: 2px !important; border-color: rgba(94, 106, 210, 0.1) !important;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom" style="border-color: rgba(94, 106, 210, 0.1) !important;">
+                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:34px; height:34px;" onclick="changeMonth({{ $doc->id }}, -1)"><i class="bi bi-chevron-left"></i></button>
+                <h6 id="monthYearLabel_{{ $doc->id }}" class="mb-0 fw-bold text-dark text-capitalize" style="font-size: 1.05rem;"></h6>
+                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:34px; height:34px;" onclick="changeMonth({{ $doc->id }}, 1)"><i class="bi bi-chevron-right"></i></button>
             </div>
             
             <div class="d-grid mb-2" style="grid-template-columns: repeat(7, 1fr);">
@@ -99,8 +151,8 @@
         </div>
 
         <!-- Columna Derecha: Timeline Diario -->
-        <div class="col-lg-7 d-flex flex-column" style="background: #fafafa; min-height:280px;">
-            <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center shadow-sm z-1">
+        <div class="col-lg-7 d-flex flex-column agenda-timeline-col" style="background: #fafafa; min-height:280px;">
+            <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center shadow-sm z-1 agenda-timeline-header">
                 <div>
                     <h6 id="selectedDateLabel_{{ $doc->id }}" class="fw-bold mb-0 text-dark">Agenda Diaria</h6>
                     <small class="text-muted" style="font-size: 0.75rem;" id="selectedDateSubLabel_{{ $doc->id }}">Seleccione un día en el calendario</small>
@@ -110,15 +162,15 @@
             
             <div id="slotsContainer_{{ $doc->id }}" class="p-3 flex-grow-1 overflow-auto" style="max-height: 280px;">
                 <!-- Estado vacío -->
-                <div class="text-center py-4 opacity-50">
+                <div class="text-center py-4 opacity-50 text-muted">
                     <i class="bi bi-calendar-x" style="font-size: 4rem;"></i>
-                    <h6 class="mt-3">Sin selección</h6>
+                    <h6 class="mt-3 text-dark">Sin selección</h6>
                     <small>Haga clic en un día verde para ver los horarios.</small>
                 </div>
             </div>
             
             <!-- Phase 17: Express Nearest Slot Footer (Moved inside doctor card) -->
-            <div class="mt-auto bg-white border-top p-3 d-flex align-items-center justify-content-between shadow-sm z-1" style="border-left: 4px solid #198754;">
+            <div class="mt-auto bg-white border-top p-3 d-flex align-items-center justify-content-between shadow-sm z-1 agenda-express-footer" style="border-left: 4px solid #198754;">
                 <div class="d-flex flex-column">
                     <span class="text-success small fw-bold text-uppercase d-flex align-items-center mb-1" style="letter-spacing: 0.5px;"><i class="bi bi-lightning-charge-fill me-2"></i>Próximo turno libre</span>
                     <span id="nearestSlotText_{{ $doc->id }}" class="text-dark fw-bold" style="font-size: 0.95rem;">
@@ -175,7 +227,7 @@
                                         <small class="text-muted" id="modalSelectedPatientDni">--</small>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-light border-0 text-danger rounded-circle shadow-sm" onclick="clearModalPatientSelection()" title="Cambiar Paciente"><i class="bi bi-x-lg"></i></button>
+                                <button type="button" class="btn btn-sm btn-light border-0 text-danger rounded-circle shadow-sm" onclick="clearModalPatientSelection(true)" title="Cambiar Paciente"><i class="bi bi-x-lg"></i></button>
                             </div>
                         </div>
                     </div>
@@ -285,7 +337,18 @@
         modalPatientSearchResults.classList.add('d-none');
     }
 
-    function clearModalPatientSelection() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselectPatientId = urlParams.get('preselect_patient_id');
+    const preselectPatientFname = urlParams.get('preselect_patient_fname');
+    const preselectPatientLname = urlParams.get('preselect_patient_lname');
+    const preselectPatientDni = urlParams.get('preselect_patient_dni');
+
+    function clearModalPatientSelection(forceClear = false) {
+        if (preselectPatientId && !forceClear) {
+            selectPatientFromApi(preselectPatientId, preselectPatientFname, preselectPatientLname, preselectPatientDni);
+            return;
+        }
+
         modalSelectedPatientId.value = '';
         modalPatientSearchInput.value = '';
         
@@ -293,7 +356,7 @@
         modalPatientSearchMode.classList.remove('d-none');
         
         submitAppointmentBtn.setAttribute('disabled', 'true');
-        modalPatientSearchInput.focus();
+        if (modalPatientSearchInput) modalPatientSearchInput.focus();
     }
 
     // Reset when modal closes to keep clean state
@@ -355,15 +418,34 @@
 
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-            const status = availabilityMap[dateStr] || 'unavailable';
+            const dayData = availabilityMap[dateStr] || { status: 'unavailable', percentage: 0 };
+            
+            // Retrocompatibilidad defensiva por si en algún cache viejo viene string
+            const status = typeof dayData === 'object' ? dayData.status : dayData;
+            const percentage = typeof dayData === 'object' ? dayData.percentage : 0;
             
             let extraClass = '';
-            if (status === 'available') extraClass = 'available';
-            if (status === 'full') extraClass = 'full';
-            if (status === 'unavailable') extraClass = 'unavailable';
+            const div = document.createElement('div');
+
+            if (status === 'unavailable') {
+                extraClass = 'unavailable opacity-50';
+                div.title = 'No atiende';
+            } else if (status === 'full') {
+                extraClass = 'full';
+                div.title = 'Agenda Llena (100%)';
+            } else if (status === 'available') {
+                extraClass = 'available';
+                div.title = `Ocupado: ${percentage}%`;
+                
+                // Set CSS variables instead of inline styles for dark mode compatibility
+                div.style.setProperty('--fill-percentage', `${percentage}%`);
+                if (percentage >= 50) {
+                    div.setAttribute('data-filled', 'true');
+                }
+            }
+
             if (dateStr === state.selectedDateStr) extraClass += ' selected-day';
 
-            const div = document.createElement('div');
             div.className = `cal-day ${extraClass}`;
             div.innerText = day;
             
@@ -404,13 +486,50 @@
                      return;
                 }
 
-                document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = res.data.slots.length + " fracciones encontradas";
+                let totalLibres = 0;
+                let totalExtras = 0;
+                let totalOcupados = 0;
+
+                res.data.slots.forEach(slot => {
+                    if (slot.status === 'free') {
+                        totalLibres++;
+                    } else if (slot.status === 'booked') {
+                        totalOcupados++;
+                        if (slot.is_extra) totalExtras++;
+                    }
+                });
+
+                document.getElementById(`selectedDateSubLabel_${doctorId}`).innerHTML = 
+                    `<span class="text-success fw-bold">Libres: ${totalLibres}</span> &nbsp;|&nbsp; ` +
+                    `<span class="text-danger fw-bold">Sobre-turnos: ${totalExtras}</span> &nbsp;|&nbsp; ` +
+                    `<span class="text-dark fw-bold">Total Turnos: ${totalOcupados}</span>`;
+
                 let html = '';
                 
                 res.data.slots.forEach(slot => {
+                    const isPast = slot.is_past;
+
                     if (slot.status === 'booked') {
+                        let actionsHtml = '';
+                        // Permitir acciones incluso si es pasado, para poder marcar ausencias
+                        let sobreTurnoBtn = !isPast ? `
+                            <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
+                                + Sobreturno
+                            </button>` : `<span class="badge bg-secondary bg-opacity-10 text-secondary border me-2">Expirado</span>`;
+
+                        actionsHtml = `
+                            ${sobreTurnoBtn}
+                            <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
+                                <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
+                            </ul>`;
+
                         html += `
-                        <div class="slot-card slot-booked flex-row justify-content-between">
+                        <div class="slot-card slot-booked flex-row justify-content-between ${isPast ? 'opacity-75' : ''}">
                             <div class="d-flex align-items-center gap-3 pe-2">
                                 <span class="slot-time d-block text-danger">${slot.time}</span>
                                 <div>
@@ -419,9 +538,20 @@
                                 </div>
                             </div>
                             <div class="d-flex align-items-center dropdown">
-                                <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
-                                    + Sobreturno
-                                </button>
+                                ${actionsHtml}
+                            </div>
+                        </div>`;
+                    } else if (slot.status === 'no_show') {
+                        html += `
+                        <div class="slot-card slot-noshow flex-row justify-content-between" style="border-left: 4px solid #ccc; background: #fafafa;">
+                            <div class="d-flex align-items-center gap-3 pe-2">
+                                <span class="slot-time d-block text-muted" style="text-decoration: line-through;">${slot.time}</span>
+                                <div>
+                                    <h6 class="mb-0 fw-bold text-muted" style="text-decoration: line-through;"><i class="bi bi-person-x-fill me-1"></i> ${slot.patient_name}</h6>
+                                    <span class="badge border border-secondary text-secondary rounded-pill" style="font-size: 0.7rem;">Ausente</span>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center dropdown">
                                 <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                                 </button>
@@ -431,24 +561,37 @@
                             </div>
                         </div>`;
                     } else {
-                        html += `
-                        <div class="slot-card slot-free justify-content-between position-relative pe-2">
-                            <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
-                                <span class="slot-time d-block text-success">${slot.time}</span>
-                                <div>
-                                    <h6 class="mb-0 text-success fw-bold">Turno Libre</h6>
-                                    <small class="text-muted">Clic para asignar un paciente</small>
+                        if (!isPast) {
+                            html += `
+                            <div class="slot-card slot-free justify-content-between position-relative pe-2">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
+                                    <span class="slot-time d-block text-success">${slot.time}</span>
+                                    <div>
+                                        <h6 class="mb-0 text-success fw-bold">Turno Libre</h6>
+                                        <small class="text-muted">Clic para asignar un paciente</small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="d-flex align-items-center dropdown z-2">
-                                <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
-                                    + Sobreturno
-                                </button>
-                                <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
-                                    <i class="bi bi-plus text-white"></i>
-                                </button>
-                            </div>
-                        </div>`;
+                                <div class="d-flex align-items-center dropdown z-2">
+                                    <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
+                                        + Sobreturno
+                                    </button>
+                                    <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
+                                        <i class="bi bi-plus text-white"></i>
+                                    </button>
+                                </div>
+                            </div>`;
+                        } else {
+                            html += `
+                            <div class="slot-card justify-content-between position-relative pe-2" style="background: #f8f9fa; border: 1px dashed #ced4da; opacity: 0.6; cursor: not-allowed;">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1">
+                                    <span class="slot-time d-block text-muted">${slot.time}</span>
+                                    <div>
+                                        <h6 class="mb-0 text-muted fw-bold">No Disponible</h6>
+                                        <small class="text-muted">Horario expirado</small>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }
                     }
                 });
 
@@ -574,6 +717,20 @@
         .catch(err => alert('Ocurrió un error al intentar eliminar el turno. Verifique su conexión.'));
     }
 
+    function markAsNoShow(id, doctorId, dateStr) {
+        if(!confirm('¿Confirmar que el paciente NO se presentó a su turno (Ausencia)?')) return;
+        
+        axios.patch(`/api/appointments/${id}/no-show`, {}, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            renderCalendar(doctorId);
+            loadDaySlots(doctorId, dateStr);
+            spawnToast('Turno Actualizado', 'El paciente fue marcado como ausente.', 'exclamation-triangle-fill', 'warning text-dark');
+        })
+        .catch(err => alert('Ocurrió un error al registrar la ausencia.'));
+    }
+
     // Init Call
     document.addEventListener('DOMContentLoaded', () => {
         // Init all calendars
@@ -601,6 +758,9 @@
                     });
             });
         }
+
+        // Initialize preselected patient if present
+        clearModalPatientSelection();
     });
 </script>
 

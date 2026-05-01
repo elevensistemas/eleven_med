@@ -14,21 +14,25 @@
     min-height: calc(100vh - 120px);
 }
 .patient-inner-sidebar {
-    background-color: #f8f9fc;
-    border-right: 1px solid rgba(0,0,0,0.03);
+    background: linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%);
+    border-right: 1px solid rgba(0,0,0,0.04);
 }
 .sidebar-link {
+    background-color: #ffffff;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     color: #555c6e;
     font-size: 0.88rem;
-    font-weight: 500;
-    padding: 10px 14px;
+    font-weight: 600;
+    padding: 12px 16px;
     border-radius: 0.8rem;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     transition: all 0.3s ease;
     text-decoration: none;
-    white-space: nowrap;
+    white-space: normal;
+    line-height: 1.2;
 }
 .sidebar-link i {
     width: 22px;
@@ -37,9 +41,9 @@
     text-align: center;
     transition: transform 0.2s ease;
 }
-.sidebar-link:hover {
-    background-color: rgba(13, 110, 253, 0.08); /* Modern Blue */
-    color: #0d6efd;
+.sidebar-link:hover, .sidebar-link.active {
+    background-color: rgba(94, 106, 210, 0.08); /* Vibrant Primary */
+    color: #5e6ad2;
     font-weight: 600;
 }
 .sidebar-link:hover i {
@@ -74,14 +78,14 @@
     box-shadow: 0 0.5rem 1rem rgba(255, 85, 0, 0.25);
 }
 .btn-gradient-primary {
-    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);
     border: none;
     transition: transform 0.2s, box-shadow 0.2s;
+    color: white !important;
 }
 .btn-gradient-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(13, 110, 253, 0.25);
-    color: white;
+    box-shadow: 0 0.5rem 1rem rgba(94, 106, 210, 0.3);
 }
 
 /* Modern Tabs */
@@ -100,13 +104,13 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .modern-tabs .nav-link:hover {
-    background-color: rgba(13, 110, 253, 0.05);
-    color: #0d6efd;
+    background-color: rgba(94, 106, 210, 0.05);
+    color: #5e6ad2;
 }
 .modern-tabs .nav-link.active {
-    background-color: #0d6efd;
-    color: #ffffff;
-    box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
+    background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(94, 106, 210, 0.25);
 }
 
 /* Reusing cards logic inside panes */
@@ -126,13 +130,70 @@
     font-weight: 700;
     font-size: 0.85rem;
 }
+
+/* Sidebar Nav Container */
+.sidebar-nav-container {
+    background-color: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(94, 106, 210, 0.2);
+    border-radius: 1rem;
+    padding: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+}
+
+/* Dark Mode Styles for Patient Profile */
+body.theme-dark .patient-container {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+body.theme-dark .patient-inner-sidebar {
+    background: linear-gradient(180deg, #1e3c72 0%, #0b1121 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+body.theme-dark .sidebar-link {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #a1ecff !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2) !important;
+}
+body.theme-dark .sidebar-link:hover, body.theme-dark .sidebar-link.active {
+    background-color: rgba(94, 106, 210, 0.3) !important;
+    color: #ffffff !important;
+}
+body.theme-dark .antecedentes-box {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #e0e0e0 !important;
+}
+body.theme-dark .modern-tabs .nav-link {
+    color: #a1ecff !important;
+}
+body.theme-dark .modern-tabs .nav-link:hover {
+    background-color: rgba(94, 106, 210, 0.2) !important;
+}
+body.theme-dark .modern-tabs .nav-link.active {
+    background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%) !important;
+    color: #ffffff !important;
+}
+body.theme-dark .data-card {
+    background: #111827 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+body.theme-dark .value-badge {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #a1ecff !important;
+}
+body.theme-dark .sidebar-nav-container {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
 </style>
 
 <div class="row g-0 patient-container">
     <!-- Inner Sidebar (Izquierda) -->
     <div class="col-md-4 col-lg-3 col-xl-2 patient-inner-sidebar p-3 d-flex flex-column">
         <div class="d-flex flex-column align-items-center text-center mb-4 pb-2 border-bottom border-light">
-            <div class="icon-box rounded-circle shadow-sm bg-primary bg-gradient text-white d-flex align-items-center justify-content-center mb-3" id="patientAvatarBox" style="width: 70px; height: 70px; font-size: 2rem; cursor: pointer; overflow: hidden; position: relative;" onclick="document.getElementById('patientPhotoInput').click()" onmouseover="document.getElementById('avatarOverlay').style.opacity=1" onmouseout="document.getElementById('avatarOverlay').style.opacity=0">
+            <div class="icon-box rounded-circle shadow-sm text-white d-flex align-items-center justify-content-center mb-3" id="patientAvatarBox" style="width: 70px; height: 70px; font-size: 2rem; cursor: pointer; overflow: hidden; position: relative; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);" data-bs-toggle="modal" data-bs-target="#photoOptionsModal" onmouseover="document.getElementById('avatarOverlay').style.opacity=1" onmouseout="document.getElementById('avatarOverlay').style.opacity=0">
                 @if($patient->photo_path)
                     <img src="{{ asset('storage/' . $patient->photo_path) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;" id="patientAvatarImage">
                     <i class="bi bi-person-fill" id="patientAvatarIcon" style="display: none;"></i>
@@ -145,6 +206,13 @@
                 </div>
             </div>
             <input type="file" id="patientPhotoInput" accept="image/*" hidden>
+            @if($patient->photo_path)
+            <form action="{{ route('patients.removePhoto', $patient) }}" method="POST" class="mb-2">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-none p-0" style="font-size: 0.8rem;"><i class="bi bi-trash me-1"></i>Quitar foto</button>
+            </form>
+            @endif
             <h5 class="fw-bold mb-2 text-dark" style="font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
             <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-sm mb-2"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
         </div>
@@ -156,7 +224,7 @@
             </div>
         </div>
 
-        <nav class="nav flex-column gap-1 flex-grow-1">
+        <nav class="nav flex-column gap-1 flex-grow-1 sidebar-nav-container">
             <a href="{{ route('patients.index') }}" class="sidebar-link"><i class="bi bi-arrow-left"></i> Volver a Lista</a>
             <a href="{{ route('patient.visits.create', $patient) }}" class="sidebar-link"><i class="bi bi-person-plus"></i> Nueva Visita</a>
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('cirugias-tab')"><i class="bi bi-bandaid"></i> Cirugías</button>
@@ -166,15 +234,18 @@
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('comentarios-tab')"><i class="bi bi-chat-left-text"></i> Comentarios</button>
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('historial-tab')"><i class="bi bi-journal-medical"></i> Historia Clínica</button>
             <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="alert('Módulo de Recetas en construcción.')"><i class="bi bi-file-earmark-medical"></i> Generar Receta</button>
+            <button class="sidebar-link border-0 w-100 text-start" style="background: linear-gradient(135deg, rgba(94,106,210,0.1) 0%, rgba(126,68,139,0.1) 100%); color: #7e448b;" data-bs-toggle="modal" data-bs-target="#aiAnalysisModal"><i class="bi bi-stars text-warning"></i> Asistente IA</button>
             
+            @if(auth()->user()->hasRole('administrador'))
             <div class="mt-auto pt-4">
                 <form action="{{ route('patients.destroy', $patient) }}" method="POST">
                     @csrf @method('DELETE')
-                    <button type="submit" class="sidebar-link text-danger border-0 w-100 text-start bg-transparent" onclick="return confirm('¿Está seguro de eliminar este paciente de forma permanente?');">
+                    <button type="submit" class="sidebar-link text-danger border-0 w-100 text-start bg-transparent" onclick="return confirm('¿Está seguro de eliminar este paciente de forma permanente? Esta acción es irreversible y requiere privilegios de administrador.');">
                         <i class="bi bi-trash"></i> Eliminar Paciente
                     </button>
                 </form>
             </div>
+            @endif
         </nav>
     </div>
 
@@ -183,7 +254,7 @@
         <!-- HEADER TOP -->
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="fw-bold text-dark mb-0 m-0 p-0">Tablero del Paciente</h5>
-            <a href="{{ route('agenda.index') }}" class="btn btn-gradient-warning rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 py-1 text-decoration-none">
+            <a href="{{ route('agenda.index') }}?preselect_patient_id={{ $patient->id }}&preselect_patient_fname={{ urlencode($patient->first_name) }}&preselect_patient_lname={{ urlencode($patient->last_name) }}&preselect_patient_dni={{ $patient->dni }}" class="btn btn-gradient-warning rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 py-1 text-decoration-none">
                 <i class="bi bi-calendar-plus"></i> Dar turno
             </a>
         </div>
@@ -330,56 +401,95 @@
                     <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border-0 rounded-4 shadow-sm mb-4"><i class="bi bi-exclamation-triangle-fill"></i> {{ session('error') }}</div>
                 @endif
 
-                <!-- Formulario de Ingreso a Consola -->
                 <div class="bg-white rounded-4 shadow-sm p-4 mb-4" style="border: 1px solid rgba(0,0,0,0.05);">
                     <div class="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
-                        <div class="bg-primary bg-gradient text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px;"><i class="bi bi-person-add fs-4"></i></div>
+                        <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);"><i class="bi bi-person-add fs-4"></i></div>
                         <h5 class="fw-bold text-dark mb-0 fs-5">Volcar Paciente a Sala de Espera (Consola)</h5>
                     </div>
-
-                    <form action="{{ route('console.assignments.store') }}" method="POST">
+                    
+                    <form action="{{ route('console.assignments.store') }}" method="POST" id="assignmentForm">
                         @csrf
                         <input type="hidden" name="patient_id" value="{{ $patient->id }}">
                         
-                        <div class="row g-4 mb-4">
-                            <div class="col-md-6">
-                                <label class="fw-bold text-dark mb-2">Motivo / Práctica (Tipo)</label>
-                                <select name="event_type" class="form-select form-select-lg bg-light border-0 shadow-none text-dark" required>
-                                    <option value="" disabled selected>Seleccione el flujo...</option>
-                                    <option value="Ingreso (espera)">Ingreso (espera)</option>
-                                    <option value="Dilatación">Dilatación</option>
-                                    <option value="Estudios Visuales">Estudios Visuales</option>
-                                    <option value="Atención Médica">Atención Médica</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="fw-bold text-dark mb-2">Médico Destino <span class="text-muted small fw-normal">(Opcional)</span></label>
-                                <select name="doctor_id" class="form-select form-select-lg bg-light border-0 shadow-none text-dark">
-                                    <option value="">Cualquier médico disponible / Staff</option>
-                                    @foreach($doctors as $doc)
-                                        <option value="{{ $doc->id }}">Dr. {{ $doc->name }}</option>
-                                    @endforeach
-                                </select>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-dark mb-0">Pasos del Flujo</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill fw-bold px-3 shadow-sm" onclick="addAssignmentRow()">
+                                <i class="bi bi-plus-circle-fill me-1"></i> Agregar Asignación
+                            </button>
+                        </div>
+
+                        <!-- Header titles -->
+                        <div class="row g-2 mb-2 px-2">
+                            <div class="col-md-6 text-center text-muted fw-bold small">Tipo</div>
+                            <div class="col-md-5 text-center text-muted fw-bold small">Médico</div>
+                            <div class="col-md-1"></div>
+                        </div>
+
+                        <div id="assignmentRowsContainer" class="d-flex flex-column gap-2 mb-4">
+                            <!-- Template Row -->
+                            <div class="row g-2 align-items-center assignment-row px-2">
+                                <div class="col-md-6">
+                                    <select name="event_types[]" class="form-select bg-light border border-secondary border-opacity-10 shadow-none text-dark" required>
+                                        <option value="Ingreso (espera)">Ingreso (espera)</option>
+                                        <option value="Dilatación">Dilatación</option>
+                                        <option value="Estudios Visuales">Estudios Visuales</option>
+                                        <option value="Atención Médica">Atención Médica</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <select name="doctor_ids[]" class="form-select bg-light border border-secondary border-opacity-10 shadow-none text-dark">
+                                        <option value="">Cualquier médico / Staff</option>
+                                        @foreach($doctors as $doc)
+                                            <option value="{{ $doc->id }}">Dr. {{ $doc->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    <button type="button" class="btn btn-light text-danger rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" onclick="removeAssignmentRow(this)" title="Quitar" style="display:none;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         <div class="mb-4 text-start">
-                            <label class="fw-bold text-dark mb-2">Observaciones Internas <span class="text-muted small fw-normal">(Visibles en la Consola Global)</span></label>
-                            <textarea name="notes" rows="2" class="form-control bg-light border-0 shadow-none text-dark" placeholder="Detalles extra como dilatación, paciente particular, urgencias..."></textarea>
+                            <textarea name="notes" rows="2" class="form-control bg-light border border-secondary border-opacity-10 shadow-none text-dark" placeholder="Observaciones Internas (Detalles extra...)"></textarea>
                         </div>
 
                         <div class="d-flex justify-content-end">
-                            <button type="submit" class="btn btn-primary rounded-pill px-5 shadow-sm fw-bold d-flex align-items-center gap-2 py-2" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); font-size: 1.05rem;">
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 shadow-sm fw-bold d-flex align-items-center gap-2 py-2 border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); font-size: 1.05rem;">
                                 Ingresar a Cola <i class="bi bi-send-fill text-white shadow-sm ms-2"></i>
                             </button>
                         </div>
                     </form>
+                    <script>
+                        function addAssignmentRow() {
+                            const container = document.getElementById('assignmentRowsContainer');
+                            const rowTemplate = container.firstElementChild.cloneNode(true);
+                            rowTemplate.querySelector('button').style.display = 'block'; // Show delete button
+                            // Show delete button on first row if there's more than one
+                            container.firstElementChild.querySelector('button').style.display = 'block';
+                            container.appendChild(rowTemplate);
+                        }
+                        function removeAssignmentRow(btn) {
+                            const container = document.getElementById('assignmentRowsContainer');
+                            if (container.children.length > 1) {
+                                btn.closest('.assignment-row').remove();
+                            }
+                            if (container.children.length === 1) {
+                                container.firstElementChild.querySelector('button').style.display = 'none';
+                            }
+                        }
+                    </script>
                 </div>
 
                 <!-- Resumen Diario (En Curso vs Finalizados) -->
                 @php
-                    $todayAssignments = collect($patient->assignments ?? [])->where('started_at', '>=', \Carbon\Carbon::today())->sortBy('started_at');
-                    $enCurso = $todayAssignments->where('status', 'in_progress');
+                    $todayAssignments = collect($patient->assignments ?? [])->filter(function($item) {
+                        return $item->created_at >= \Carbon\Carbon::today();
+                    })->sortBy('id');
+                    
+                    $enCurso = $todayAssignments->whereIn('status', ['in_progress', 'pending']);
                     $finalizados = $todayAssignments->where('status', 'completed');
                 @endphp
 
@@ -388,7 +498,7 @@
                     <div class="col-lg-6">
                         <div class="card border-0 rounded-4 overflow-hidden h-100 shadow-sm" style="border: 1px solid rgba(32, 201, 151, 0.2) !important;">
                             <div class="card-header border-0 fw-bold d-flex align-items-center gap-2" style="background-color: #20c997 !important; color: #fff; padding: 12px 20px;">
-                                <i class="bi bi-play-fill fs-5"></i> En curso
+                                <i class="bi bi-play-fill fs-5"></i> En curso / Cola
                             </div>
                             <div class="card-body p-0 bg-white">
                                 @if($enCurso->count() > 0)
@@ -403,10 +513,17 @@
                                             </thead>
                                             <tbody>
                                                 @foreach($enCurso as $asg)
-                                                <tr>
-                                                    <td class="ps-4 fw-medium text-dark">{{ $asg->started_at->format('H:i') }}</td>
+                                                <tr style="{{ $asg->status === 'pending' ? 'opacity: 0.6;' : '' }}">
+                                                    <td class="ps-4 fw-medium text-dark">{{ $asg->started_at ? $asg->started_at->format('H:i') : '--:--' }}</td>
                                                     <td class="fw-bold text-dark">{{ $asg->event_type }}</td>
-                                                    <td class="text-center"><span class="badge bg-light text-dark border">{{ $asg->doctor->name ?? 'En Espera' }}</span></td>
+                                                    <td class="text-center">
+                                                        @if($asg->status === 'in_progress')
+                                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Activo</span>
+                                                        @else
+                                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border">En Cola</span>
+                                                        @endif
+                                                        <br><small class="text-muted" style="font-size:0.7rem;">{{ $asg->doctor->name ?? 'En Espera' }}</small>
+                                                    </td>
                                                 </tr>
                                                 @endforeach
                                             </tbody>
@@ -464,12 +581,15 @@
             <div class="tab-pane fade" id="diagnostico" role="tabpanel">
                 <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clipboard2-pulse text-primary me-2"></i> Evoluciones y Diagnósticos</h5>
+                    <button id="sortDiagnosticosBtn" class="btn btn-light fw-bold text-secondary rounded-pill shadow-sm px-3" style="font-size: 0.9rem;">
+                        <i class="bi bi-sort-down me-1"></i> Más recientes
+                    </button>
                 </div>
                 
                 @if($patient->visits->count() > 0)
-                    <div class="d-flex flex-column gap-3">
+                    <div class="d-flex flex-column gap-3" id="diagnosticosGrid">
                         @foreach($patient->visits as $visit)
-                            <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="border: 1px solid rgba(0,0,0,0.05) !important;">
+                            <div class="card border-0 shadow-sm rounded-4 overflow-hidden diagnostico-item" data-date="{{ $visit->created_at->timestamp }}" style="border: 1px solid rgba(0,0,0,0.05) !important;">
                                 <!-- Header Strip -->
                                 <div class="px-4 py-3 d-flex justify-content-between align-items-center bg-light border-bottom border-secondary border-opacity-10">
                                     <div class="d-flex align-items-center gap-3">
@@ -535,10 +655,9 @@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-images text-primary me-2"></i> Archivo Clínico & Estudios</h5>
                     <div class="d-flex gap-3 align-items-center">
-                        <select id="sortStudiesSelect" class="form-select border-0 bg-light fw-bold text-secondary shadow-none rounded-pill px-3" style="width: auto;">
-                            <option value="desc">Más recientes</option>
-                            <option value="asc">Más antiguos</option>
-                        </select>
+                        <button id="sortStudiesBtn" class="btn btn-light fw-bold text-secondary rounded-pill shadow-sm px-3" style="font-size: 0.9rem;">
+                            <i class="bi bi-sort-down me-1"></i> Más recientes
+                        </button>
                         <button class="btn btn-gradient-primary rounded-pill px-4 d-flex align-items-center gap-2 text-white" data-bs-toggle="modal" data-bs-target="#uploadStudyModal">
                             <i class="bi bi-cloud-arrow-up"></i> Cargar Estudio
                         </button>
@@ -592,20 +711,23 @@
             <div class="tab-pane fade" id="comentarios" role="tabpanel">
                 <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-chat-left-dots text-primary me-2"></i> Libreta de Comentarios</h5>
+                    <button id="sortComentariosBtn" class="btn btn-light fw-bold text-secondary rounded-pill shadow-sm px-3" style="font-size: 0.9rem;">
+                        <i class="bi bi-sort-down me-1"></i> Más recientes
+                    </button>
                 </div>
                 
-                <form action="#" method="POST" class="mb-5 bg-light p-3 rounded-4" style="border: 1px solid rgba(0,0,0,0.05);">
+                <form action="{{ route('patient.comments.store', $patient) }}" method="POST" class="mb-5 bg-light p-3 rounded-4" style="border: 1px solid rgba(0,0,0,0.05);">
                     @csrf
                     <div class="d-flex gap-3">
-                        <textarea class="form-control border-0 shadow-sm" rows="2" placeholder="Escribir un nuevo comentario publico o privado sobre el paciente..."></textarea>
-                        <button class="btn btn-primary rounded-3 px-4 fw-bold shadow-sm d-flex flex-column justify-content-center align-items-center" type="button"><i class="bi bi-send-fill mb-1"></i> Enviar</button>
+                        <textarea name="body" required class="form-control border-0 shadow-sm" rows="2" placeholder="Escribir un nuevo comentario publico o privado sobre el paciente..."></textarea>
+                        <button class="btn btn-primary rounded-3 px-4 fw-bold shadow-sm d-flex flex-column justify-content-center align-items-center" type="submit"><i class="bi bi-save2 mb-1"></i> Guardar</button>
                     </div>
                 </form>
 
                 @if($patient->comments && $patient->comments->count() > 0)
-                    <div class="d-flex flex-column gap-3">
+                    <div class="d-flex flex-column gap-3" id="comentariosGrid">
                         @foreach($patient->comments as $comment)
-                            <div class="bg-white p-3 rounded-4 shadow-sm border-start border-4 border-primary" style="border: 1px solid rgba(0,0,0,0.05);">
+                            <div class="bg-white p-3 rounded-4 shadow-sm border-start border-4 border-primary comentario-item" data-date="{{ $comment->created_at->timestamp }}" style="border: 1px solid rgba(0,0,0,0.05);">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="fw-bold text-dark d-flex align-items-center gap-2"><div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:24px;height:24px;font-size:10px;"><i class="bi bi-person-fill"></i></div> {{ $comment->user->name ?? 'Sistema' }}</span>
                                     <span class="small text-muted">{{ $comment->created_at->format('d/m/Y H:i') }}</span>
@@ -627,9 +749,53 @@
             <div class="tab-pane fade" id="cirugias" role="tabpanel">
                 <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-heart-pulse text-danger me-2"></i> Módulo Quirúrgico Integral</h5>
+                    <div class="d-flex gap-3 align-items-center">
+                        <button id="sortCirugiasBtn" class="btn btn-light fw-bold text-secondary rounded-pill shadow-sm px-3" style="font-size: 0.9rem;">
+                            <i class="bi bi-sort-down me-1"></i> Más recientes
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="row g-4 mb-5">
+                <h5 class="fw-bold text-dark mb-4"><i class="bi bi-clock-history text-muted me-2"></i>Historial Quirúrgico</h5>
+                @if($patient->surgeries->count() > 0)
+                    <div class="timeline position-relative mb-5" id="cirugiasGrid" style="padding-left: 2.5rem;">
+                        <div class="position-absolute h-100 border-start border-2 border-primary border-opacity-25" style="left: 0.8rem; top: 0;"></div>
+                        @foreach($patient->surgeries as $surg)
+                            @php 
+                                $color = 'secondary';
+                                if($surg->eye == 'OD') $color = 'primary';
+                                if($surg->eye == 'OI') $color = 'success';
+                            @endphp
+                            <div class="position-relative mb-5 cirugia-item" data-date="{{ $surg->surgery_date->timestamp }}">
+                                <div class="position-absolute bg-{{ $color }} rounded-circle shadow-sm" style="width: 1.4rem; height: 1.4rem; left: -2.4rem; top: 0.2rem; border: 4px solid #fff;"></div>
+                                <div class="bg-white p-4 rounded-4 shadow-sm" style="border: 1px solid rgba(0,0,0,0.05);">
+                                    <div class="d-flex justify-content-between mb-3 border-bottom pb-3">
+                                        <h6 class="fw-bold text-dark mb-0 fs-5 d-flex align-items-center gap-2">Cirugía Completada <span class="badge bg-{{ $color }} rounded-pill px-3">{{ $surg->eye }}</span></h6>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <span class="text-muted fw-bold bg-light px-3 py-1 rounded-pill"><i class="bi bi-calendar me-1"></i> {{ $surg->surgery_date->format('d/m/Y') }}</span>
+                                            <form action="{{ route('surgeries.destroy', $surg) }}" method="POST">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-sm" onclick="return confirm('¿ELIMINAR registro quirúrgico permanentemente?');" title="Borrar Cirugía"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-light rounded-3 text-dark fs-6" style="white-space: pre-line;">{{ $surg->notes }}</div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="py-5 text-center bg-light rounded-4 mb-5" style="border: 2px dashed #dee2e6;">
+                        <div class="bg-white rounded-circle shadow-sm d-inline-flex justify-content-center align-items-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="bi bi-bandaid fs-1 text-muted opacity-50"></i>
+                        </div>
+                        <h5 class="fw-bold">Sin operaciones documentadas</h5>
+                        <p class="text-muted mb-0">Registrá los procedimientos quirúgicos de los ojos en los paneles de abajo.</p>
+                    </div>
+                @endif
+                
+                <h5 class="fw-bold text-dark mb-4"><i class="bi bi-plus-circle text-muted me-2"></i>Registrar Nueva Cirugía</h5>
+                <div class="row g-4 mb-2">
                     <!-- OD Box -->
                     <div class="col-md-6">
                         <div class="card border-0 bg-primary bg-opacity-10 shadow-sm rounded-4 h-100">
@@ -678,44 +844,6 @@
                         </div>
                     </div>
                 </div>
-
-                <h5 class="fw-bold text-dark mb-4"><i class="bi bi-clock-history text-muted me-2"></i>Historial Quirúrgico</h5>
-                @if($patient->surgeries->count() > 0)
-                    <div class="timeline position-relative" style="padding-left: 2.5rem;">
-                        <div class="position-absolute h-100 border-start border-2 border-primary border-opacity-25" style="left: 0.8rem; top: 0;"></div>
-                        @foreach($patient->surgeries as $surg)
-                            @php 
-                                $color = 'secondary';
-                                if($surg->eye == 'OD') $color = 'primary';
-                                if($surg->eye == 'OI') $color = 'success';
-                            @endphp
-                            <div class="position-relative mb-5">
-                                <div class="position-absolute bg-{{ $color }} rounded-circle shadow-sm" style="width: 1.4rem; height: 1.4rem; left: -2.4rem; top: 0.2rem; border: 4px solid #fff;"></div>
-                                <div class="bg-white p-4 rounded-4 shadow-sm" style="border: 1px solid rgba(0,0,0,0.05);">
-                                    <div class="d-flex justify-content-between mb-3 border-bottom pb-3">
-                                        <h6 class="fw-bold text-dark mb-0 fs-5 d-flex align-items-center gap-2">Cirugía Completada <span class="badge bg-{{ $color }} rounded-pill px-3">{{ $surg->eye }}</span></h6>
-                                        <div class="d-flex align-items-center gap-3">
-                                            <span class="text-muted fw-bold bg-light px-3 py-1 rounded-pill"><i class="bi bi-calendar me-1"></i> {{ $surg->surgery_date->format('d/m/Y') }}</span>
-                                            <form action="{{ route('surgeries.destroy', $surg) }}" method="POST">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-sm" onclick="return confirm('¿ELIMINAR registro quirúrgico permanentemente?');" title="Borrar Cirugía"><i class="bi bi-trash"></i></button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                    <div class="p-3 bg-light rounded-3 text-dark fs-6" style="white-space: pre-line;">{{ $surg->notes }}</div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="py-5 text-center bg-light rounded-4" style="border: 2px dashed #dee2e6;">
-                        <div class="bg-white rounded-circle shadow-sm d-inline-flex justify-content-center align-items-center mb-3" style="width: 80px; height: 80px;">
-                            <i class="bi bi-bandaid fs-1 text-muted opacity-50"></i>
-                        </div>
-                        <h5 class="fw-bold">Sin operaciones documentadas</h5>
-                        <p class="text-muted mb-0">Registrá los procedimientos quirúgicos de los ojos arriba.</p>
-                    </div>
-                @endif
             </div>
 
             <!-- Tab: Turnos -->
@@ -997,23 +1125,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     @endif
 
-    // Ordenamiento dinámico de los estudios
-    const sortSelect = document.getElementById('sortStudiesSelect');
-    const grid = document.getElementById('studiesGrid');
-    
-    if (sortSelect && grid) {
-        sortSelect.addEventListener('change', function() {
-            const items = Array.from(grid.querySelectorAll('.study-card-item'));
-            if (items.length === 0) return;
-            const direction = this.value;
-            items.sort((a, b) => {
-                const dateA = parseInt(a.getAttribute('data-date'));
-                const dateB = parseInt(b.getAttribute('data-date'));
-                return direction === 'asc' ? dateA - dateB : dateB - dateA;
-            });
-            items.forEach(item => grid.appendChild(item));
-        });
+    // Query params para redirección
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTab = urlParams.get('tab');
+    if (urlTab) {
+        const triggerEl = document.querySelector('#' + urlTab + '-tab');
+        if (triggerEl) {
+            const tab = new bootstrap.Tab(triggerEl);
+            tab.show();
+        }
     }
+
+    // Helper function para ordenar divs o listas por fecha
+    function bindSortLogic(btnId, gridId, itemClass) {
+        const sortBtn = document.getElementById(btnId);
+        const grid = document.getElementById(gridId);
+        if (sortBtn && grid) {
+            let direction = 'desc'; // initial state
+            const updateSort = function() {
+                const items = Array.from(grid.querySelectorAll('.' + itemClass));
+                if (items.length === 0) return;
+                
+                items.sort((a, b) => {
+                    const dateA = parseInt(a.getAttribute('data-date')) || 0;
+                    const dateB = parseInt(b.getAttribute('data-date')) || 0;
+                    return direction === 'asc' ? dateA - dateB : dateB - dateA;
+                });
+                items.forEach(item => grid.appendChild(item));
+                
+                if (direction === 'desc') {
+                    sortBtn.innerHTML = '<i class="bi bi-sort-down me-1"></i> Más recientes';
+                } else {
+                    sortBtn.innerHTML = '<i class="bi bi-sort-up me-1"></i> Más antiguos';
+                }
+            };
+            sortBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                direction = direction === 'desc' ? 'asc' : 'desc';
+                updateSort();
+            });
+            updateSort(); // Inicializar el orden correcto
+        }
+    }
+
+    bindSortLogic('sortStudiesBtn', 'studiesGrid', 'study-card-item');
+    bindSortLogic('sortDiagnosticosBtn', 'diagnosticosGrid', 'diagnostico-item');
+    bindSortLogic('sortComentariosBtn', 'comentariosGrid', 'comentario-item');
+    bindSortLogic('sortCirugiasBtn', 'cirugiasGrid', 'cirugia-item');
 });
 
 // Sorting Documento Clínico JS
@@ -1052,6 +1210,27 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
     let img = new Image();
     let reader = new FileReader();
     
+    fetch('{{ route("patients.uploadPhoto", $patient) }}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            document.getElementById('patientAvatarImage').src = data.photo_url;
+            document.getElementById('patientAvatarImage').style.display = 'block';
+            document.getElementById('patientAvatarIcon').style.display = 'none';
+            
+            // Update modal image too
+            const modalImg = document.getElementById('modalPatientAvatarImage');
+            if (modalImg) {
+                modalImg.src = data.photo_url;
+                modalImg.style.display = 'block';
+                const modalIcon = document.getElementById('modalPatientAvatarIcon');
+                if (modalIcon) modalIcon.style.display = 'none';
     reader.onload = function(e) {
         img.src = e.target.result;
     }
@@ -1161,4 +1340,284 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
     reader.readAsDataURL(file);
 });
 </script>
+<!-- Opciones de Avatar Modal -->
+<div class="modal fade" id="photoOptionsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-body p-4 text-center">
+                <div class="mb-4 position-relative d-inline-block w-100">
+                    @if($patient->photo_path)
+                        <img id="modalPatientAvatarImage" src="{{ Storage::url($patient->photo_path) }}" class="rounded-4 shadow-sm" style="width: 100%; max-width: 320px; aspect-ratio: 1; object-fit: cover; border: 6px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;">
+                        <i id="modalPatientAvatarIcon" class="bi bi-person-fill" style="display: none;"></i>
+                    @else
+                        <img id="modalPatientAvatarImage" src="" class="rounded-4 shadow-sm" style="width: 100%; max-width: 320px; aspect-ratio: 1; object-fit: cover; border: 6px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important; display: none;">
+                        <div id="modalPatientAvatarIcon" class="rounded-4 shadow-sm bg-light text-primary d-flex align-items-center justify-content-center mx-auto" style="width: 100%; max-width: 320px; aspect-ratio: 1; border: 6px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;">
+                            <i class="bi bi-person-fill" style="font-size: 8rem;"></i>
+                        </div>
+                    @endif
+                </div>
+                <h6 class="fw-bold mb-4 text-dark fs-5">Opciones de Foto</h6>
+                <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
+                    <button class="btn btn-outline-primary rounded-pill fw-bold px-4 py-2" onclick="bootstrap.Modal.getInstance(document.getElementById('photoOptionsModal')).hide(); document.getElementById('patientPhotoInput').click();">
+                        <i class="bi bi-folder2-open me-2"></i> Subir PC
+                    </button>
+                    <button class="btn btn-primary rounded-pill fw-bold px-4 py-2" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); border:none;" onclick="bootstrap.Modal.getInstance(document.getElementById('photoOptionsModal')).hide(); openCameraModal();">
+                        <i class="bi bi-camera-fill me-2"></i> Tomar Foto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cámara Modal (WebRTC) -->
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-camera-video text-primary me-2"></i> Tomar Foto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="stopCamera()"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <select id="cameraSelect" class="form-select bg-light border-0 shadow-none rounded-pill" onchange="startCamera(this.value)">
+                        <option value="">Buscando cámaras...</option>
+                    </select>
+                </div>
+                
+                <div class="position-relative bg-dark rounded-4 overflow-hidden shadow-sm mx-auto d-flex align-items-center justify-content-center" style="width: 320px; height: 320px;">
+                    <video id="cameraVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <div class="position-absolute border border-3 border-white border-opacity-50 rounded-circle" style="width: 280px; height: 280px; pointer-events: none;"></div>
+                </div>
+                <canvas id="cameraCanvas" style="display:none;"></canvas>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 d-flex justify-content-center">
+                <button type="button" class="btn btn-danger rounded-pill px-5 shadow-sm fw-bold shadow-sm" onclick="takePhotoAndUpload()">
+                    <i class="bi bi-camera me-1"></i> Capturar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentStream = null;
+
+    function openCameraModal() {
+        new bootstrap.Modal(document.getElementById('cameraModal')).show();
+        
+        // Get available cameras
+        navigator.mediaDevices.enumerateDevices()
+            .then(devices => {
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                const select = document.getElementById('cameraSelect');
+                select.innerHTML = '';
+                
+                if (videoDevices.length === 0) {
+                    select.innerHTML = '<option value="">No se detectaron cámaras</option>';
+                    return;
+                }
+
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Cámara ${index + 1}`;
+                    select.appendChild(option);
+                });
+
+                startCamera(videoDevices[0].deviceId);
+            })
+            .catch(err => {
+                console.error('Error listing devices:', err);
+                alert('No se pudo acceder a las cámaras. Verifique los permisos del navegador.');
+                bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
+            });
+    }
+
+    function startCamera(deviceId) {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+            video: {
+                deviceId: deviceId ? { exact: deviceId } : undefined,
+                width: { ideal: 640 },
+                height: { ideal: 640 },
+                facingMode: "user"
+            }
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(stream => {
+                currentStream = stream;
+                document.getElementById('cameraVideo').srcObject = stream;
+            })
+            .catch(err => {
+                console.error('Error starting camera:', err);
+                alert('Hubo un error al encender la cámara.');
+            });
+    }
+
+    function stopCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+        }
+    }
+
+    function takePhotoAndUpload() {
+        const video = document.getElementById('cameraVideo');
+        const canvas = document.getElementById('cameraCanvas');
+        const context = canvas.getContext('2d');
+
+        // Hacerlo cuadrado
+        const size = Math.min(video.videoWidth, video.videoHeight);
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Crop central
+        const startX = (video.videoWidth - size) / 2;
+        const startY = (video.videoHeight - size) / 2;
+
+        context.drawImage(video, startX, startY, size, size, 0, 0, size, size);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        stopCamera();
+        bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
+
+        // Subir via Fetch API
+        const formData = new FormData();
+        formData.append('photo_base64', dataUrl);
+        formData.append('_token', '{{ csrf_token() }}');
+
+        fetch("{{ route('patients.uploadBase64Photo', $patient) }}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const img = document.getElementById('patientAvatarImage');
+                img.src = data.photo_url;
+                img.style.display = 'block';
+                document.getElementById('patientAvatarIcon').style.display = 'none';
+                
+                // Update modal image too
+                const modalImg = document.getElementById('modalPatientAvatarImage');
+                if (modalImg) {
+                    modalImg.src = data.photo_url;
+                    modalImg.style.display = 'block';
+                    const modalIcon = document.getElementById('modalPatientAvatarIcon');
+                    if (modalIcon) modalIcon.style.display = 'none';
+                }
+            } else {
+                alert('Error al subir la foto: ' + data.message);
+            }
+        })
+        .catch(err => {
+            console.error('Upload Error:', err);
+            alert('Fallo la subida de la foto de la cámara.');
+        });
+    }
+
+    // Modal hide event to make sure camera turns off if clicked outside
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function () {
+        stopCamera();
+    });
+</script>
+
+<!-- Modal Asistente Clínico IA -->
+<div class="modal fade" id="aiAnalysisModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 rounded-4 shadow-lg" style="background: linear-gradient(180deg, #ffffff 0%, #f8f9fc 100%);">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        <i class="bi bi-robot text-primary fs-4"></i>
+                    </div>
+                    Ateneo IA (Groq)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
+                    <p class="text-muted">El Asistente Clínico IA analizará el historial completo del paciente (visitas, cirugías, notas médicas y datos demográficos) para ofrecerte un resumen, pronóstico y recomendaciones.</p>
+                    <button class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm" id="btnGenerateAi" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); border:none;" onclick="runAiAnalysis()">
+                        <i class="bi bi-stars me-2"></i> Generar Análisis Clínico
+                    </button>
+                </div>
+                
+                <div id="aiLoading" class="text-center py-4 d-none">
+                    <div class="spinner-grow text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h6 class="fw-bold text-primary">Analizando historial médico...</h6>
+                    <small class="text-muted">Consultando modelo de inteligencia artificial.</small>
+                </div>
+
+                <div id="aiResultContainer" class="d-none">
+                    <div class="card border-0 shadow-sm rounded-4" style="background-color: rgba(94, 106, 210, 0.05); border: 1px solid rgba(94, 106, 210, 0.2) !important;">
+                        <div class="card-body p-4 text-dark" id="aiResultText" style="white-space: pre-line; line-height: 1.6;">
+                            <!-- El resultado de la IA va aquí -->
+                        </div>
+                        <div class="card-footer bg-transparent border-top-0 pt-0 text-end">
+                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 border border-success border-opacity-25"><i class="bi bi-check-circle-fill me-1"></i> Guardado en Comentarios</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function runAiAnalysis() {
+        const btn = document.getElementById('btnGenerateAi');
+        const loading = document.getElementById('aiLoading');
+        const resultContainer = document.getElementById('aiResultContainer');
+        const resultText = document.getElementById('aiResultText');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Procesando...';
+        loading.classList.remove('d-none');
+        resultContainer.classList.add('d-none');
+
+        fetch("{{ route('patients.analyze', $patient) }}", {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            loading.classList.add('d-none');
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i> Volver a Analizar';
+            btn.disabled = false;
+
+            if (data.success) {
+                resultText.textContent = data.analysis;
+                resultContainer.classList.remove('d-none');
+                
+                // Si la pestaña de comentarios está activa, recargar la página para ver el nuevo comentario
+                // O mostrar un toast
+            } else {
+                alert('Error al generar el análisis: ' + data.message);
+            }
+        })
+        .catch(err => {
+            console.error('AI Error:', err);
+            loading.classList.add('d-none');
+            btn.innerHTML = '<i class="bi bi-stars me-2"></i> Generar Análisis Clínico';
+            btn.disabled = false;
+            alert('Fallo la conexión con el Asistente IA.');
+        });
+    }
+</script>
+
 @endsection

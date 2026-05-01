@@ -63,6 +63,19 @@
             </div>
         </div>
 
+        @if($patient->surgeries && $patient->surgeries->count() > 0)
+            <div style="margin-bottom: 20px; border: 1px solid #000; padding: 10px;">
+                <h4 style="margin: 0 0 10px 0; text-transform: uppercase;">Historial Quirúrgico</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    @foreach($patient->surgeries->sortByDesc('surgery_date') as $surg)
+                        <li style="margin-bottom: 5px;">
+                            <strong>{{ $surg->surgery_date->format('d/m/Y') }} - Ojo {{ $surg->eye }}:</strong> {{ $surg->notes }}
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <div class="visits-container">
             @forelse($visits as $visit)
                 <div class="visit-item">
