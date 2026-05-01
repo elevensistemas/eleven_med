@@ -12,8 +12,6 @@ class Patient extends Model
     use HasFactory;
 
     protected $guarded = ['id'];
- 
-    
     /**
      * Get the doctor/director attached to this patient profile.
      */
