@@ -170,17 +170,19 @@ class PatientController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            if ($patient->photo_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($patient->photo_path)) {
+            if ($patient->photo_path && \Illuminate\Support\Facades\Storage::disk('uploads')->exists(str_replace('uploads/', '', $patient->photo_path))) {
+                \Illuminate\Support\Facades\Storage::disk('uploads')->delete(str_replace('uploads/', '', $patient->photo_path));
+            } elseif ($patient->photo_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($patient->photo_path)) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($patient->photo_path);
             }
 
-            $path = $request->file('photo')->store('patients/photos', 'public');
-            $patient->photo_path = $path;
+            $path = $request->file('photo')->store('patients/photos', 'uploads');
+            $patient->photo_path = 'uploads/' . $path;
             $patient->save();
 
             return response()->json([
                 'success' => true,
-                'photo_url' => asset('storage/' . $path)
+                'photo_url' => asset($patient->photo_path)
             ]);
         }
 

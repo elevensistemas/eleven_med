@@ -195,7 +195,11 @@ body.theme-dark .sidebar-nav-container {
         <div class="d-flex flex-column align-items-center text-center mb-4 pb-2 border-bottom border-light">
             <div class="icon-box rounded-circle shadow-sm text-white d-flex align-items-center justify-content-center mb-3" id="patientAvatarBox" style="width: 70px; height: 70px; font-size: 2rem; cursor: pointer; overflow: hidden; position: relative; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);" data-bs-toggle="modal" data-bs-target="#photoOptionsModal" onmouseover="document.getElementById('avatarOverlay').style.opacity=1" onmouseout="document.getElementById('avatarOverlay').style.opacity=0">
                 @if($patient->photo_path)
-                    <img src="{{ asset('storage/' . $patient->photo_path) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;" id="patientAvatarImage">
+                    @if(Str::startsWith($patient->photo_path, 'uploads/'))
+                        <img src="{{ asset($patient->photo_path) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;" id="patientAvatarImage">
+                    @else
+                        <img src="{{ asset('storage/' . $patient->photo_path) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;" id="patientAvatarImage">
+                    @endif
                     <i class="bi bi-person-fill" id="patientAvatarIcon" style="display: none;"></i>
                 @else
                     <img src="" alt="Foto" style="width: 100%; height: 100%; object-fit: cover; display: none;" id="patientAvatarImage">
