@@ -170,14 +170,28 @@ class PatientController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
-            if ($patient->photo_path && \Illuminate\Support\Facades\Storage::disk('uploads')->exists(str_replace('uploads/', '', $patient->photo_path))) {
-                \Illuminate\Support\Facades\Storage::disk('uploads')->delete(str_replace('uploads/', '', $patient->photo_path));
-            } elseif ($patient->photo_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($patient->photo_path)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($patient->photo_path);
+            // Eliminar foto anterior si existe
+            if ($patient->photo_path) {
+                if (\Illuminate\Support\Str::startsWith($patient->photo_path, 'uploads/')) {
+                    $oldPath = public_path($patient->photo_path);
+                    if (file_exists($oldPath) && is_file($oldPath)) {
+                        @unlink($oldPath);
+                    }
+                } else {
+                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($patient->photo_path)) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($patient->photo_path);
+                    }
+                }
             }
 
-            $path = $request->file('photo')->store('patients/photos', 'uploads');
-            $patient->photo_path = 'uploads/' . $path;
+            $file = $request->file('photo');
+            $filename = md5(uniqid() . time()) . '.' . $file->getClientOriginalExtension();
+            $destinationPath = public_path('uploads/patients/photos');
+            
+            // Mover físicamente el archivo sin usar los Disks de Laravel
+            $file->move($destinationPath, $filename);
+            
+            $patient->photo_path = 'uploads/patients/photos/' . $filename;
             $patient->save();
 
             return response()->json([
