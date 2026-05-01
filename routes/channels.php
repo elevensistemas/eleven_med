@@ -13,16 +13,12 @@ Broadcast::channel('chat.{id}', function ($user, $id) {
 
 // Presence channel for global "Online" dots tracking
 Broadcast::channel('messenger', function ($user) {
-    if (auth()->check()) {
-        return ['id' => $user->id, 'name' => $user->name, 'roles' => $user->getRoleNames()];
-    }
+    return ['id' => $user->id, 'name' => $user->name];
 });
 
-// Presence/Private Channel for system notifications (Patient Arrivals etc)
+// Private Channel for system notifications (Patient Arrivals etc)
 Broadcast::channel('system', function ($user) {
-    if (auth()->check()) {
-        return ['id' => $user->id];
-    }
+    return true;
 });
 
 // Doctor Alerts Private Channel

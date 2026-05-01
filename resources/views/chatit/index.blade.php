@@ -121,6 +121,43 @@
     animation: wordBoundaryPulse 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
 }
 
+/* Theme Dark Support for Chat IA Page */
+body.theme-dark .main-content .chat-container {
+    background-color: #111827 !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
+body.theme-dark .main-content .chat-history {
+    background-color: transparent !important;
+}
+body.theme-dark .main-content .chat-input-area {
+    background-color: #111827 !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
+body.theme-dark .main-content .msg-bot {
+    background-color: #1e293b !important;
+    color: #e0e0e0 !important;
+}
+body.theme-dark .main-content .bg-light,
+body.theme-dark .main-content .bg-white {
+    background-color: #111827 !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #fff !important;
+}
+body.theme-dark .main-content #chatInput {
+    background-color: #1e293b !important;
+    color: #fff !important;
+}
+body.theme-dark .main-content #chatInput::placeholder {
+    color: #94a3b8 !important;
+}
+body.theme-dark .main-content .text-dark {
+    color: #fff !important;
+}
+body.theme-dark .main-content .card,
+body.theme-dark .main-content .bg-white {
+    background-color: #111827 !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
 </style>
 
 <div class="row" id="mainRow">
@@ -132,16 +169,13 @@
                     <i class="bi bi-robot fs-4"></i>
                 </div>
                 <div>
-                    <h5 class="fw-bold mb-0 text-dark">Chat IT</h5>
+                    <h5 class="fw-bold mb-0 text-dark">Chat IA</h5>
                     <small class="text-success"><i class="bi bi-circle-fill text-success" style="font-size: 0.6rem;"></i> En línea - RAG sincronizado</small>
                 </div>
                 <div class="ms-auto d-flex gap-2 align-items-center">
-                    <select id="assistantSelector" class="form-select form-select-sm fw-bold border-0 shadow-sm" style="width: 140px; background-color: #f8f9fa;">
-                        <option value="Mariana">Mariana</option>
-                        <option value="Eduardo">Eduardo</option>
-                    </select>
+                    <input type="hidden" id="assistantSelector" value="Mariana">
                     
-                    <button class="btn btn-primary fw-bold rounded-pill shadow d-flex align-items-center" id="marianaToggle" title="Activar Interfaz Visual" style="animation: listeningPulse 2s infinite alternate;">
+                    <button class="btn btn-primary fw-bold rounded-pill shadow d-flex align-items-center" id="marianaToggle" title="Activar Interfaz Visual">
                         <i class="bi bi-person-video me-2"></i> Invocar Asistente
                     </button>
                     <!-- Mantengo este hidden por compatibilidad del state isVoiceActive -->
@@ -152,7 +186,7 @@
             <!-- Chat History -->
             <div class="chat-history" id="chatArea">
                 <div class="msg msg-bot shadow-sm">
-                    Hola Doctor/a <strong>{{ Auth::user()->name }}</strong>. Soy Chat IT, el asistente inteligente de Eleven Med.<br><br>
+                    Hola Doctor/a <strong>{{ Auth::user()->name }}</strong>. Soy Chat IA, el asistente inteligente de Eleven Med.<br><br>
                     Tengo acceso a tus estadísticas en tiempo real. Puedes preguntarme cosas como:
                     <ul class="mb-0 mt-2">
                         <li>¿Cuántas consultas atendí este mes?</li>
@@ -185,8 +219,8 @@
     <!-- Visual Column -->
     <div class="col-lg-4 d-none text-center" id="marianaColumn">
         <div class="card border-0 shadow-sm rounded-4 h-100 bg-white d-flex align-items-center justify-content-center p-4">
-            <h4 class="fw-bold mb-0 text-dark" id="assistantTitle">Mariana</h4>
-            <p class="text-primary mb-2"><i class="bi bi-magic"></i> <span id="assistantSubtitle">Secretaria IA Activa</span></p>
+            <h4 class="fw-bold mb-0 text-dark" id="assistantTitle">Secretaria Inteligente</h4>
+            <p class="text-primary mb-2"><i class="bi bi-magic"></i> <span id="assistantSubtitle">Asistente IA Activa</span></p>
             
             <div class="mariana-wrapper mariana-idle" id="marianaSilouhette">
                 <img src="{{ asset('images/mariana_avatar.png') }}" class="mariana-img" alt="Asistente" id="assistantImagePreview">
@@ -258,6 +292,9 @@
             };
         }
         
+        if(window.speechSynthesis) {
+            window.speechSynthesis.cancel(); // Silenciar al bot si está hablando
+        }
         recognition.start();
     });
 
@@ -275,29 +312,16 @@
     // TTS Voices Setup
     let voices = [];
     let marianaVoice = null;
-    let eduardoVoice = null;
 
     function loadVoices() {
         voices = window.speechSynthesis.getVoices();
         marianaVoice = voices.find(v => v.name.includes('Sabina') || v.name.includes('Monica') || v.name.includes('Helena') || (v.lang.includes('es') && v.name.toLowerCase().includes('female')) || v.name === 'Google español');
-        eduardoVoice = voices.find(v => v.name.includes('Pablo') || v.name.includes('Jorge') || (v.lang.includes('es') && v.name.toLowerCase().includes('male')));
     }
     
     if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
     }
     loadVoices();
-
-    // Evento selector asistente
-    assistantSelector.addEventListener('change', function() {
-        const val = this.value;
-        document.getElementById('assistantTitle').innerText = val;
-        if(val === 'Eduardo') {
-            document.getElementById('assistantImagePreview').src = '{{ asset("images/eduardo_avatar.png") }}';
-        } else {
-            document.getElementById('assistantImagePreview').src = '{{ asset("images/mariana_avatar.png") }}';
-        }
-    });
 
     // Toggle Assistant Avatar
     marianaToggle.addEventListener('click', () => {
@@ -322,20 +346,13 @@
     function speakText(text) {
         if (!isVoiceActive && !wasLastMessageVoice && !isMarianaActive) return;
 
-        const currentAssistant = assistantSelector.value;
         let cleanText = text.replace(/[*#`_\-]/g, '').trim();
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = 'es-ES';
         
-        if (currentAssistant === 'Mariana') {
-            if (marianaVoice) utterance.voice = marianaVoice;
-            utterance.rate = 1.05;
-            utterance.pitch = 1.1; // Femenino Default
-        } else {
-            if (eduardoVoice) utterance.voice = eduardoVoice;
-            utterance.rate = 1.0;
-            utterance.pitch = 0.8; // Masculino Default
-        }
+        if (marianaVoice) utterance.voice = marianaVoice;
+        utterance.rate = 1.05;
+        utterance.pitch = 1.1; // Femenino Default
 
         // VTuber Illusion Engine hooks
         utterance.onstart = function() {
@@ -384,7 +401,69 @@
         if(isUser) {
             div.textContent = text;
         } else {
-            div.innerHTML = marked.parse(text);
+            // Parse CHART format: [CHART:pie|Pacientes por OS|OSDE:10,Particular:5]
+            let chartMatch = text.match(/\[CHART:(pie|bar|doughnut)\|([^\|]+)\|([^\]]+)\]/);
+            let chartHtml = '';
+            if (chartMatch) {
+                let cType = chartMatch[1];
+                let cTitle = chartMatch[2];
+                let cDataRaw = chartMatch[3];
+                let labels = [];
+                let dataValues = [];
+                cDataRaw.split(',').forEach(pair => {
+                    let parts = pair.split(':');
+                    if (parts.length === 2) {
+                        labels.push(parts[0].trim());
+                        dataValues.push(parseInt(parts[1].trim()));
+                    }
+                });
+                
+                let canvasId = 'aiChart_' + Date.now() + Math.floor(Math.random() * 1000);
+                chartHtml = `<div class="mt-3 bg-white p-2 rounded border shadow-sm"><canvas id="${canvasId}" style="max-height: 250px;"></canvas></div>`;
+                
+                // Remove the [CHART...] tag from the text
+                text = text.replace(chartMatch[0], '').trim();
+                
+                // Render the chart after the element is injected
+                setTimeout(() => {
+                    let canvas = document.getElementById(canvasId);
+                    if(canvas) {
+                        let ctx = canvas.getContext('2d');
+                        new Chart(ctx, {
+                            type: cType,
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: cTitle,
+                                    data: dataValues,
+                                    backgroundColor: ['#5e6ad2', '#20c997', '#fd7e14', '#e83e8c', '#6f42c1', '#17a2b8', '#ffc107', '#28a745'],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+                                    title: { display: true, text: cTitle, font: { size: 12 } }
+                                }
+                            }
+                        });
+                    }
+                }, 300);
+            }
+            
+            let feedbackHtml = `
+                <div class="feedback-actions mt-2 d-flex justify-content-end gap-2" style="opacity: 0.4; transition: opacity 0.2s;">
+                    <button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-secondary" onclick="submitFeedback(this, 'up')" title="Buena respuesta"><i class="bi bi-hand-thumbs-up fs-6"></i></button>
+                    <button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-secondary" onclick="submitFeedback(this, 'down')" title="Mala respuesta"><i class="bi bi-hand-thumbs-down fs-6"></i></button>
+                </div>
+            `;
+            
+            div.innerHTML = (text ? marked.parse(text) : '') + chartHtml + feedbackHtml;
+            
+            div.onmouseover = () => { let fb = div.querySelector('.feedback-actions'); if(fb) fb.style.opacity = '1'; };
+            div.onmouseout = () => { let fb = div.querySelector('.feedback-actions'); if(fb) fb.style.opacity = '0.4'; };
         }
 
         chatArea.appendChild(div);
@@ -401,13 +480,60 @@
         chatArea.scrollTop = chatArea.scrollHeight;
     }
 
+    window.submitFeedback = function(btn, type) {
+        let parent = btn.closest('.feedback-actions');
+        parent.innerHTML = type === 'up' 
+            ? '<span class="text-success small fw-bold"><i class="bi bi-hand-thumbs-up-fill"></i> Excelente</span>' 
+            : '<span class="text-danger small fw-bold"><i class="bi bi-hand-thumbs-down-fill"></i> Malo</span>';
+        
+        let feedbackMsg = type === 'up' 
+            ? "💡 [SISTEMA ALERTA INTERNA]: El usuario marcó tu respuesta anterior como EXCELENTE. Sigue usando ese formato, precisión o tono. Fue de gran utilidad." 
+            : "⚠️ [SISTEMA ALERTA INTERNA]: El usuario marcó tu respuesta anterior como MALA o errónea. Evita repetir ese patrón, discúlpate en tu próxima interacción y busca otra forma de responder.";
+            
+        window.aiChatHistory.push({ role: "system", content: feedbackMsg });
+        if(window.aiChatHistory.length > 20) window.aiChatHistory = window.aiChatHistory.slice(-20);
+        localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(window.aiChatHistory));
+    };
+
     function removeTyping() {
         const bubble = document.getElementById('typingBubble');
         if (bubble) bubble.remove();
     }
 
     let isSubmitting = false;
-    let chatHistory = []; // Memoria conversacional de Mariana
+    let lastUserQuestion = '';
+
+    const AI_STORAGE_KEY = 'elevenmed_ai_chat_history';
+    window.aiChatHistory = JSON.parse(localStorage.getItem(AI_STORAGE_KEY)) || [];
+
+    // Cargar historial de memoria compartida al iniciar
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.aiChatHistory.length > 0) {
+            // Limpiar área por si acaso
+            chatArea.innerHTML = '';
+            window.aiChatHistory.forEach(msg => {
+                appendMessage(msg.content, msg.role === 'user');
+            });
+            chatArea.scrollTop = chatArea.scrollHeight;
+        } else {
+            // Mensaje de bienvenida inicial
+            appendMessage("¡Hola! Soy Mariana, la Inteligencia Artificial Clínica de Eleven Med. ¿En qué puedo ayudarte hoy?", false);
+        }
+    });
+
+    // Flecha arriba para repetir última pregunta
+    chatInput.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (lastUserQuestion !== '') {
+                chatInput.value = lastUserQuestion;
+            } else {
+                // Si no hay variable local, buscar en el historial la última pregunta
+                const lastMsg = window.aiChatHistory.slice().reverse().find(m => m.role === 'user');
+                if (lastMsg) chatInput.value = lastMsg.content;
+            }
+        }
+    });
 
     chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -418,21 +544,29 @@
         if (!prompt) return;
 
         isSubmitting = true;
+        lastUserQuestion = prompt; // Guardar pregunta
 
         // User message
         appendMessage(prompt, true);
-        chatHistory.push({ role: "user", content: prompt });
-        if(chatHistory.length > 8) chatHistory = chatHistory.slice(-8); // Limitar a ultimas 8 interacciones
+        
+        window.aiChatHistory.push({ role: "user", content: prompt });
+        if(window.aiChatHistory.length > 20) window.aiChatHistory = window.aiChatHistory.slice(-20); // Limit context
+        localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(window.aiChatHistory));
 
         chatInput.value = '';
         sendBtn.disabled = true;
         
         appendTyping();
 
+        // Extraer historial sin incluir la última pregunta porque el backend ya la anexa como "prompt"
+        // Wait! The backend appends "prompt" separately, so we just send the history without the current prompt!
+        // But we already pushed the prompt to window.aiChatHistory.
+        // So we should send slice(0, -1) as history!
+        const historyToSend = window.aiChatHistory.slice(0, -1);
+
         axios.post('{{ route("chatit.ask") }}', { 
             prompt: prompt, 
-            history: chatHistory,
-            assistant: assistantSelector.value 
+            history: historyToSend
         }, {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
         })
@@ -441,7 +575,10 @@
             
             const reply = res.data.reply;
             appendMessage(reply, false);
-            chatHistory.push({ role: "assistant", content: reply });
+            
+            window.aiChatHistory.push({ role: "assistant", content: reply });
+            if(window.aiChatHistory.length > 20) window.aiChatHistory = window.aiChatHistory.slice(-20);
+            localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(window.aiChatHistory));
             
             // Hablar Respuesta IA
             speakText(reply);

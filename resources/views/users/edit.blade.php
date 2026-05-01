@@ -4,6 +4,24 @@
 @section('subtitle', 'Modifica los datos de acceso y roles del integrante')
 
 @section('content')
+<style>
+    .modern-input {
+        background-color: #f8f9fa !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 8px !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 0.95rem !important;
+        color: #212529 !important;
+        transition: all 0.2s ease-in-out !important;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.02) !important;
+    }
+    .modern-input:focus {
+        background-color: #ffffff !important;
+        border-color: #5e6ad2 !important;
+        box-shadow: 0 0 0 4px rgba(94, 106, 210, 0.15) !important;
+        outline: none !important;
+    }
+</style>
 <div class="row">
     <div class="col-lg-8">
         <div class="modern-card p-4">
@@ -13,13 +31,13 @@
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
                         <label class="form-label fw-bold text-muted small text-uppercase">Nombre Completo</label>
-                        <input type="text" name="name" class="form-control form-control-lg bg-light border-0 shadow-none @error('name') is-invalid @enderror" value="{{ old('name', $user->name) }}" required>
+                        <input type="text" name="name" class="form-control modern-input @error('name') is-invalid @enderror" value="{{ old('name', $user->name) }}" required>
                         @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                     
                     <div class="col-md-6">
                         <label class="form-label fw-bold text-muted small text-uppercase">Correo Electrónico (Login)</label>
-                        <input type="email" name="email" class="form-control form-control-lg bg-light border-0 shadow-none @error('email') is-invalid @enderror" value="{{ old('email', $user->email) }}" required>
+                        <input type="email" name="email" class="form-control modern-input @error('email') is-invalid @enderror" value="{{ old('email', $user->email) }}" required>
                         @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
                 </div>
@@ -29,7 +47,7 @@
                     <div class="d-flex align-items-center gap-3">
                         <img src="{{ $user->avatar_url }}" width="60" height="60" class="rounded-circle shadow-sm object-fit-cover">
                         <div class="flex-grow-1">
-                            <input type="file" name="profile_photo" class="form-control bg-light border-0 shadow-none @error('profile_photo') is-invalid @enderror" accept="image/png, image/jpeg, image/webp">
+                            <input type="file" name="profile_photo" class="form-control modern-input @error('profile_photo') is-invalid @enderror" accept="image/png, image/jpeg, image/webp">
                             <div class="form-text text-muted small mt-1"><i class="bi bi-info-circle me-1"></i>Dejá este campo vacío si querés conservar la foto actual o ícono.</div>
                         </div>
                     </div>

@@ -57,24 +57,39 @@ class ChatItController extends Controller
         
         if(empty($topDiagnosticos)) $topDiagnosticos = "Aún sin datos consistentes.";
 
-        // Total Pacientes
-        $totalPacientes = Patient::where('director_id', $user->id)->count();
-        if ($totalPacientes == 0) {
-            $totalPacientes = Visit::where('doctor_id', $user->id)->distinct('patient_id')->count('patient_id');
+        // --- 1. RAG: Extracción de Estadísticas Reales ---
+        if ($user->hasRole('administrador')) {
+            $totalPacientes = Patient::count();
+            $consultasMesActual = Visit::whereMonth('created_at', Carbon::now()->month)
+                ->whereYear('created_at', Carbon::now()->year)
+                ->count();
+            $turnosProximos = Appointment::where('date', '>=', Carbon::today()->format('Y-m-d'))
+                ->where('date', '<=', Carbon::today()->addDays(7)->format('Y-m-d'))
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->count();
+        } else {
+            // Total Pacientes
+            $totalPacientes = Patient::where('director_id', $user->id)->count();
+            if ($totalPacientes == 0) {
+                $totalPacientes = Visit::where('doctor_id', $user->id)->distinct('patient_id')->count('patient_id');
+            }
+
+            // Consultas mes
+            $consultasMesActual = Visit::where('doctor_id', $user->id)
+                ->whereMonth('created_at', Carbon::now()->month)
+                ->whereYear('created_at', Carbon::now()->year)
+                ->count();
+
+            // Turnos agendados preventivamente
+            $turnosProximos = Appointment::where('doctor_id', $user->id)
+                ->where('date', '>=', Carbon::today()->format('Y-m-d'))
+                ->where('date', '<=', Carbon::today()->addDays(7)->format('Y-m-d'))
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->count();
         }
 
-        // Consultas mes
-        $consultasMesActual = Visit::where('doctor_id', $user->id)
-            ->whereMonth('created_at', Carbon::now()->month)
-            ->whereYear('created_at', Carbon::now()->year)
-            ->count();
-
-        // Turnos agendados preventivamente
-        $turnosProximos = Appointment::where('doctor_id', $user->id)
-            ->where('date', '>=', Carbon::today()->format('Y-m-d'))
-            ->where('date', '<=', Carbon::today()->addDays(7)->format('Y-m-d'))
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->count();
+        $ultimoPacienteObj = Visit::with('patient')->orderBy('created_at', 'desc')->first();
+        $ultimoPaciente = $ultimoPacienteObj && $ultimoPacienteObj->patient ? $ultimoPacienteObj->patient->first_name . ' ' . $ultimoPacienteObj->patient->last_name . ' (' . ($ultimoPacienteObj->created_at ? \Carbon\Carbon::parse($ultimoPacienteObj->created_at)->format('d/m/Y H:i') : '') . ') - Diagnóstico: ' . ($ultimoPacienteObj->diagnostico ?? 'No registrado') : 'Ninguno';
 
         $diasMapa = [1=>'Lunes', 2=>'Martes', 3=>'Miércoles', 4=>'Jueves', 5=>'Viernes', 6=>'Sábado', 7=>'Domingo'];
         $doctoresString = "";
@@ -90,20 +105,64 @@ class ChatItController extends Controller
         }
 
         // --- 2. Armado del Contexto (System Instruction) ---
-        $assistantName = $request->input('assistant', 'Mariana');
-        $assistantRole = $assistantName === 'Eduardo' ? 'secretario administrativo y asistente médico' : 'secretaria médica y asistente inteligente interactiva';
+        $assistantName = 'Secretaria Médica IA';
+        $assistantRole = 'secretaria médica y asistente corporativa interactiva';
         
-        $hoy = Carbon::today()->format('Y-m-d');
+        $memoryFilePath = storage_path('app/ai_memory/' . $user->id . '_memory.txt');
+        $userMemory = file_exists($memoryFilePath) ? file_get_contents($memoryFilePath) : 'Ninguna regla o preferencia personal guardada todavía.';
+
+        $now = Carbon::now('America/Argentina/Buenos_Aires');
+        $hoy = $now->format('Y-m-d');
+        $horaActual = $now->format('H:i');
+        
+        $proximosTurnosHoy = \App\Models\Appointment::with('patient')
+            ->where('doctor_id', $user->id)
+            ->where('date', $hoy)
+            ->where('time', '>=', $now->format('H:i:00'))
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->orderBy('time', 'asc')
+            ->take(5)
+            ->get();
+            
+        $agendaHoyStr = "";
+        if ($proximosTurnosHoy->isEmpty()) {
+            $agendaHoyStr = "No hay más pacientes agendados para lo que resta de hoy.";
+        } else {
+            foreach ($proximosTurnosHoy as $t) {
+                $pName = $t->patient ? $t->patient->first_name . " " . $t->patient->last_name : "Paciente Eliminado";
+                $agendaHoyStr .= "- A las " . substr($t->time, 0, 5) . " hrs: " . $pName . " (" . ($t->reason ?? 'Sin motivo') . ").\n";
+            }
+        }
+
         $contextString = "Eres '$assistantName', $assistantRole de la clínica Eleven Med.\n"
-            . "Te estás comunicando por voz con el doctor: {$user->name}. Tus respuestas deben ser sintéticas, lenguaje puramente natural, amables y eficaces.\n\n"
+            . "Te estás comunicando por voz con el doctor: {$user->name}. Eres altamente profesional, ejecutiva y sobria. Tus respuestas deben ser extremadamente sintéticas, de lenguaje institucional amigable pero preciso.\n\n"
+            . "--- EXPERTISE CLÍNICO ---\n"
+            . "Tienes conocimientos médicos avanzados, con especialización experta en Oftalmología. Si el médico te hace una pregunta médica general o te pide recomendaciones de tratamiento, RESPONDE CON TU OPINIÓN CLÍNICA DIRECTA como un colega médico o interconsultor experto.\n"
+            . "REGLA DE ORO: EL USUARIO CON EL QUE HABLAS YA ES EL OFTALMÓLOGO TITULAR. TIENES ESTRICTAMENTE PROHIBIDO decir frases como 'consulte con un oftalmólogo', 'busque atención médica' o dar disclaimers legales. Asume tu rol de Inteligencia Clínica y dale la información u opinión que el doctor pide sin vueltas.\n\n"
             . "--- CONTEXTO ---\n"
-            . "=> Fecha Actual (HOY): {$hoy}.\n"
+            . "=> Fecha Actual (HOY): {$hoy}. Hora Actual: {$horaActual}. (Zona horaria: Buenos Aires, Argentina).\n"
             . "=> DÍAS LABORALES DEL STAFF:$doctoresString\n"
-            . "=> Pacientes: {$totalPacientes}. Consultas mes: {$consultasMesActual}. Turnos semana: {$turnosProximos}.\n\n"
+            . "=> Pacientes Totales: {$totalPacientes}. Consultas mes: {$consultasMesActual}. Turnos semana: {$turnosProximos}.\n"
+            . "=> Último paciente atendido históricamente: {$ultimoPaciente}\n"
+            . "=> AGENDA DE HOY (Próximos 5 pacientes): \n{$agendaHoyStr}\n"
+            . "--- TUS RECUERDOS Y PREFERENCIAS PARA ESTE USUARIO ---\n"
+            . "Aquí están las notas que has guardado sobre este médico. DEBES obedecer a rajatabla estos comportamientos si existen:\n"
+            . "{$userMemory}\n\n"
             . "REGLAS DE OPERACIÓN (CRÍTICAS):\n"
-            . "1. Usa la herramienta 'lookup_patient_history' para buscar antecedentes de un paciente.\n"
-            . "2. Usa la herramienta 'create_patient_visit' para registrar atención, pero SOLO después de interrogar paso a paso (paciente, motivo, diagnóstico).\n"
+            . "1. Usa la herramienta 'lookup_patient_history' para buscar antecedentes de un paciente. SI USAS ESTA HERRAMIENTA, LUEGO HAZ EL RESUMEN CLÍNICO DETALLADO QUE EL MÉDICO TE PIDIÓ Y RESPONDE SU PREGUNTA.\n"
+            . "2. ASISTENTE DE VISITAS (WIZARD): Si el médico dice 'necesito registrar visita' o 'anotar consulta', NO LLAMES A LA HERRAMIENTA DE INMEDIATO. Debes actuar como un asistente paso a paso:\n"
+            . "   - Paso 1: Pregúntale '¿Cuál es el nombre del paciente?'. Espera su respuesta.\n"
+            . "   - Paso 2: Luego pregúntale '¿Cuál fue el motivo de consulta?'. Espera su respuesta.\n"
+            . "   - Paso 3: Luego pregúntale '¿Cuál es el diagnóstico?'. Espera su respuesta.\n"
+            . "   - Paso 4: Luego pregúntale '¿Cuál es el tratamiento indicado?'. Espera su respuesta.\n"
+            . "   - Paso 5: Al final dile '¿Desea guardar la consulta ahora?'. Si dice que SÍ, ENTONCES y SOLO ENTONCES llama a la herramienta 'create_patient_visit' con todos los datos recopilados.\n"
             . "3. Usa la herramienta 'schedule_patient_appointment' SIEMPRE que pidan turnos. En tu primer llamado, usa siempre confirm_save=false para leer silenciosamente la disponibilidad. Luego comunícale verbalmente las sugerencias al médico. Solo cuando él acepte, llama la herramienta con confirm_save=true.\n"
+            . "4. Usa la herramienta 'memorize_information' CUANDO el médico te pida aprender una orden persistente.\n"
+            . "5. Usa la herramienta 'get_clinic_statistics' CUANDO te pidan estadísticas globales numéricas y necesites un resumen masivo.\n"
+            . "6. Usa la herramienta 'check_doctor_agenda' CUANDO el médico pregunte por la agenda de un día específico (ej: mañana o una fecha puntual).\n"
+            . "7. Usa la herramienta 'check_waiting_room' CUANDO pregunten quién está en la sala de espera, tiempos de dilatación, espera o qué pacientes hay en la clínica ahora mismo.\n"
+            . "IMPORTANTE SOBRE GRÁFICOS: Si el médico te pide un GRÁFICO, y tienes los datos, DEBES dibujar el gráfico usando ESTRICTAMENTE este código en tu texto: [CHART:pie|Titulo|Etiqueta1:Valor1,Etiqueta2:Valor2].\n"
+            . "IMPORTANTE SOBRE IMÁGENES/ESTUDIOS: Si el doctor te pide ver un estudio, el historial de paciente te devolverá códigos Markdown (ej: ![OCT](/storage...)). DEBES escribir ese código exacto en tu respuesta para que la imagen aparezca visualmente.\n"
             . "ADVERTENCIA DE SISTEMA: Tienes estrictamente prohibido escribir diccionarios JSON, bloques de código, o variables técnicas en tus mensajes de voz al usuario. Las herramientas debes llamarlas nativamente por el protocolo API, nunca escribiendo datos crudos en tu texto.";
 
         // --- 3. Ejecución de GROQ REST API (OpenAI Standard) ---
@@ -120,7 +179,7 @@ class ChatItController extends Controller
                         "properties" => [
                             "nombre_paciente" => [
                                 "type" => "string",
-                                "description" => "Nombre o apellido del paciente a buscar (ej: 'Alejandro Lo Presti', 'Valentina', 'Escobar')"
+                                "description" => "Nombre, apellido o DNI del paciente a buscar (ej: 'Alejandro Lo Presti', 'Valentina', '30137102')"
                             ]
                         ],
                         "required" => ["nombre_paciente"]
@@ -161,6 +220,42 @@ class ChatItController extends Controller
                         "required" => ["nombre_paciente", "fecha_deseada", "hora_deseada", "confirm_save"]
                     ]
                 ]
+            ],
+            [
+                "type" => "function",
+                "function" => [
+                    "name" => "memorize_information",
+                    "description" => "Llama a esta función cuando el médico te pida que recuerdes una regla, dato, preferencia o instrucción personal a largo plazo (ej: 'recuerda que me gusta que me digas jefe', 'acuerdate que no atiendo PAMI', etc).",
+                    "parameters" => [
+                        "type" => "object",
+                        "properties" => [
+                            "informacion" => [ "type" => "string", "description" => "El dato o regla exacta a guardar en la libreta personal del doctor." ]
+                        ],
+                        "required" => ["informacion"]
+                    ]
+                ]
+            ],
+            [
+                "type" => "function",
+                "function" => [
+                    "name" => "get_clinic_statistics",
+                    "description" => "Obtiene todas las estadísticas avanzadas de la clínica: cantidad de pacientes por obra social, totales, etc. Úsala cuando pidan reportes numéricos o gráficos.",
+                    "parameters" => [
+                        "type" => "object",
+                        "properties" => (object)[]
+                    ]
+                ]
+            ],
+            [
+                "type" => "function",
+                "function" => [
+                    "name" => "check_waiting_room",
+                    "description" => "Consulta el estado en vivo de la Sala de Espera de la clínica. Llama a esta función para saber quiénes están, en qué estado se encuentran (Dilatación, Atención Médica, etc.) y cuánto tiempo llevan esperando.",
+                    "parameters" => [
+                        "type" => "object",
+                        "properties" => (object)[]
+                    ]
+                ]
             ]
         ];
 
@@ -180,8 +275,18 @@ class ChatItController extends Controller
         
         $messages[] = ["role" => "user", "content" => $request->prompt];
 
+        // Guardar el historial completo actualizado en un archivo JSON para que el administrador pueda verlo
+        $chatDir = storage_path('app/ai_chats');
+        if (!file_exists($chatDir)) {
+            mkdir($chatDir, 0755, true);
+        }
+        
+        $fullHistory = is_array($historyData) ? $historyData : [];
+        $fullHistory[] = ["role" => "user", "content" => $request->prompt];
+        file_put_contents($chatDir . '/' . $user->id . '_chat.json', json_encode($fullHistory));
+
         $payload = [
-            "model" => "llama-3.3-70b-versatile", // Modelo estable actualizado de Groq
+            "model" => "llama-3.1-8b-instant", // Usamos modelo instantáneo para evitar el límite de 100k tokens por día del modelo 70b
             "messages" => $messages,
             "tools" => $tools,
             "tool_choice" => "auto",
@@ -211,7 +316,7 @@ class ChatItController extends Controller
 
                         $functionResponseData = [];
                         if ($targetPatientBase) {
-                            $patientResultEager = Patient::with(['visits' => function($q) { $q->latest()->take(10); }, 'appointments' => function($q) { $q->where('date', '>=', date('Y-m-d')); }, 'surgeries' => function($q) { $q->latest(); }])->find($targetPatientBase->id);
+                            $patientResultEager = Patient::with(['visits' => function($q) { $q->latest()->take(10); }, 'appointments' => function($q) { $q->where('date', '>=', date('Y-m-d')); }, 'surgeries' => function($q) { $q->latest(); }, 'studies' => function($q) { $q->latest(); }])->find($targetPatientBase->id);
 
                             $history = $patientResultEager->visits->map(function($v) {
                                 return "Fecha: " . $v->created_at->format('d/m/Y') . " -> Diagnostico: " . ($v->diagnostico ?? 'S/D') . ". Motivo: " . ($v->motivo_consulta ?? 'S/D');
@@ -225,13 +330,19 @@ class ChatItController extends Controller
                                 return "Cirugía ojo {$s->eye} el {$s->surgery_date->format('d/m/Y')}. Notas: " . ($s->notes ?? 'N/A');
                             })->implode(' || ');
 
+                            $estudios = $patientResultEager->studies->map(function($s) {
+                                $path = \Illuminate\Support\Facades\Storage::url($s->file_path);
+                                return "Estudio: " . ($s->study_type ?? 'Estudio Médico') . " del " . $s->created_at->format('d/m/Y') . ". Para mostrar la imagen incrustada en tu respuesta usa este código markdown exacto: ![" . ($s->study_type ?? 'Imagen') . "](" . $path . ")";
+                            })->implode(' || ');
+
                             $functionResponseData = [
                                 "estado" => "éxito",
                                 "paciente_encontrado_dni" => $patientResultEager->dni,
                                 "paciente_encontrado_nombre" => mb_strtoupper($patientResultEager->last_name . ', ' . $patientResultEager->first_name),
                                 "ultimo_historial_clinico" => empty($history) ? "Paciente nuevo, sin historia." : $history,
                                 "proximos_turnos_agendados" => empty($futurosTurnos) ? "No tiene turnos futuros." : $futurosTurnos,
-                                "historial_quirurgico" => empty($cirugias) ? "No tiene cirugías registradas." : $cirugias
+                                "historial_quirurgico" => empty($cirugias) ? "No tiene cirugías registradas." : $cirugias,
+                                "estudios_medicos" => empty($estudios) ? "No tiene estudios cargados en el sistema. Avisar al doctor." : $estudios
                             ];
                         } elseif ($patientResult->count() > 1) {
                             $functionResponseData = ["estado" => "fallo", "error" => "Detecté múltiples pacientes parecidos a '{$searchQuery}'. Pídele al doctor el nombre más exacto posible."];
@@ -241,6 +352,7 @@ class ChatItController extends Controller
 
                         // --- 4. Double Trip (Segundo Request inyectando la respuesta de DB) ---
                         $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none'; // Force text response, no more tool calls
                         
                         // Añadir la memoria de por qué estamos haciendo un segundo viaje
                         $secondPayload['messages'][] = $messageResponse;
@@ -255,6 +367,15 @@ class ChatItController extends Controller
                         if ($res2->successful()) {
                             $data2 = $res2->json();
                             $finalReply = $data2['choices'][0]['message']['content'] ?? '';
+                            
+                            // Check if it's trying to call a tool again instead of responding
+                            if (empty(trim($finalReply)) && isset($data2['choices'][0]['message']['tool_calls'])) {
+                                $finalReply = "Recuperé la historia de la base de datos, pero la IA entró en un ciclo de búsqueda. Aquí tienes los datos en crudo:\n\n" . json_encode($functionResponseData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                            } elseif (empty(trim($finalReply))) {
+                                // Forced fallback with the raw data so the user at least sees it!
+                                $finalReply = "Aquí están los datos recuperados:\n\n" . $functionResponseData['ultimo_historial_clinico'] . "\n\n" . ($functionResponseData['estudios_medicos'] ?? '');
+                            }
+                            
                             return response()->json(['success' => true, 'reply' => $finalReply]);
                         } else {
                             return response()->json(['error' => 'Groq falló procesando tu historia de BD: ' . $res2->body()], 500);
@@ -282,6 +403,7 @@ class ChatItController extends Controller
 
                         // --- 4. Double Trip (Segundo Request) ---
                         $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none';
                         $secondPayload['messages'][] = $messageResponse;
                         $secondPayload['messages'][] = [
                             "role" => "tool",
@@ -351,6 +473,7 @@ class ChatItController extends Controller
 
                         // --- Double Trip para Agenda ---
                         $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none';
                         $secondPayload['messages'][] = $messageResponse;
                         $secondPayload['messages'][] = [
                             "role" => "tool",
@@ -367,6 +490,177 @@ class ChatItController extends Controller
                             return response()->json(['success' => true, 'reply' => $replyContent]);
                         } else {
                             return response()->json(['error' => 'Error BD Agenda: ' . $res2->body()], 500);
+                        }
+                    } elseif ($funcName === 'get_clinic_statistics') {
+                        $counts = \App\Models\Patient::select('obra_social', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+                            ->whereNotNull('obra_social')
+                            ->where('obra_social', '!=', '')
+                            ->groupBy('obra_social')
+                            ->get();
+                        
+                        $formatted = [];
+                        foreach ($counts as $row) {
+                            $formatted[$row->obra_social] = $row->total;
+                        }
+                        
+                        $total = \App\Models\Patient::count();
+                        
+                        $functionResponseData = [
+                            "estado" => "éxito",
+                            "total_pacientes_registrados" => $total,
+                            "datos_pacientes_por_obra_social" => $formatted
+                        ];
+
+                        $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none';
+                        $secondPayload['messages'][] = $messageResponse;
+                        $secondPayload['messages'][] = [
+                            "role" => "tool",
+                            "tool_call_id" => $toolCall['id'],
+                            "name" => "get_clinic_statistics",
+                            "content" => json_encode($functionResponseData)
+                        ];
+
+                        $res2 = Http::withToken($apiKey)->post($url, $secondPayload);
+                        if ($res2->successful()) {
+                            $finalReply = $res2->json()['choices'][0]['message']['content'] ?? '';
+                            if (empty(trim($finalReply))) $finalReply = "Aquí están los datos del sistema en crudo:\n\n" . json_encode($functionResponseData);
+                            return response()->json(['success' => true, 'reply' => $finalReply]);
+                        } else {
+                            return response()->json(['error' => 'Error en métricas AI.'], 500);
+                        }
+                    } elseif ($funcName === 'memorize_information') {
+                        $args = json_decode($toolCall['function']['arguments'], true);
+                        $info = $args['informacion'] ?? '';
+                        
+                        $memoryDir = storage_path('app/ai_memory');
+                        if (!file_exists($memoryDir)) {
+                            mkdir($memoryDir, 0755, true);
+                        }
+                        $memoryFilePath = $memoryDir . '/' . $user->id . '_memory.txt';
+                        $timestamp = date('d/m/Y H:i');
+                        file_put_contents($memoryFilePath, "- [{$timestamp}] {$info}\n", FILE_APPEND);
+
+                        $functionResponseData = ["estado" => "éxito", "mensaje" => "La regla personal se grabó en la memoria del doctor. Dile que de ahora en adelante siempre recordarás eso."];
+
+                        // --- Double Trip para Memoria ---
+                        $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none';
+                        $secondPayload['messages'][] = $messageResponse;
+                        $secondPayload['messages'][] = [
+                            "role" => "tool",
+                            "tool_call_id" => $toolCall['id'],
+                            "name" => "memorize_information",
+                            "content" => json_encode($functionResponseData)
+                        ];
+
+                        $res2 = Http::withToken($apiKey)->post($url, $secondPayload);
+                        if ($res2->successful()) {
+                            $data2 = $res2->json();
+                            $replyContent = $data2['choices'][0]['message']['content'] ?? '';
+                            return response()->json(['success' => true, 'reply' => $replyContent]);
+                        } else {
+                            return response()->json(['error' => 'Error BD Memoria: ' . $res2->body()], 500);
+                        }
+                    } elseif ($funcName === 'check_doctor_agenda') {
+                        $args = json_decode($toolCall['function']['arguments'], true);
+                        $fecha = $args['fecha'] ?? \Carbon\Carbon::today()->format('Y-m-d');
+                        
+                        $turnos = \App\Models\Appointment::with('patient')
+                            ->where('doctor_id', $user->id)
+                            ->where('date', $fecha)
+                            ->whereIn('status', ['pending', 'confirmed'])
+                            ->orderBy('time', 'asc')
+                            ->get();
+                            
+                        if ($turnos->isEmpty()) {
+                            $functionResponseData = ["estado" => "éxito", "mensaje" => "No tienes pacientes agendados para la fecha $fecha."];
+                        } else {
+                            $lista = [];
+                            foreach ($turnos as $t) {
+                                $pName = $t->patient ? $t->patient->first_name . " " . $t->patient->last_name : "Paciente Eliminado";
+                                $lista[] = "A las " . substr($t->time, 0, 5) . " hrs: " . $pName . " (Motivo: " . ($t->reason ?? 'Sin motivo') . ")";
+                            }
+                            $functionResponseData = [
+                                "estado" => "éxito", 
+                                "fecha" => $fecha,
+                                "total_pacientes" => $turnos->count(),
+                                "agenda" => $lista
+                            ];
+                        }
+
+                        $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none';
+                        $secondPayload['messages'][] = $messageResponse;
+                        $secondPayload['messages'][] = [
+                            "role" => "tool",
+                            "tool_call_id" => $toolCall['id'],
+                            "name" => "check_doctor_agenda",
+                            "content" => json_encode($functionResponseData)
+                        ];
+
+                        $res2 = Http::withToken($apiKey)->post($url, $secondPayload);
+                        if ($res2->successful()) {
+                            $replyContent = $res2->json()['choices'][0]['message']['content'] ?? '';
+                            if (empty(trim($replyContent))) $replyContent = "Aquí tienes la información de la agenda:\n\n" . json_encode($functionResponseData['agenda'] ?? $functionResponseData, JSON_UNESCAPED_UNICODE);
+                            return response()->json(['success' => true, 'reply' => $replyContent]);
+                        } else {
+                            return response()->json(['error' => 'Error consultando agenda: ' . $res2->body()], 500);
+                        }
+                    } elseif ($funcName === 'check_waiting_room') {
+                        $activePatients = Patient::whereHas('assignments', function ($q) {
+                                $q->whereDate('created_at', Carbon::today())
+                                  ->whereIn('status', ['in_progress', 'pending']);
+                            })
+                            ->with(['assignments' => function ($q) {
+                                $q->whereDate('created_at', Carbon::today())->orderBy('id', 'asc');
+                            }])
+                            ->get();
+                            
+                        if ($activePatients->isEmpty()) {
+                            $functionResponseData = ["estado" => "éxito", "mensaje" => "La sala de espera está completamente vacía en este momento."];
+                        } else {
+                            $lista = [];
+                            $now = Carbon::now();
+                            foreach ($activePatients as $p) {
+                                $activeEvent = $p->assignments->where('status', 'in_progress')->first();
+                                $currentStatus = $activeEvent ? $activeEvent->event_type : 'En Cola';
+                                $timeInStatus = $activeEvent && $activeEvent->started_at ? $activeEvent->started_at->diffInMinutes($now) . " min" : "N/A";
+                                
+                                $totals = 0;
+                                foreach($p->assignments as $a) {
+                                    if ($a->status === 'completed' && $a->started_at && $a->ended_at) {
+                                        $totals += $a->started_at->diffInMinutes($a->ended_at);
+                                    }
+                                }
+                                $totalTime = $totals + ($activeEvent && $activeEvent->started_at ? $activeEvent->started_at->diffInMinutes($now) : 0);
+                                
+                                $lista[] = "Paciente: {$p->first_name} {$p->last_name} | Estado Actual: {$currentStatus} (hace {$timeInStatus}) | Tiempo Total en Clínica: {$totalTime} min";
+                            }
+                            $functionResponseData = [
+                                "estado" => "éxito",
+                                "total_pacientes_activos" => $activePatients->count(),
+                                "detalle_sala_espera" => $lista
+                            ];
+                        }
+
+                        $secondPayload = $payload;
+                        $secondPayload['tool_choice'] = 'none';
+                        $secondPayload['messages'][] = $messageResponse;
+                        $secondPayload['messages'][] = [
+                            "role" => "tool",
+                            "tool_call_id" => $toolCall['id'],
+                            "name" => "check_waiting_room",
+                            "content" => json_encode($functionResponseData)
+                        ];
+
+                        $res2 = Http::withToken($apiKey)->post($url, $secondPayload);
+                        if ($res2->successful()) {
+                            $replyContent = $res2->json()['choices'][0]['message']['content'] ?? '';
+                            if (empty(trim($replyContent))) $replyContent = "Aquí tienes los datos de la sala de espera:\n\n" . json_encode($functionResponseData['detalle_sala_espera'] ?? $functionResponseData);
+                            return response()->json(['success' => true, 'reply' => $replyContent]);
+                        } else {
+                            return response()->json(['error' => 'Error consultando sala de espera: ' . $res2->body()], 500);
                         }
                     }
                 } else {
@@ -487,9 +781,18 @@ class ChatItController extends Controller
     private function findPatientFuzzy($searchQuery) {
         $searchQueryOriginal = mb_strtolower(trim($searchQuery));
         $searchQueryClean = str_replace(' ', '', $searchQueryOriginal);
+        $dniSearch = str_replace('dni', '', $searchQueryClean); // Extraer posible DNI
+        
         $allPatients = Patient::all();
         
-        $matchedPatients = $allPatients->filter(function($p) use ($searchQueryClean, $searchQueryOriginal) {
+        $matchedPatients = $allPatients->filter(function($p) use ($searchQueryClean, $searchQueryOriginal, $dniSearch) {
+            // Match DNI exacto o sub-string
+            if (!empty($p->dni) && !empty($dniSearch)) {
+                if (strpos($p->dni, $dniSearch) !== false || strpos($dniSearch, $p->dni) !== false) {
+                    return true;
+                }
+            }
+
             $fullName1 = str_replace(' ', '', mb_strtolower($p->first_name . $p->last_name));
             $fullName2 = str_replace(' ', '', mb_strtolower($p->last_name . $p->first_name));
             
