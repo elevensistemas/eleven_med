@@ -16,6 +16,7 @@ class PatientStudy extends Model
     {
         return $this->belongsTo(Patient::class);
     }
+    
 
     public function uploader(): BelongsTo
     {
