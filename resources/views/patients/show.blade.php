@@ -1043,40 +1043,90 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
     if (!this.files || !this.files[0]) return;
     
     let file = this.files[0];
-    let formData = new FormData();
-    formData.append('photo', file);
     
     // Show loading UI on overlay
     const overlay = document.getElementById('avatarOverlay');
     overlay.innerHTML = '<div class="spinner-border text-light spinner-border-sm" role="status"></div>';
     overlay.style.opacity = 1;
+
+    let img = new Image();
+    let reader = new FileReader();
     
-    fetch('{{ route("patients.uploadPhoto", $patient) }}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.success) {
-            document.getElementById('patientAvatarImage').src = data.photo_url;
-            document.getElementById('patientAvatarImage').style.display = 'block';
-            document.getElementById('patientAvatarIcon').style.display = 'none';
+    reader.onload = function(e) {
+        img.src = e.target.result;
+    }
+    
+    img.onload = function() {
+        let canvas = document.createElement('canvas');
+        let ctx = canvas.getContext('2d');
+        
+        // Max dimensions
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+            if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+            }
         } else {
-            alert('Error al subir la imagen: ' + (data.message || 'Intente nuevamente.'));
+            if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+            }
         }
-    })
-    .catch(error => {
-        console.error(error);
-        alert('Error de red al subir la imagen.');
-    })
-    .finally(() => {
-        overlay.innerHTML = '<i class="bi bi-camera"></i>';
-        overlay.style.opacity = 0;
-        document.getElementById('patientPhotoInput').value = '';
-    });
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(function(blob) {
+            let formData = new FormData();
+            formData.append('photo', blob, 'photo.jpg');
+            
+            fetch('{{ route("patients.uploadPhoto", $patient) }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if(!response.ok && response.status === 422) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if(data.success) {
+                    // Cache bust the image URL to force reload
+                    document.getElementById('patientAvatarImage').src = data.photo_url + '?t=' + new Date().getTime();
+                    document.getElementById('patientAvatarImage').style.display = 'block';
+                    document.getElementById('patientAvatarIcon').style.display = 'none';
+                } else {
+                    alert('Error al subir la imagen: ' + (data.message || 'Intente nuevamente.'));
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                let errorMsg = 'Error de red al subir la imagen.';
+                if(error && error.errors && error.errors.photo) {
+                    errorMsg = error.errors.photo[0];
+                }
+                alert(errorMsg);
+            })
+            .finally(() => {
+                overlay.innerHTML = '<i class="bi bi-camera"></i>';
+                overlay.style.opacity = 0;
+                document.getElementById('patientPhotoInput').value = '';
+            });
+        }, 'image/jpeg', 0.8);
+    };
+    
+    reader.readAsDataURL(file);
 });
 </script>
 @endsection
