@@ -1213,7 +1213,7 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
 
     let img = new Image();
     let reader = new FileReader();
-    
+     
     fetch('{{ route("patients.uploadPhoto", $patient) }}', {
         method: 'POST',
         body: formData,
