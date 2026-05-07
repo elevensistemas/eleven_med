@@ -166,6 +166,22 @@ class ConsoleController extends Controller
             ->where('status', 'in_progress')
             ->first();
 
+        if ($request->next_step === 'AUTO') {
+            $nextPending = $patient->assignments()
+                ->whereDate('created_at', Carbon::today())
+                ->where('status', 'pending')
+                ->orderBy('id', 'asc')
+                ->first();
+
+            if (!$nextPending) {
+                return back()->with('error', 'No hay un siguiente paso en la cola para este paciente. Seleccione un estado manualmente.');
+            }
+        }
+
+        if ($active && $active->event_type === $request->next_step) {
+            return back()->with('error', 'El paciente ya se encuentra en el estado: ' . $request->next_step);
+        }
+
         if ($active) {
             $active->update([
                 'status' => 'completed',
