@@ -84,6 +84,7 @@ class Patient extends Model
         });
     }
 
+    
     public function assignments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PatientAssignment::class)->latest('started_at');
