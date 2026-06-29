@@ -263,6 +263,42 @@ body.theme-dark .sidebar-nav-container {
             </a>
         </div>
 
+        @if(session('success'))
+            <div class="alert alert-success bg-success bg-opacity-10 text-success border-0 rounded-4 shadow-sm mb-4 py-2 px-3"><i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}</div>
+        @endif
+        @if(session('error') && !request()->is('console*') && !session()->has('error_handled_elsewhere'))
+            <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border-0 rounded-4 shadow-sm mb-4 py-2 px-3"><i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}</div>
+        @endif
+        @if(session('info'))
+            <div class="alert alert-info bg-info bg-opacity-10 text-info border-0 rounded-4 shadow-sm mb-4 py-2 px-3"><i class="bi bi-info-circle-fill me-2"></i> {{ session('info') }}</div>
+        @endif
+
+        @php
+            $activeOpenVisit = $patient->visits->where('is_open', true)->first();
+        @endphp
+        @if($activeOpenVisit)
+            <div class="alert alert-success bg-success bg-opacity-10 border-0 rounded-4 shadow-sm mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2 py-3 px-4" style="border-left: 5px solid #198754 !important;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="bi bi-unlock-fill fs-5"></i></div>
+                    <div>
+                        <h6 class="fw-bold text-success mb-1">Hay una consulta médica abierta para este paciente</h6>
+                        <p class="text-muted small mb-0">Iniciada por Dr. {{ $activeOpenVisit->doctor->name ?? 'Staff' }} el {{ $activeOpenVisit->created_at->format('d/m/Y a las H:i') }}.</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('visits.edit', $activeOpenVisit) }}" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm text-white border-0 d-flex align-items-center gap-1 btn-sm">
+                        <i class="bi bi-pencil-fill"></i> Continuar Consulta
+                    </a>
+                    <form action="{{ route('visits.toggleStatus', $activeOpenVisit) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-danger rounded-pill px-4 fw-bold shadow-sm btn-sm" onclick="return confirm('¿Está seguro de cerrar esta consulta?');">
+                            <i class="bi bi-lock-fill"></i> Cerrar Consulta
+                        </button>
+                    </form>
+                </div>
+            </div>
+        @endif
+
         <!-- Panel Superior (Top Tabs) -->
         <ul class="nav modern-tabs mb-3" id="topTabs" role="tablist">
             <li class="nav-item" role="presentation">
@@ -593,17 +629,19 @@ body.theme-dark .sidebar-nav-container {
                 @if($patient->visits->count() > 0)
                     <div class="d-flex flex-column gap-3" id="diagnosticosGrid">
                         @foreach($patient->visits as $visit)
-                            <div class="card border-0 shadow-sm rounded-4 overflow-hidden diagnostico-item" data-date="{{ $visit->created_at->timestamp }}" style="border: 1px solid rgba(0,0,0,0.05) !important;">
+                            <div class="card border-0 shadow-sm rounded-4 overflow-hidden diagnostico-item" data-date="{{ $visit->created_at->timestamp }}" style="border: 1px solid rgba(0,0,0,0.05) !important; {{ $visit->is_open ? 'border-left: 5px solid #198754 !important;' : '' }}">
                                 <!-- Header Strip -->
-                                <div class="px-4 py-3 d-flex justify-content-between align-items-center bg-light border-bottom border-secondary border-opacity-10">
+                                <div class="px-4 py-3 d-flex justify-content-between align-items-center {{ $visit->is_open ? 'bg-success bg-opacity-10' : 'bg-light' }} border-bottom border-secondary border-opacity-10">
                                     <div class="d-flex align-items-center gap-3">
-                                        <span class="badge {{ $loop->first ? 'bg-primary bg-gradient text-white shadow-sm' : 'bg-secondary bg-opacity-10 text-secondary' }} rounded-pill px-3 py-2 fw-bold" style="font-size: 0.9rem;"># {{ $visit->id }}</span>
+                                        <span class="badge {{ $visit->is_open ? 'bg-success text-white shadow-sm' : 'bg-secondary bg-opacity-10 text-secondary' }} rounded-pill px-3 py-2 fw-bold" style="font-size: 0.9rem;"># {{ $visit->id }}</span>
                                         <span class="text-muted fw-bold"><i class="bi bi-calendar3 me-1"></i> {{ $visit->created_at->format('d M Y - H:i') }}</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-3">
                                         <span class="fw-bold text-dark"><i class="bi bi-person-fill text-primary opacity-75 me-1"></i> {{ $visit->doctor->name ?? 'Staff' }}</span>
-                                        @if($loop->first)
-                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1"><i class="bi bi-lock-fill me-1"></i> Cerrada</span>
+                                        @if($visit->is_open)
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1"><i class="bi bi-unlock-fill me-1"></i> Abierta</span>
+                                        @else
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-3 py-1"><i class="bi bi-lock-fill me-1"></i> Cerrada</span>
                                         @endif
                                     </div>
                                 </div>
@@ -633,12 +671,20 @@ body.theme-dark .sidebar-nav-container {
                                         <div class="col-md-5 d-flex align-items-start gap-3 border-md-start ps-md-4">
                                             <div class="bg-warning bg-opacity-10 text-warning rounded-3 p-2 d-flex align-items-center justify-content-center mt-1" style="width: 32px; height: 32px;"><i class="bi bi-file-earmark-text fs-5"></i></div>
                                             <div class="text-dark fw-medium lh-sm w-100" style="font-size: 0.95rem; white-space: pre-line; padding-top: 0.35rem;">{{ $visit->motivo_consulta ?? '-' }}</div>
-                                        </div>
-
-                                        <!-- Actions -->
-                                        <div class="col-md-1 position-absolute bottom-0 end-0 d-flex justify-content-end align-items-end pe-4 pb-2">
-                                            <button class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-sm border border-secondary border-opacity-10 me-2" title="Eliminar"><i class="bi bi-trash text-danger"></i></button>
-                                            <button class="btn btn-sm btn-light text-secondary rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" title="Registro Bloqueado"><i class="bi bi-lock-fill"></i></button>
+                                            <!-- Actions -->
+                                            <div class="col-md-2 position-absolute bottom-0 end-0 d-flex justify-content-end align-items-end pe-4 pb-2 gap-2">
+                                                @if($visit->is_open)
+                                                    <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-light text-primary rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" title="Editar evolución">
+                                                        <i class="bi bi-pencil-fill"></i>
+                                                    </a>
+                                                @endif
+                                                <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-light {{ $visit->is_open ? 'text-success font-weight-bold' : 'text-danger' }} rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" title="{{ $visit->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
+                                                        <i class="bi {{ $visit->is_open ? 'bi-unlock-fill' : 'bi-lock-fill' }}"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -799,55 +845,59 @@ body.theme-dark .sidebar-nav-container {
                 @endif
                 
                 <h5 class="fw-bold text-dark mb-4"><i class="bi bi-plus-circle text-muted me-2"></i>Registrar Nueva Cirugía</h5>
-                <div class="row g-4 mb-2">
-                    <!-- OD Box -->
-                    <div class="col-md-6">
-                        <div class="card border-0 bg-primary bg-opacity-10 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
-                                <h6 class="fw-bold text-primary mb-0"><i class="bi bi-eye-fill me-2 bg-primary text-white p-2 rounded-circle shadow-sm"></i> Quirófano OD</h6>
+                <form action="{{ route('patient.surgeries.store', $patient) }}" method="POST">
+                    @csrf
+                    <div class="row g-4 mb-3">
+                        <!-- OD Box -->
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-primary bg-opacity-10 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
+                                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-eye-fill me-2 bg-primary text-white p-2 rounded-circle shadow-sm"></i> Cirugía OD (Ojo Derecho)</h6>
+                                </div>
+                                <div class="card-body p-4 pt-2">
+                                    <div class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(126, 68, 139, 0.1) !important;">
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-bold">Fecha de Cirugía</label>
+                                            <input type="date" name="od_date" class="form-control bg-light border-0 shadow-none rounded-3">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label text-muted small fw-bold">Plan / LIO / Notas</label>
+                                            <textarea name="od_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, lente utilizada..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="card-body p-4 pt-2">
-                                <form action="{{ route('patient.surgeries.store', $patient) }}" method="POST" class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(126, 68, 139, 0.1) !important;">
-                                    @csrf
-                                    <input type="hidden" name="eye" value="OD">
-                                    <div class="mb-3">
-                                        <label class="form-label text-muted small fw-bold">Fecha de Cirugía <span class="text-danger">*</span></label>
-                                        <input type="date" name="surgery_date" class="form-control bg-light border-0 shadow-none rounded-3" required>
+                        </div>
+
+                        <!-- OI Box -->
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-success bg-opacity-10 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
+                                    <h6 class="fw-bold text-success mb-0"><i class="bi bi-eye-fill me-2 bg-success text-white p-2 rounded-circle shadow-sm"></i> Cirugía OI (Ojo Izquierdo)</h6>
+                                </div>
+                                <div class="card-body p-4 pt-2">
+                                    <div class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(25, 135, 84, 0.1) !important;">
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-bold">Fecha de Cirugía</label>
+                                            <input type="date" name="oi_date" class="form-control bg-light border-0 shadow-none rounded-3">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label text-muted small fw-bold">Plan / LIO / Notas</label>
+                                            <textarea name="oi_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, lente utilizada..."></textarea>
+                                        </div>
                                     </div>
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small fw-bold">Plan / LIO / Notas <span class="text-danger">*</span></label>
-                                        <textarea name="notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" required placeholder="Procedimiento, lente utilizada..."></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary w-100 fw-bold rounded-pill shadow-sm"><i class="bi bi-save2 me-2"></i> Guardar Operación OD</button>
-                                </form>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- OI Box -->
-                    <div class="col-md-6">
-                        <div class="card border-0 bg-success bg-opacity-10 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
-                                <h6 class="fw-bold text-success mb-0"><i class="bi bi-eye-fill me-2 bg-success text-white p-2 rounded-circle shadow-sm"></i> Quirófano OI</h6>
-                            </div>
-                            <div class="card-body p-4 pt-2">
-                                <form action="{{ route('patient.surgeries.store', $patient) }}" method="POST" class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(25, 135, 84, 0.1) !important;">
-                                    @csrf
-                                    <input type="hidden" name="eye" value="OI">
-                                    <div class="mb-3">
-                                        <label class="form-label text-muted small fw-bold">Fecha de Cirugía <span class="text-danger">*</span></label>
-                                        <input type="date" name="surgery_date" class="form-control bg-light border-0 shadow-none rounded-3" required>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small fw-bold">Plan / LIO / Notas <span class="text-danger">*</span></label>
-                                        <textarea name="notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" required placeholder="Procedimiento, lente utilizada..."></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm"><i class="bi bi-save2 me-2"></i> Guardar Operación OI</button>
-                                </form>
-                            </div>
-                        </div>
+                    <!-- Single Save Button at the bottom -->
+                    <div class="d-flex justify-content-end mt-4">
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm d-flex align-items-center gap-2 py-2 border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); font-size: 1.05rem;">
+                            <i class="bi bi-save2 me-2"></i> Guardar Procedimientos
+                        </button>
                     </div>
-                </div>
+                </form>
             </div>
 
             <!-- Tab: Turnos -->
@@ -999,10 +1049,31 @@ body.theme-dark .sidebar-nav-container {
                         <!-- Contenedor Flex para ordenar -->
                         <div id="visitasListContainer" class="d-flex flex-column gap-5">
                             @foreach($patient->visits as $visit)
-                            <div class="visit-item">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <h6 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;"><i class="bi bi-record-circle text-primary me-2"></i> Visita: {{ $visit->created_at->format('d-M-Y') }}</h6>
-                                    <h6 class="text-secondary mb-0 fw-bold" style="font-size: 1.05rem;">Médico: {{ $visit->doctor->name ?? 'Staff' }}</h6>
+                            <div class="visit-item p-3 rounded-4 mb-4" style="{{ $visit->is_open ? 'background-color: rgba(25, 135, 84, 0.03); border-left: 5px solid #198754; border-top: 1px solid rgba(0,0,0,0.05); border-right: 1px solid rgba(0,0,0,0.05); border-bottom: 1px solid rgba(0,0,0,0.05);' : 'border-left: 1px solid rgba(0,0,0,0.05);' }}">
+                                <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                                    <h6 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;">
+                                        <i class="bi bi-record-circle {{ $visit->is_open ? 'text-success' : 'text-primary' }} me-2"></i> 
+                                        Visita: {{ $visit->created_at->format('d-M-Y') }}
+                                        @if($visit->is_open)
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1 ms-2" style="font-size: 0.8rem;"><i class="bi bi-unlock-fill me-1"></i> Abierta</span>
+                                        @else
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2 py-1 ms-2" style="font-size: 0.8rem;"><i class="bi bi-lock-fill me-1"></i> Cerrada</span>
+                                        @endif
+                                    </h6>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h6 class="text-secondary mb-0 fw-bold me-3" style="font-size: 1.05rem;">Médico: {{ $visit->doctor->name ?? 'Staff' }}</h6>
+                                        @if($visit->is_open)
+                                            <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;">
+                                                <i class="bi bi-pencil-fill"></i> Continuar
+                                            </a>
+                                        @endif
+                                        <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-{{ $visit->is_open ? 'success' : 'danger' }} rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="{{ $visit->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
+                                                <i class="bi {{ $visit->is_open ? 'bi-unlock-fill' : 'bi-lock-fill' }}"></i> {{ $visit->is_open ? 'Cerrar' : 'Reabrir' }}
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                                 <hr class="my-3 border-secondary opacity-10" style="border-width: 2px;">
                                 

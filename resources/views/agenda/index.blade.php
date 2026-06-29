@@ -71,14 +71,18 @@
 .slot-time { width: 60px; font-weight: 700; color: #555; font-size: 0.95rem; }
 .slot-free { border-left: 4px solid #198754; cursor: pointer; }
 .slot-free:hover { background: #f4fbf6; border-color: #198754; }
-.slot-booked { border-left: 4px solid #dc3545; background: #fffcfc; }
+.slot-booked { border-left: 4px solid #198754; background: #f4fbf6; }
+.slot-extra { border-left: 4px solid #0d6efd; background: #f0f5ff; }
+.slot-blocked { border-left: 4px solid #fd7e14; background: #fffaf5; }
 
 /* Dark mode fixes */
 body.theme-dark .agenda-timeline-col { background-color: transparent !important; }
 body.theme-dark .agenda-timeline-header { background-color: #111827 !important; border-color: rgba(255,255,255,0.05) !important; }
 body.theme-dark .agenda-express-footer { background-color: #111827 !important; border-color: rgba(255,255,255,0.05) !important; border-top-color: rgba(255,255,255,0.05) !important; }
 body.theme-dark .slot-card { background-color: #1e293b !important; border-color: rgba(255,255,255,0.05) !important; }
-body.theme-dark .slot-booked { background-color: rgba(220, 53, 69, 0.1) !important; }
+body.theme-dark .slot-booked { background-color: rgba(25, 135, 84, 0.1) !important; border-left-color: #198754 !important; }
+body.theme-dark .slot-extra { background-color: rgba(13, 110, 253, 0.1) !important; border-left-color: #0d6efd !important; }
+body.theme-dark .slot-blocked { background-color: rgba(253, 126, 20, 0.1) !important; border-left-color: #fd7e14 !important; }
 body.theme-dark .slot-free:hover { background-color: rgba(25, 135, 84, 0.15) !important; }
 body.theme-dark .slot-noshow { background-color: rgba(255,255,255,0.05) !important; border-left-color: #555 !important; }
 
@@ -157,7 +161,12 @@ body.theme-dark .cal-day.available:hover {
                     <h6 id="selectedDateLabel_{{ $doc->id }}" class="fw-bold mb-0 text-dark">Agenda Diaria</h6>
                     <small class="text-muted" style="font-size: 0.75rem;" id="selectedDateSubLabel_{{ $doc->id }}">Seleccione un día en el calendario</small>
                 </div>
-                <div id="dateLoadingSpinner_{{ $doc->id }}" class="spinner-border text-primary spinner-border-sm d-none" role="status"></div>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-bold d-none text-dark" id="blockAgendaBtn_{{ $doc->id }}" onclick="openBlockModal({{ $doc->id }})">
+                        <i class="bi bi-shield-lock-fill me-1"></i> Bloquear Agenda
+                    </button>
+                    <div id="dateLoadingSpinner_{{ $doc->id }}" class="spinner-border text-primary spinner-border-sm d-none" role="status"></div>
+                </div>
             </div>
             
             <div id="slotsContainer_{{ $doc->id }}" class="p-3 flex-grow-1 overflow-auto" style="max-height: 280px;">
@@ -258,6 +267,55 @@ body.theme-dark .cal-day.available:hover {
                     <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" id="submitAppointmentBtn" class="btn btn-primary rounded-pill px-4 text-nowrap" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;" disabled><i class="bi bi-check2-circle me-1"></i> Confirmar y Agendar</button>
                 </div>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Bloquear Horario / Agenda -->
+<div class="modal fade" id="blockAgendaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Bloquear Agenda/Horarios</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form action="{{ route('api.agenda.blocks.store') }}" method="POST" id="blockAgendaForm">
+            @csrf
+            <input type="hidden" name="doctor_id" id="blockDoctorId">
+            <input type="hidden" name="date" id="blockDate">
+            
+            <div class="modal-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label text-muted small fw-bold">Tipo de Bloqueo *</label>
+                        <select name="block_type" id="blockTypeSelect" class="form-control bg-light border-0 shadow-none form-select" required>
+                            <option value="day">Día completo (Todo el día)</option>
+                            <option value="range">Franja horaria (Rango de horas)</option>
+                            <option value="slot">Turno específico (Un solo turno)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6 time-fields d-none">
+                        <label class="form-label text-muted small fw-bold">Hora de Inicio *</label>
+                        <input type="time" name="start_time" class="form-control bg-light border-0 shadow-none" id="blockStartTime">
+                    </div>
+
+                    <div class="col-md-6 time-fields d-none">
+                        <label class="form-label text-muted small fw-bold">Hora de Fin *</label>
+                        <input type="time" name="end_time" class="form-control bg-light border-0 shadow-none" id="blockEndTime">
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label text-muted small fw-bold">Motivo / Notas del Bloqueo *</label>
+                        <input type="text" name="reason" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Trámite personal, Congreso, etc." required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="submitBlockBtn" class="btn btn-warning rounded-pill px-4 text-dark fw-bold"><i class="bi bi-lock-fill me-1"></i> Aplicar Bloqueo</button>
             </div>
         </form>
     </div>
@@ -467,6 +525,10 @@ body.theme-dark .cal-day.available:hover {
              e.target.classList.add('selected-day');
         }
 
+        // Show the block agenda button
+        const blockBtn = document.getElementById(`blockAgendaBtn_${doctorId}`);
+        if (blockBtn) blockBtn.classList.remove('d-none');
+
         const [y, m, d] = dateStr.split('-');
         const dateObj = new Date(y, m - 1, d);
         
@@ -501,10 +563,20 @@ body.theme-dark .cal-day.available:hover {
 
                 document.getElementById(`selectedDateSubLabel_${doctorId}`).innerHTML = 
                     `<span class="text-success fw-bold">Libres: ${totalLibres}</span> &nbsp;|&nbsp; ` +
-                    `<span class="text-danger fw-bold">Sobre-turnos: ${totalExtras}</span> &nbsp;|&nbsp; ` +
+                    `<span class="text-primary fw-bold">Sobre-turnos: ${totalExtras}</span> &nbsp;|&nbsp; ` +
                     `<span class="text-dark fw-bold">Total Turnos: ${totalOcupados}</span>`;
 
                 let html = '';
+
+                // Add timeline legend at the top
+                html += `
+                <div class="d-flex gap-2 mb-3 justify-content-start flex-wrap bg-light p-2 rounded-3 border" style="font-size: 0.75rem;">
+                    <span class="text-muted fw-bold text-uppercase me-2 align-self-center" style="font-size: 0.65rem;">Referencias:</span>
+                    <span class="badge border bg-white text-success px-2 py-1"><span class="d-inline-block rounded-circle me-1" style="width:8px; height:8px; background:#198754;"></span> Turno Asignado</span>
+                    <span class="badge border bg-white text-primary px-2 py-1"><span class="d-inline-block rounded-circle me-1" style="width:8px; height:8px; background:#0d6efd;"></span> Sobreturno</span>
+                    <span class="badge border bg-white text-warning px-2 py-1"><span class="d-inline-block rounded-circle me-1" style="width:8px; height:8px; background:#fd7e14;"></span> Bloqueado</span>
+                </div>
+                `;
                 
                 res.data.slots.forEach(slot => {
                     const isPast = slot.is_past;
@@ -528,13 +600,20 @@ body.theme-dark .cal-day.available:hover {
                                 <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
                             </ul>`;
 
+                        const isExtra = slot.is_extra || false;
+                        const cardClass = isExtra ? 'slot-extra' : 'slot-booked';
+                        const timeColorClass = isExtra ? 'text-primary' : 'text-success';
+                        const statusText = isExtra ? 'Sobreturno' : 'Ocupado';
+                        const statusColorClass = isExtra ? 'text-primary' : 'text-success';
+                        const iconClass = isExtra ? 'bi-person-badge-fill' : 'bi-person-lock';
+
                         html += `
-                        <div class="slot-card slot-booked flex-row justify-content-between ${isPast ? 'opacity-75' : ''}">
+                        <div class="slot-card ${cardClass} flex-row justify-content-between ${isPast ? 'opacity-75' : ''}">
                             <div class="d-flex align-items-center gap-3 pe-2">
-                                <span class="slot-time d-block text-danger">${slot.time}</span>
+                                <span class="slot-time d-block ${timeColorClass}">${slot.time}</span>
                                 <div>
-                                    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-person-lock me-1"></i> ${slot.patient_name}</h6>
-                                    <small class="text-danger">Ocupado</small>
+                                    <h6 class="mb-0 fw-bold text-dark"><i class="bi ${iconClass} me-1"></i> ${slot.patient_name}</h6>
+                                    <small class="${statusColorClass}">${statusText}</small>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center dropdown">
@@ -560,6 +639,22 @@ body.theme-dark .cal-day.available:hover {
                                 </ul>
                             </div>
                         </div>`;
+                    } else if (slot.status === 'blocked') {
+                        html += `
+                        <div class="slot-card slot-blocked justify-content-between position-relative pe-2">
+                            <div class="d-flex align-items-center gap-3 flex-grow-1">
+                                <span class="slot-time d-block text-warning">${slot.time}</span>
+                                <div>
+                                    <h6 class="mb-0 text-warning fw-bold"><i class="bi bi-lock-fill me-1"></i> Horario Bloqueado</h6>
+                                    <small class="text-muted">${slot.reason} ${slot.conflict_patient ? ' - <strong>Conflicto:</strong> ' + slot.conflict_patient : ''}</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center z-2">
+                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-none fw-bold" onclick="unblockSlot(${slot.block_id}, ${doctorId}, '${dateStr}')" style="font-size:0.7rem;">
+                                    Desbloquear
+                                </button>
+                            </div>
+                        </div>`;
                     } else {
                         if (!isPast) {
                             html += `
@@ -574,6 +669,9 @@ body.theme-dark .cal-day.available:hover {
                                 <div class="d-flex align-items-center dropdown z-2">
                                     <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
                                         + Sobreturno
+                                    </button>
+                                    <button class="btn btn-sm text-warning fw-bold px-3 py-1 border-0 me-2" onclick="quickBlockSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Bloquear este turno" style="font-size:0.7rem; border-radius: 20px; background: rgba(253, 126, 20, 0.1);">
+                                        <i class="bi bi-lock-fill"></i> Bloquear
                                     </button>
                                     <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
                                         <i class="bi bi-plus text-white"></i>
@@ -729,6 +827,121 @@ body.theme-dark .cal-day.available:hover {
             spawnToast('Turno Actualizado', 'El paciente fue marcado como ausente.', 'exclamation-triangle-fill', 'warning text-dark');
         })
         .catch(err => alert('Ocurrió un error al registrar la ausencia.'));
+    }
+
+    // Lógica para alternar inputs de hora en el modal de bloqueo
+    const blockTypeSelect = document.getElementById('blockTypeSelect');
+    const timeFields = document.querySelectorAll('.time-fields');
+    const blockStartTime = document.getElementById('blockStartTime');
+    const blockEndTime = document.getElementById('blockEndTime');
+
+    if (blockTypeSelect) {
+        blockTypeSelect.addEventListener('change', function() {
+            if (this.value === 'day') {
+                timeFields.forEach(el => el.classList.add('d-none'));
+                blockStartTime.removeAttribute('required');
+                blockEndTime.removeAttribute('required');
+            } else {
+                timeFields.forEach(el => el.classList.remove('d-none'));
+                blockStartTime.setAttribute('required', 'true');
+                blockEndTime.setAttribute('required', 'true');
+            }
+        });
+    }
+
+    function quickBlockSlot(doctorId, date, time, duration) {
+        document.getElementById('blockDoctorId').value = doctorId;
+        document.getElementById('blockDate').value = date;
+        document.getElementById('blockTypeSelect').value = 'slot';
+        
+        // Calculate end time based on duration
+        const [hours, minutes] = time.split(':');
+        const start = new Date();
+        start.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        const end = new Date(start.getTime() + duration * 60000);
+        
+        const startTimeStr = time;
+        const endTimeStr = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+        
+        document.getElementById('blockStartTime').value = startTimeStr;
+        document.getElementById('blockEndTime').value = endTimeStr;
+        
+        // Trigger event listener for visibility
+        blockTypeSelect.dispatchEvent(new Event('change'));
+        
+        const modal = new bootstrap.Modal(document.getElementById('blockAgendaModal'));
+        modal.show();
+    }
+
+    function openBlockModal(doctorId) {
+        const dateStr = doctorStates[doctorId].selectedDateStr;
+        if (!dateStr) return;
+        
+        document.getElementById('blockDoctorId').value = doctorId;
+        document.getElementById('blockDate').value = dateStr;
+        document.getElementById('blockTypeSelect').value = 'day';
+        document.getElementById('blockStartTime').value = '';
+        document.getElementById('blockEndTime').value = '';
+        
+        // Trigger event listener for visibility
+        blockTypeSelect.dispatchEvent(new Event('change'));
+        
+        const modal = new bootstrap.Modal(document.getElementById('blockAgendaModal'));
+        modal.show();
+    }
+
+    // Interceptar form de guardado de bloqueos
+    const blockAgendaForm = document.getElementById('blockAgendaForm');
+    if (blockAgendaForm) {
+        blockAgendaForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBlockBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.setAttribute('disabled', 'true');
+            btn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i> Bloqueando...';
+
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+
+            axios.post(this.action, data)
+                .then(res => {
+                    const modalEl = document.getElementById('blockAgendaModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if(modal) modal.hide();
+
+                    const doctorId = data.doctor_id;
+                    const dateStr = data.date;
+
+                    // Refresh
+                    renderCalendar(doctorId);
+                    loadDaySlots(doctorId, dateStr);
+                    if (typeof loadNearestSlots === 'function') loadNearestSlots();
+
+                    btn.removeAttribute('disabled');
+                    btn.innerHTML = originalText;
+                    this.reset();
+                })
+                .catch(err => {
+                    alert(err.response?.data?.message || 'Ocurrió un error al intentar bloquear el horario.');
+                    btn.removeAttribute('disabled');
+                    btn.innerHTML = originalText;
+                });
+        });
+    }
+
+    function unblockSlot(blockId, doctorId, dateStr) {
+        if(!confirm('¿Estás seguro de que deseas eliminar este bloqueo y liberar el horario?')) return;
+        
+        axios.delete(`/api/agenda/blocks/${blockId}`, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            renderCalendar(doctorId);
+            loadDaySlots(doctorId, dateStr);
+            if (typeof loadNearestSlots === 'function') loadNearestSlots();
+        })
+        .catch(err => alert('Ocurrió un error al intentar quitar el bloqueo.'));
     }
 
     // Init Call

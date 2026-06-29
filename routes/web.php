@@ -83,6 +83,9 @@ Route::middleware('auth')->group(function () {
     Route::post('patients/{patient}/analyze', [App\Http\Controllers\PatientController::class, 'analyzeHistory'])->name('patients.analyze');
     Route::get('patients/{patient}/visits/create', [App\Http\Controllers\VisitController::class, 'create'])->name('patient.visits.create');
     Route::post('patients/{patient}/visits', [App\Http\Controllers\VisitController::class, 'store'])->name('patient.visits.store');
+    Route::get('visits/{visit}/edit', [App\Http\Controllers\VisitController::class, 'edit'])->name('visits.edit');
+    Route::put('visits/{visit}', [App\Http\Controllers\VisitController::class, 'update'])->name('visits.update');
+    Route::post('visits/{visit}/toggle-status', [App\Http\Controllers\VisitController::class, 'toggleStatus'])->name('visits.toggleStatus');
     Route::get('patients/{patient}/history/print', [App\Http\Controllers\PatientController::class, 'printHistory'])->name('patients.history.print');
     
     // Patient Flow Console (Phase 15 Pivot)
@@ -115,6 +118,8 @@ Route::middleware('auth')->group(function () {
     Route::post('agenda/settings/config', [App\Http\Controllers\AgendaSettingsController::class, 'storeConfig'])->name('agenda.config.store');
     Route::post('agenda/settings/blocks', [App\Http\Controllers\AgendaSettingsController::class, 'storeBlock'])->name('agenda.blocks.store');
     Route::delete('agenda/settings/blocks/{block}', [App\Http\Controllers\AgendaSettingsController::class, 'destroyBlock'])->name('agenda.blocks.destroy');
+    Route::post('api/agenda/blocks', [App\Http\Controllers\AppointmentController::class, 'storeBlock'])->name('api.agenda.blocks.store');
+    Route::delete('api/agenda/blocks/{block}', [App\Http\Controllers\AppointmentController::class, 'destroyBlock'])->name('api.agenda.blocks.destroy');
     // Chat IT (Asistente Médico IA)
     Route::get('/chat-it', [App\Http\Controllers\ChatItController::class, 'index'])->name('chatit.index');
     Route::post('/chat-it/ask', [App\Http\Controllers\ChatItController::class, 'ask'])->name('chatit.ask');

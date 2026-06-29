@@ -524,6 +524,38 @@
                     </ul>
                 </div>
 
+                <!-- Dropdown: Pacientes Consultados (Últimos 14 días) -->
+                <div class="dropdown" data-id="consulted">
+                    <i class="bi bi-clock omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Pacientes consultados (Últimos 14 días)"></i>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 320px;">
+                        <li class="dropdown-header fw-bold text-success border-bottom mb-2 pb-2">
+                            <i class="bi bi-calendar-event me-1"></i> Consultados (Últimos 14 días)
+                        </li>
+                        @if(isset($consultedPatients) && count($consultedPatients) > 0)
+                            @foreach($consultedPatients as $cp)
+                                <li>
+                                    <a class="dropdown-item py-2 d-flex align-items-center gap-2 rounded" href="{{ route('patients.show', $cp['id']) }}">
+                                        <div class="bg-success bg-opacity-10 text-success rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">
+                                            <i class="bi bi-person-check-fill"></i>
+                                        </div>
+                                        <div class="d-flex flex-column flex-grow-1">
+                                            <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ mb_strtoupper($cp['name']) }}</span>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted" style="font-size: 0.75rem;">DNI: {{ $cp['dni'] }}</small>
+                                                <small class="badge bg-success bg-opacity-10 text-success font-monospace" style="font-size: 0.7rem;" title="{{ $cp['last_visited_at']->format('d/m/Y H:i') }}">
+                                                    {{ $cp['last_visited_at']->diffForHumans() }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                            @endforeach
+                        @else
+                            <li><span class="dropdown-item text-muted small py-3 text-center">Sin consultas en los últimos 14 días</span></li>
+                        @endif
+                    </ul>
+                </div>
+
                 <!-- Dropdown: Pacientes en Espera -->
                 <div class="dropdown" data-id="waiting">
                     <i class="bi bi-clock-fill omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Pacientes en Espera">
