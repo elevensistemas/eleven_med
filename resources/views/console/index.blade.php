@@ -257,11 +257,18 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                     <div class="flex-grow-1">
                         <small class="text-dark fw-bold d-block mb-1" style="font-size:0.8rem;">Pendiente</small>
                         <select name="next_step" class="form-select bg-white border border-secondary border-opacity-25 shadow-sm py-2 text-dark" required>
-                            <option value="AUTO" class="fw-bold text-primary">Siguiente paso en la cola</option>
-                            <option value="Ingreso (espera)">Ingreso (espera)</option>
-                            <option value="Dilatación" {{ $currentStatus == 'Ingreso (espera)' ? 'selected' : '' }}>Dilatación</option>
-                            <option value="Estudios Visuales">Estudios Visuales</option>
-                            <option value="Atención Médica" {{ $currentStatus == 'Dilatación' ? 'selected' : '' }}>Atención Médica</option>
+                            @php
+                                $hasPending = $patient->assignments->where('status', 'pending')->count() > 0;
+                            @endphp
+                            @if($hasPending)
+                                <option value="AUTO" class="fw-bold text-primary">Siguiente paso en la cola</option>
+                            @else
+                                <option value="" disabled {{ !in_array($currentStatus, ['Ingreso (espera)', 'Dilatación']) ? 'selected' : '' }}>Seleccione siguiente paso...</option>
+                            @endif
+                            <option value="Ingreso (espera)" {{ $currentStatus == 'Ingreso (espera)' ? 'disabled' : '' }}>Ingreso (espera)</option>
+                            <option value="Dilatación" {{ $currentStatus == 'Ingreso (espera)' && !$hasPending ? 'selected' : ($currentStatus == 'Dilatación' ? 'disabled' : '') }}>Dilatación</option>
+                            <option value="Estudios Visuales" {{ $currentStatus == 'Estudios Visuales' ? 'disabled' : '' }}>Estudios Visuales</option>
+                            <option value="Atención Médica" {{ $currentStatus == 'Dilatación' && !$hasPending ? 'selected' : ($currentStatus == 'Atención Médica' ? 'disabled' : '') }}>Atención Médica</option>
                             <option value="FINALIZAR" class="text-danger fw-bold">✓ Alta Final</option>
                         </select>
                     </div>
