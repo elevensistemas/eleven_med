@@ -472,7 +472,7 @@
                 <i class="bi bi-sliders"></i> Módulo Configuración
             </a>
             <a href="{{ route('whatsapp.index') }}" class="nav-link {{ request()->routeIs('whatsapp.*') ? 'active' : '' }}" style="padding-left: 2.5rem; font-size: 0.9em;" data-id="whatsapp_config">
-                <i class="bi bi-whatsapp text-success"></i> WhatsApp API
+                <i class="bi bi-whatsapp text-success"></i> Vincular WhatsApp
             </a>
             <a href="{{ route('chatit.index') }}" class="nav-link {{ request()->routeIs('chatit.index') ? 'active' : '' }} mt-2" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.05) 0%, transparent 100%);" data-id="chatit">
                 <i class="bi bi-asterisk text-primary"></i> <span class="fw-bold text-primary">Chat IA</span>

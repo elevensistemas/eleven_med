@@ -54,9 +54,13 @@ Route::middleware('auth')->group(function () {
     Route::delete('/configuracion/ai-memory/{user}', [App\Http\Controllers\ConfigController::class, 'clearAiMemory'])->name('config.ai_memory.clear');
     Route::get('/configuracion/export-patients', [App\Http\Controllers\ConfigController::class, 'exportPatientsToExcel'])->name('config.export.patients');
     
-    // WhatsApp API Configuration
+    // WhatsApp Configuration & Web Gateway
     Route::get('/configuracion/whatsapp', [App\Http\Controllers\WhatsappConfigController::class, 'index'])->name('whatsapp.index');
     Route::post('/configuracion/whatsapp', [App\Http\Controllers\WhatsappConfigController::class, 'store'])->name('whatsapp.store');
+    Route::get('/configuracion/whatsapp/status', [App\Http\Controllers\WhatsappConfigController::class, 'status'])->name('whatsapp.status');
+    Route::get('/configuracion/whatsapp/qr', [App\Http\Controllers\WhatsappConfigController::class, 'qr'])->name('whatsapp.qr');
+    Route::post('/configuracion/whatsapp/disconnect', [App\Http\Controllers\WhatsappConfigController::class, 'disconnect'])->name('whatsapp.disconnect');
+    Route::post('/configuracion/whatsapp/test-send', [App\Http\Controllers\WhatsappConfigController::class, 'testSend'])->name('whatsapp.testSend');
     
     Route::resource('patients', App\Http\Controllers\PatientController::class);
     // Medical Studies specific routes

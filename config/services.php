@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'url' => env('WHATSAPP_SERVICE_URL', 'http://127.0.0.1:3001'),
+        'key' => env('WHATSAPP_SERVICE_KEY', 'eleven_med_secret_wa_key_2026'),
+    ],
+
 ];
