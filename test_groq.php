@@ -17,7 +17,7 @@ $rawArticles = [
 $promptText = "Eres un asistente médico experto. A continuación te doy una lista de artículos médicos oftalmológicos en formato JSON. Para cada artículo, TRADUCE el título al Español y redacta un resumen corto en Español (2 a 3 oraciones como máximo) enfocado en lo más relevante para un médico oftalmólogo.\n\nDEVUELVE ÚNICAMENTE UN ARRAY JSON VÁLIDO con la estructura: [{\"id\": ID, \"title\": \"Título en Español\", \"summary\": \"Resumen en Español\"}]. NO incluyas markdown, texto introductorio, ni comillas invertidas. Solo el JSON puro.\n\nArtículos:\n" . json_encode($rawArticles);
 
 $groqRes = Http::withToken($apiKey)->timeout(40)->post("https://api.groq.com/openai/v1/chat/completions", [
-    "model" => "llama-3.3-70b-versatile",
+    "model" => "openai/gpt-oss-120b",
     "messages" => [
         ["role" => "system", "content" => "Solo puedes responder con código JSON puro, sin ningún otro texto."],
         ["role" => "user", "content" => $promptText]

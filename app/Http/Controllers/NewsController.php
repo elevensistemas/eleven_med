@@ -94,7 +94,7 @@ class NewsController extends Controller
 
                 try {
                     $groqRes = Http::withToken($apiKey)->timeout(60)->post("https://api.groq.com/openai/v1/chat/completions", [
-                        "model" => "llama-3.1-8b-instant",
+                        "model" => config('services.groq.model') ?? env('GROQ_MODEL', 'openai/gpt-oss-120b'),
                         "response_format" => ["type" => "json_object"],
                         "messages" => [
                             ["role" => "system", "content" => "Solo puedes responder con JSON puro, sin ningún otro texto o markdown."],

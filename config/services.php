@@ -40,4 +40,9 @@ return [
         'key' => env('WHATSAPP_SERVICE_KEY', 'eleven_med_secret_wa_key_2026'),
     ],
 
+    'groq' => [
+        'key' => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-120b'),
+    ],
+
 ];

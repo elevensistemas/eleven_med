@@ -21,11 +21,11 @@ $contextString = "Eres 'Secretaria Médica IA', secretaria médica y asistente c
 
 $messages = [
     ["role" => "system", "content" => $contextString],
-    ["role" => "user", "content" => "quiero registrar visita medica"]
+    ["role" => "user", "content" => "cuáles son los antecedentes del paciente Juan Cortalezzi?"]
 ];
 
 $payload = [
-    "model" => "llama-3.1-8b-instant",
+    "model" => "openai/gpt-oss-20b",
     "messages" => $messages,
     "tools" => $tools,
     "tool_choice" => "auto",

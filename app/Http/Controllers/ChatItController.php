@@ -286,7 +286,7 @@ class ChatItController extends Controller
         file_put_contents($chatDir . '/' . $user->id . '_chat.json', json_encode($fullHistory));
 
         $payload = [
-            "model" => "llama-3.1-8b-instant", // Usamos modelo instantáneo para evitar el límite de 100k tokens por día del modelo 70b
+            "model" => config('services.groq.model') ?? env('GROQ_MODEL', 'openai/gpt-oss-120b'),
             "messages" => $messages,
             "tools" => $tools,
             "tool_choice" => "auto",

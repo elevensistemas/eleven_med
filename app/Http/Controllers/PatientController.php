@@ -467,7 +467,7 @@ Formatea tu respuesta en texto plano ordenado, usando viñetas. Se conciso y pro
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
             ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => 'llama-3.3-70b-versatile',
+                'model' => config('services.groq.model') ?? env('GROQ_MODEL', 'openai/gpt-oss-120b'),
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => "Historial del Paciente:\n\n" . $context]
