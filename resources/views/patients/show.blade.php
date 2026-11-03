@@ -1252,12 +1252,20 @@ body.theme-dark .sidebar-nav-container {
 </div>
 
 <script>
-// Función para activar programáticamente las solapas (tabs)
+// Función para activar programáticamente las solapas (tabs) con scroll automático
 function activateBottomTab(tabId) {
     const triggerEl = document.querySelector('#' + tabId);
     if (triggerEl) {
         const tab = new bootstrap.Tab(triggerEl);
         tab.show();
+        setTimeout(() => {
+            const target = (tabId === 'historial-tab') 
+                ? (document.getElementById('visitasListContainer') || document.getElementById('bottomTabs'))
+                : document.getElementById('bottomTabs');
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
     }
 }
 
@@ -1297,74 +1305,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     const dateB = parseInt(b.getAttribute('data-date')) || 0;
                     return direction === 'asc' ? dateA - dateB : dateB - dateA;
                 });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
                 items.forEach(item => grid.appendChild(item));
                 
                 if (direction === 'desc') {
@@ -1378,74 +1318,6 @@ function initCirugiasSpartan() {
                 direction = direction === 'desc' ? 'asc' : 'desc';
                 updateSort();
             });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
             updateSort(); // Inicializar el orden correcto
         }
     }
@@ -1453,6 +1325,8 @@ function initCirugiasSpartan() {
     bindSortLogic('sortStudiesBtn', 'studiesGrid', 'study-card-item');
     bindSortLogic('sortDiagnosticosBtn', 'diagnosticosGrid', 'diagnostico-item');
     bindSortLogic('sortComentariosBtn', 'comentariosGrid', 'comentario-item');
+    bindSortLogic('sortCirugiasBtn', 'cirugiasGrid', 'cirugia-item');
+
     initCirugiasSpartan();
 });
 
@@ -1525,74 +1399,6 @@ function initCirugiasSpartan() {
 }
 
 // Sorting Documento Clínico JS
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.setProperty('display', 'flex', 'important');
-            } else {
-                row.style.setProperty('display', 'none', 'important');
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
 function toggleHistorialOrder() {
     const container = document.getElementById('visitasListContainer');
     const btnText = document.getElementById('textOrderHistorial');
@@ -1615,48 +1421,29 @@ function toggleHistorialOrder() {
 }
 
 // ----- Patient Photo Upload Logic -----
-document.getElementById('patientPhotoInput').addEventListener('change', function() {
+document.getElementById('patientPhotoInput')?.addEventListener('change', function() {
     if (!this.files || !this.files[0]) return;
     
     let file = this.files[0];
     
     // Show loading UI on overlay
     const overlay = document.getElementById('avatarOverlay');
-    overlay.innerHTML = '<div class="spinner-border text-light spinner-border-sm" role="status"></div>';
-    overlay.style.opacity = 1;
+    if (overlay) {
+        overlay.innerHTML = '<div class="spinner-border text-light spinner-border-sm" role="status"></div>';
+        overlay.style.opacity = 1;
+    }
 
     let img = new Image();
     let reader = new FileReader();
-     
-    fetch('{{ route("patients.uploadPhoto", $patient) }}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.success) {
-            document.getElementById('patientAvatarImage').src = data.photo_url;
-            document.getElementById('patientAvatarImage').style.display = 'block';
-            document.getElementById('patientAvatarIcon').style.display = 'none';
-            
-            // Update modal image too
-            const modalImg = document.getElementById('modalPatientAvatarImage');
-            if (modalImg) {
-                modalImg.src = data.photo_url;
-                modalImg.style.display = 'block';
-                const modalIcon = document.getElementById('modalPatientAvatarIcon');
-                if (modalIcon) modalIcon.style.display = 'none';
+
     reader.onload = function(e) {
         img.src = e.target.result;
-    }
+    };
     
     reader.onerror = function() {
         alert('Error al leer el archivo local.');
         resetOverlay();
-    }
+    };
     
     img.onload = function() {
         try {
@@ -1708,85 +1495,24 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
                         return response.json().then(err => { throw err; }).catch(e => {
                             throw new Error('Error HTTP: ' + response.status);
                         });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
                     }
                     return response.json();
                 })
                 .then(data => {
                     if(data.success) {
-                        // Cache bust the image URL to force reload
                         document.getElementById('patientAvatarImage').src = data.photo_url + '?t=' + new Date().getTime();
                         document.getElementById('patientAvatarImage').style.display = 'block';
-                        document.getElementById('patientAvatarIcon').style.display = 'none';
-                        // Opcional: mostrar un mini aviso de éxito
-                        // alert('¡Foto guardada con éxito!');
+                        const avatarIcon = document.getElementById('patientAvatarIcon');
+                        if (avatarIcon) avatarIcon.style.display = 'none';
+                        
+                        // Update modal image too
+                        const modalImg = document.getElementById('modalPatientAvatarImage');
+                        if (modalImg) {
+                            modalImg.src = data.photo_url;
+                            modalImg.style.display = 'block';
+                            const modalIcon = document.getElementById('modalPatientAvatarIcon');
+                            if (modalIcon) modalIcon.style.display = 'none';
+                        }
                     } else {
                         alert('Error al guardar: ' + (data.message || 'Intente nuevamente.'));
                     }
@@ -1804,74 +1530,6 @@ function initCirugiasSpartan() {
                 .finally(() => {
                     resetOverlay();
                 });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
             }, 'image/jpeg', 0.8);
         } catch (e) {
             console.error(e);
@@ -1886,82 +1544,18 @@ function initCirugiasSpartan() {
     };
     
     function resetOverlay() {
-        overlay.innerHTML = '<i class="bi bi-camera"></i>';
-        overlay.style.opacity = 0;
-        document.getElementById('patientPhotoInput').value = '';
+        if (overlay) {
+            overlay.innerHTML = '<i class="bi bi-camera"></i>';
+            overlay.style.opacity = 0;
+        }
+        const input = document.getElementById('patientPhotoInput');
+        if (input) input.value = '';
     }
 
     reader.readAsDataURL(file);
 });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
 </script>
+
 <!-- Opciones de Avatar Modal -->
 <div class="modal fade" id="photoOptionsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -2014,7 +1608,7 @@ function initCirugiasSpartan() {
                 <canvas id="cameraCanvas" style="display:none;"></canvas>
             </div>
             <div class="modal-footer border-top-0 pt-0 d-flex justify-content-center">
-                <button type="button" class="btn btn-danger rounded-pill px-5 shadow-sm fw-bold shadow-sm" onclick="takePhotoAndUpload()">
+                <button type="button" class="btn btn-danger rounded-pill px-5 shadow-sm fw-bold" onclick="takePhotoAndUpload()">
                     <i class="bi bi-camera me-1"></i> Capturar
                 </button>
             </div>
@@ -2028,7 +1622,6 @@ function initCirugiasSpartan() {
     function openCameraModal() {
         new bootstrap.Modal(document.getElementById('cameraModal')).show();
         
-        // Get available cameras
         navigator.mediaDevices.enumerateDevices()
             .then(devices => {
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
@@ -2047,74 +1640,6 @@ function initCirugiasSpartan() {
                     select.appendChild(option);
                 });
 
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
-
                 startCamera(videoDevices[0].deviceId);
             })
             .catch(err => {
@@ -2122,74 +1647,6 @@ function initCirugiasSpartan() {
                 alert('No se pudo acceder a las cámaras. Verifique los permisos del navegador.');
                 bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
             });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
     }
 
     function startCamera(deviceId) {
@@ -2215,74 +1672,6 @@ function initCirugiasSpartan() {
                 console.error('Error starting camera:', err);
                 alert('Hubo un error al encender la cámara.');
             });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
     }
 
     function stopCamera() {
@@ -2297,12 +1686,10 @@ function initCirugiasSpartan() {
         const canvas = document.getElementById('cameraCanvas');
         const context = canvas.getContext('2d');
 
-        // Hacerlo cuadrado
         const size = Math.min(video.videoWidth, video.videoHeight);
         canvas.width = size;
         canvas.height = size;
         
-        // Crop central
         const startX = (video.videoWidth - size) / 2;
         const startY = (video.videoHeight - size) / 2;
 
@@ -2312,7 +1699,6 @@ function initCirugiasSpartan() {
         stopCamera();
         bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
 
-        // Subir via Fetch API
         const formData = new FormData();
         formData.append('photo_base64', dataUrl);
         formData.append('_token', '{{ csrf_token() }}');
@@ -2330,9 +1716,9 @@ function initCirugiasSpartan() {
                 const img = document.getElementById('patientAvatarImage');
                 img.src = data.photo_url;
                 img.style.display = 'block';
-                document.getElementById('patientAvatarIcon').style.display = 'none';
+                const avatarIcon = document.getElementById('patientAvatarIcon');
+                if (avatarIcon) avatarIcon.style.display = 'none';
                 
-                // Update modal image too
                 const modalImg = document.getElementById('modalPatientAvatarImage');
                 if (modalImg) {
                     modalImg.src = data.photo_url;
@@ -2348,148 +1734,11 @@ function initCirugiasSpartan() {
             console.error('Upload Error:', err);
             alert('Fallo la subida de la foto de la cámara.');
         });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
     }
 
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
-    }
-
-    // Modal hide event to make sure camera turns off if clicked outside
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function () {
         stopCamera();
     });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
 </script>
 
 <!-- Modal Asistente Clínico IA -->
@@ -2565,9 +1814,6 @@ function initCirugiasSpartan() {
             if (data.success) {
                 resultText.textContent = data.analysis;
                 resultContainer.classList.remove('d-none');
-                
-                // Si la pestaña de comentarios está activa, recargar la página para ver el nuevo comentario
-                // O mostrar un toast
             } else {
                 alert('Error al generar el análisis: ' + data.message);
             }
@@ -2579,74 +1825,6 @@ function initCirugiasSpartan() {
             btn.disabled = false;
             alert('Fallo la conexión con el Asistente IA.');
         });
-
-// Lógica de Resumen Espartano de Cirugías
-function initCirugiasSpartan() {
-    const list = document.getElementById('cirugiasSpartanList');
-    if (!list) return;
-
-    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
-    let currentFilter = 'all';  // 'all', 'OD', 'OI'
-
-    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
-    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
-    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
-    const sortText = document.getElementById('sortCirugiasSpartanText');
-
-    function applyFilterAndSort() {
-        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
-
-        // Filtrado por ojo
-        rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Ordenamiento ascendente o descendente por fecha
-        rows.sort((a, b) => {
-            const dateA = parseInt(a.getAttribute('data-date')) || 0;
-            const dateB = parseInt(b.getAttribute('data-date')) || 0;
-            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
-        });
-
-        rows.forEach(row => list.appendChild(row));
-    }
-
-    if (sortBtn) {
-        sortBtn.addEventListener('click', function() {
-            if (currentOrder === 'desc') {
-                currentOrder = 'asc';
-                if (sortText) sortText.innerText = 'Más antiguas primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
-            } else {
-                currentOrder = 'desc';
-                if (sortText) sortText.innerText = 'Más recientes primero';
-                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
-            }
-            applyFilterAndSort();
-        });
-    }
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => {
-                b.classList.remove('active', 'btn-secondary', 'text-white');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('active', 'btn-secondary', 'text-white');
-            currentFilter = this.getAttribute('data-filter-eye');
-            applyFilterAndSort();
-        });
-    });
-
-    applyFilterAndSort();
-}
     }
 </script>
 
@@ -2693,7 +1871,8 @@ function initCirugiasSpartan() {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
         })
         .then(res => {
-            document.getElementById('displayRecommendationText').innerText = inputVal || 'Sin especificar';
+            const displayEl = document.getElementById('displayRecommendationText');
+            if (displayEl) displayEl.innerText = inputVal || 'Sin especificar';
             const modalEl = document.getElementById('editRecommendationModal');
             const modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) modal.hide();
