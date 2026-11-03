@@ -74,6 +74,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/configuracion/whatsapp/test-send', [App\Http\Controllers\WhatsappConfigController::class, 'testSend'])->name('whatsapp.testSend');
     
     Route::resource('patients', App\Http\Controllers\PatientController::class);
+    Route::post('patients/{patient}/quick-update', [App\Http\Controllers\PatientController::class, 'quickUpdate'])->name('patients.quickUpdate');
     // Medical Studies specific routes
     Route::post('patients/{patient}/studies', [App\Http\Controllers\PatientStudyController::class, 'store'])->name('patient.studies.store');
     Route::get('studies/{patientStudy}/view', [App\Http\Controllers\PatientStudyController::class, 'show'])->name('studies.show');
@@ -110,6 +111,7 @@ Route::middleware('auth')->group(function () {
     Route::post('console/assignments', [App\Http\Controllers\ConsoleController::class, 'store'])->name('console.assignments.store');
     Route::post('console/assignments/{patient}/append', [App\Http\Controllers\ConsoleController::class, 'append'])->name('console.assignments.append');
     Route::post('console/transition/{patient}', [App\Http\Controllers\ConsoleController::class, 'transition'])->name('console.assignments.transition');
+    Route::post('console/assignments/{patient}/notes', [App\Http\Controllers\ConsoleController::class, 'updateNotes'])->name('console.assignments.notes');
     Route::post('console/finish-all', [App\Http\Controllers\ConsoleController::class, 'finishAll'])->name('console.finishAll');
 
     // Medical Agenda & Interactive Calendar

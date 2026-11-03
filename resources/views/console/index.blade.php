@@ -287,20 +287,27 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         </div>
 
         <!-- Leyendas / Observaciones de la Secretaria -->
-        @if($notesRecepcion || $notesAgenda)
-            <div class="w-100 px-4 py-2 bg-warning bg-opacity-10 border-top border-bottom border-warning border-opacity-25 d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.85rem;">
-                <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-sticky-fill me-1"></i> Nota Secretaria:</span>
-                @if($notesRecepcion)
-                    <span class="text-dark"><strong>Recepción:</strong> {{ $notesRecepcion }}</span>
-                @endif
-                @if($notesRecepcion && $notesAgenda)
-                    <span class="text-muted">|</span>
-                @endif
-                @if($notesAgenda)
-                    <span class="text-dark"><strong>Turno / Agenda:</strong> {{ $notesAgenda }}</span>
+        <div class="w-100 px-4 py-2 bg-warning bg-opacity-10 border-top border-bottom border-warning border-opacity-25 d-flex align-items-center justify-content-between gap-2 flex-wrap" style="font-size: 0.85rem;">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-sticky-fill me-1"></i> Observaciones Internas:</span>
+                @if($notesRecepcion || $notesAgenda)
+                    @if($notesRecepcion)
+                        <span class="text-dark"><strong>Recepción:</strong> <span id="notesRecepcionSpan_{{ $patient->id }}">{{ $notesRecepcion }}</span></span>
+                    @endif
+                    @if($notesRecepcion && $notesAgenda)
+                        <span class="text-muted">|</span>
+                    @endif
+                    @if($notesAgenda)
+                        <span class="text-dark"><strong>Turno:</strong> {{ $notesAgenda }}</span>
+                    @endif
+                @else
+                    <span class="text-muted fst-italic" id="notesRecepcionSpan_{{ $patient->id }}">Sin observaciones registradas por secretaría</span>
                 @endif
             </div>
-        @endif
+            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1 shadow-none fw-bold" onclick="openEditConsoleNotesModal({{ $patient->id }}, '{{ addslashes($patient->first_name . ' ' . $patient->last_name) }}', '{{ addslashes($notesRecepcion ?: $notesAgenda) }}')" style="font-size: 0.75rem;">
+                <i class="bi bi-pencil-fill me-1"></i> {{ ($notesRecepcion || $notesAgenda) ? 'Modificar' : '+ Agregar Observación' }}
+            </button>
+        </div>
 
         <!-- Body -->
         <div class="d-flex w-100">
@@ -591,7 +598,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">Observaciones / Leyenda de Recepción (Opcional)</label>
+                        <label class="form-label text-muted small fw-bold"><i class="bi bi-sticky-fill text-warning me-1"></i> Observaciones Internas / Comentario del Momento (Opcional)</label>
                         <textarea name="notes" rows="2" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Ej: Trae estudios de otra clínica, paciente en silla de ruedas, urgencia..."></textarea>
                     </div>
                 </div>
@@ -780,4 +787,76 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
     }
 </script>
 
+<!-- Modal: Editar Observaciones Internas en Sala de Espera -->
+<div class="modal fade" id="editConsoleNotesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header border-bottom-0 pb-0">
+            <div>
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sticky-fill text-warning me-2"></i>Observaciones Internas / Comentario</h5>
+                <small class="text-muted fw-bold" id="modalEditNotesPatientName">Paciente: --</small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="editConsoleNotesForm" onsubmit="submitConsoleNotesQuick(event)">
+            @csrf
+            <input type="hidden" id="modalEditNotesPatientId">
+            <div class="modal-body p-4">
+                <label class="form-label text-muted small fw-bold">Anotaciones de Recepción / Comentario del momento</label>
+                <textarea id="modalEditNotesInput" rows="3" class="form-control bg-light border-0 shadow-none rounded-3 py-2" placeholder="Ej: Trae estudios de otra clínica, urgencia, paciente en silla de ruedas, etc..."></textarea>
+                <small class="text-muted d-block mt-2">Esta observación aparecerá destacada en la fila de sala de espera para el médico y secretaría.</small>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="btnSaveConsoleNotes" class="btn btn-warning rounded-pill px-4 text-dark fw-bold">Guardar Observación</button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    function openEditConsoleNotesModal(patientId, patientName, currentNotes) {
+        document.getElementById('modalEditNotesPatientId').value = patientId;
+        document.getElementById('modalEditNotesPatientName').innerText = `Paciente: ${patientName}`;
+        document.getElementById('modalEditNotesInput').value = currentNotes || '';
+        const modal = new bootstrap.Modal(document.getElementById('editConsoleNotesModal'));
+        modal.show();
+    }
+
+    function submitConsoleNotesQuick(e) {
+        e.preventDefault();
+        const patientId = document.getElementById('modalEditNotesPatientId').value;
+        const notesVal = document.getElementById('modalEditNotesInput').value;
+        const btn = document.getElementById('btnSaveConsoleNotes');
+        btn.disabled = true;
+        btn.innerText = 'Guardando...';
+
+        axios.post(`/console/assignments/${patientId}/notes`, {
+            notes: notesVal
+        }, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            const span = document.getElementById(`notesRecepcionSpan_${patientId}`);
+            if (span) {
+                span.innerText = notesVal || 'Sin observaciones registradas por secretaría';
+                span.className = notesVal ? 'text-dark fw-bold' : 'text-muted fst-italic';
+            }
+            const modalEl = document.getElementById('editConsoleNotesModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            btn.disabled = false;
+            btn.innerText = 'Guardar Observación';
+            if (typeof spawnToast === 'function') {
+                spawnToast('Observaciones Actualizadas', 'Comentario interno guardado.', 'check-circle-fill', 'success text-white');
+            }
+        })
+        .catch(err => {
+            alert('Error al guardar la observación interna.');
+            btn.disabled = false;
+            btn.innerText = 'Guardar Observación';
+        });
+    }
+</script>
 @endsection

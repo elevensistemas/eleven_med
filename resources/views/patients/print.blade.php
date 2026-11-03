@@ -56,12 +56,7 @@
                 @if($patient->date_of_birth)<p style="margin:0;"><strong>Edad:</strong> {{ \Carbon\Carbon::parse($patient->date_of_birth)->age }} años</p>@endif
                 @if($patient->obra_social)<p style="margin:0;"><strong>C. Médica:</strong> {{ $patient->obra_social }} {{ $patient->plan ? ' - '.$patient->plan : '' }}</p>@endif
             </div>
-            <div class="patient-notes">
-                @if($patient->medical_notes)
-                    <strong>Antecedentes:</strong><br>
-                    <div style="white-space: pre-line;">{{ $patient->medical_notes }}</div>
-                @endif
-            </div>
+            <!-- Comentarios médicos omitidos intencionalmente por confidencialidad de consultorio -->
         </div>
 
         @php

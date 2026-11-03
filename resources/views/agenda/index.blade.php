@@ -631,12 +631,22 @@ body.theme-dark .cal-day.available:hover {
                                 + Sobreturno
                             </button>` : `<span class="badge bg-secondary bg-opacity-10 text-secondary border me-2">Expirado</span>`;
 
+                        const escapedName = (slot.patient_name || '').replace(/'/g, "\\'");
+                        const escapedNotes = ((slot.notes || '') + (slot.reason ? ' ' + slot.reason : '')).replace(/'/g, "\\'");
+
+                        let darEntradaBtn = `
+                            <button class="btn btn-sm btn-outline-success fw-bold px-2 py-1 border-0 me-2" onclick="openDarEntradaModal(${slot.patient_id}, '${escapedName}', ${doctorId}, '${escapedNotes}')" title="Dar entrada a Sala de Espera" style="font-size:0.7rem; border-radius: 20px; background: rgba(25, 135, 84, 0.1);">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Entrada
+                            </button>`;
+
                         let actionsHtml = `
+                            ${darEntradaBtn}
                             ${sobreTurnoBtn}
                             <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
+                                <li><button class="dropdown-item py-2 text-success fw-bold" onclick="openDarEntradaModal(${slot.patient_id}, '${escapedName}', ${doctorId}, '${escapedNotes}')"><i class="bi bi-box-arrow-in-right me-2"></i> Dar Entrada (Sala de Espera)</button></li>
                                 <li><a class="dropdown-item py-2 text-primary fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2"></i> Abrir Historia Clínica</a></li>
                                 <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
                                 <li><hr class="dropdown-divider"></li>
@@ -1074,4 +1084,52 @@ body.theme-dark .cal-day.available:hover {
     });
 </script>
 
+<!-- Modal: Dar Entrada a Sala de Espera desde Agenda -->
+<div class="modal fade" id="darEntradaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header border-bottom-0 pb-0">
+            <div>
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-box-arrow-in-right text-success me-2"></i>Dar Entrada al Turno</h5>
+                <small class="text-muted fw-bold" id="darEntradaPatientLabel">Paciente: --</small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form action="{{ route('console.assignments.store') }}" method="POST">
+            @csrf
+            <input type="hidden" name="patient_id" id="darEntradaPatientId">
+            <input type="hidden" name="doctor_ids[]" id="darEntradaDoctorId">
+            <input type="hidden" name="event_types[]" value="Ingreso (espera)">
+            
+            <div class="modal-body p-4">
+                <div class="alert alert-info border-0 rounded-3 small p-3 mb-3">
+                    <i class="bi bi-info-circle me-1"></i> El paciente ingresará a la <strong>Sala de Espera</strong> e iniciará el conteo de tiempos de llegada y espera.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small fw-bold"><i class="bi bi-sticky-fill text-warning me-1"></i> Observaciones Internas / Comentario del Momento</label>
+                    <textarea name="notes" id="darEntradaNotes" rows="3" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Ej: Trae estudios, control post-quirúrgico, urgencia..."></textarea>
+                    <small class="text-muted" style="font-size:0.75rem;">Esta leyenda aparecerá destacada en Sala de Espera para el profesional.</small>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm">
+                    <i class="bi bi-check2-circle me-1"></i> Asentar Llegada y Dar Entrada
+                </button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    function openDarEntradaModal(patientId, patientName, doctorId, initialNotes) {
+        document.getElementById('darEntradaPatientId').value = patientId;
+        document.getElementById('darEntradaDoctorId').value = doctorId || '';
+        document.getElementById('darEntradaPatientLabel').innerText = `Paciente: ${patientName}`;
+        document.getElementById('darEntradaNotes').value = initialNotes || '';
+        const modal = new bootstrap.Modal(document.getElementById('darEntradaModal'));
+        modal.show();
+    }
+</script>
 @endsection

@@ -248,6 +248,46 @@ class ConsoleController extends Controller
         return back()->with('success', 'Paciente avanzado a: ' . $stepType);
     }
     
+    /**
+     * Update internal notes / comments of the moment for a patient in Sala de Espera.
+     */
+    public function updateNotes(Request $request, Patient $patient)
+    {
+        $validated = $request->validate([
+            'notes' => 'nullable|string',
+        ]);
+
+        $notes = $validated['notes'] ?? null;
+
+        // Actualizar la asignación activa o primera de la sesión de hoy
+        $assignment = $patient->assignments()
+            ->whereDate('created_at', Carbon::today())
+            ->orderBy('id', 'asc')
+            ->first();
+
+        if ($assignment) {
+            $assignment->notes = $notes;
+            $assignment->save();
+        }
+
+        // Si el paciente tiene turno agendado hoy, sincronizar también la nota del turno
+        $todayAppt = $patient->appointments()->whereDate('date', Carbon::today())->first();
+        if ($todayAppt) {
+            $todayAppt->notes = $notes;
+            $todayAppt->save();
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'notes' => $notes,
+                'message' => 'Observaciones internas actualizadas correctamente.'
+            ]);
+        }
+
+        return back()->with('success', 'Observaciones internas actualizadas.');
+    }
+
     public function finishAll(Request $request)
     {
         // Close all "in_progress" assignments strictly.

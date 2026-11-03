@@ -70,6 +70,7 @@ class PatientController extends Controller
             'iva_condition' => 'nullable|string|max:255',
             'nro_siniestro' => 'nullable|string|max:255',
             'director_id' => 'nullable|exists:users,id',
+            'recommendation' => 'nullable|string|max:255',
             'medical_notes' => 'nullable|string',
         ]);
 
@@ -312,12 +313,43 @@ class PatientController extends Controller
             'iva_condition' => 'nullable|string|max:255',
             'nro_siniestro' => 'nullable|string|max:255',
             'director_id' => 'nullable|exists:users,id',
+            'recommendation' => 'nullable|string|max:255',
             'medical_notes' => 'nullable|string',
         ]);
 
         $patient->update($validated);
 
         return redirect()->route('patients.show', $patient)->with('success', 'Datos actualizados.');
+    }
+
+    /**
+     * Quick update for recommendation and medical notes from anywhere in the patient file or consult.
+     */
+    public function quickUpdate(Request $request, Patient $patient)
+    {
+        $validated = $request->validate([
+            'recommendation' => 'nullable|string|max:255',
+            'medical_notes' => 'nullable|string',
+        ]);
+
+        if ($request->has('recommendation')) {
+            $patient->recommendation = $validated['recommendation'];
+        }
+        if ($request->has('medical_notes')) {
+            $patient->medical_notes = $validated['medical_notes'];
+        }
+        $patient->save();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'recommendation' => $patient->recommendation,
+                'medical_notes' => $patient->medical_notes,
+                'message' => 'Ficha del paciente actualizada correctamente.'
+            ]);
+        }
+
+        return back()->with('success', 'Ficha del paciente actualizada correctamente.');
     }
 
     public function destroy(Patient $patient)

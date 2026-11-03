@@ -50,6 +50,15 @@ class VisitController extends Controller
         $validated['doctor_id'] = Auth::id();
         $validated['is_open'] = true;
 
+                // Actualizar derivación / recomendación o comentarios médicos si se enviaron en la consulta
+        if ($request->has('recommendation')) {
+            $patient->recommendation = $request->input('recommendation');
+        }
+        if ($request->has('medical_notes')) {
+            $patient->medical_notes = $request->input('medical_notes');
+        }
+        $patient->save();
+
         $visit = Visit::create($validated);
 
         // Log open status
@@ -89,7 +98,17 @@ class VisitController extends Controller
             'av_oi_cerca' => 'nullable|string|max:255',
         ]);
 
-        $visit->update($validated);
+                $visit->update($validated);
+        $patient = $visit->patient;
+
+        // Actualizar derivación / recomendación o comentarios médicos en la ficha del paciente
+        if ($request->has('recommendation')) {
+            $patient->recommendation = $request->input('recommendation');
+        }
+        if ($request->has('medical_notes')) {
+            $patient->medical_notes = $request->input('medical_notes');
+        }
+        $patient->save();
         $patient = $visit->patient;
 
         if ($request->has('close_visit') && $request->input('close_visit') == '1') {

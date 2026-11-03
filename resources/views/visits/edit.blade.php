@@ -45,6 +45,26 @@
         @csrf
         @method('PUT')
         
+        <!-- Información de Ficha: Derivación y Comentarios Médicos -->
+        <div class="card border rounded-4 shadow-sm p-3 mb-4" style="background: linear-gradient(135deg, rgba(94, 106, 210, 0.04) 0%, rgba(126, 68, 139, 0.04) 100%); border: 1.5px solid rgba(94, 106, 210, 0.15) !important;">
+            <div class="row g-3">
+                <div class="col-md-6 border-end pe-md-3">
+                    <label class="form-label text-dark small fw-bold d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-person-lines-fill text-primary me-1"></i> Derivado / Recomendado por</span>
+                        <small class="text-muted fw-normal" style="font-size:0.75rem;">Ficha del Paciente</small>
+                    </label>
+                    <input type="text" name="recommendation" value="{{ old('recommendation', $patient->recommendation) }}" class="form-control bg-white border shadow-none rounded-3" placeholder="Ej: Dr. Pérez, Óptica San Martín, Familiar...">
+                </div>
+                <div class="col-md-6 ps-md-3">
+                    <label class="form-label text-dark small fw-bold d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-journal-text text-warning me-1"></i> COMENTARIOS MÉDICOS</span>
+                        <span class="badge bg-warning bg-opacity-25 text-dark border border-warning" style="font-size:0.65rem;">Solo Consultorio (No se imprime)</span>
+                    </label>
+                    <textarea name="medical_notes" rows="2" class="form-control bg-white border shadow-none rounded-3" style="font-size:0.85rem;" placeholder="Notas y comentarios médicos permanentes del paciente...">{{ old('medical_notes', $patient->medical_notes) }}</textarea>
+                </div>
+            </div>
+        </div>
+
         <!-- Bloque 1: Visita Actual -->
         <h5 class="fw-bold text-primary mb-4 border-bottom pb-2"><i class="bi bi-clipboard-plus me-2"></i> Motivo y Diagnóstico</h5>
         <div class="row g-4 mb-5">

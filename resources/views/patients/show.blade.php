@@ -2650,4 +2650,89 @@ function initCirugiasSpartan() {
     }
 </script>
 
+<!-- Modal: Editar Derivado / Recomendado por -->
+<div class="modal fade" id="editRecommendationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-person-lines-fill text-primary me-2"></i>Derivado / Recomendado por</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="editRecommendationForm" onsubmit="submitRecommendationQuick(event, {{ $patient->id }})">
+            @csrf
+            <div class="modal-body p-4">
+                <label class="form-label text-muted small fw-bold">Profesional o Institución que lo derivó o recomendó</label>
+                <input type="text" id="modalRecommendationInput" class="form-control bg-light border-0 shadow-none rounded-3 py-2" value="{{ $patient->recommendation }}" placeholder="Ej: Dr. Pérez, Óptica San Martín, Familiar...">
+                <small class="text-muted d-block mt-2">Esta información se conservará permanentemente en la ficha del paciente y estará visible al abrir cualquier consulta.</small>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="btnSaveRecommendation" class="btn btn-primary rounded-pill px-4 fw-bold">Guardar</button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    function openEditRecommendationModal() {
+        const modal = new bootstrap.Modal(document.getElementById('editRecommendationModal'));
+        modal.show();
+    }
+
+    function submitRecommendationQuick(e, patientId) {
+        e.preventDefault();
+        const inputVal = document.getElementById('modalRecommendationInput').value;
+        const btn = document.getElementById('btnSaveRecommendation');
+        btn.disabled = true;
+        btn.innerText = 'Guardando...';
+
+        axios.post(`/patients/${patientId}/quick-update`, {
+            recommendation: inputVal
+        }, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            document.getElementById('displayRecommendationText').innerText = inputVal || 'Sin especificar';
+            const modalEl = document.getElementById('editRecommendationModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            btn.disabled = false;
+            btn.innerText = 'Guardar';
+            if (typeof spawnToast === 'function') {
+                spawnToast('Guardado', 'Derivación / recomendación actualizada.', 'check-circle-fill', 'success text-white');
+            }
+        })
+        .catch(err => {
+            alert('Error al guardar la información.');
+            btn.disabled = false;
+            btn.innerText = 'Guardar';
+        });
+    }
+
+    function saveMedicalNotesQuick(patientId) {
+        const val = document.getElementById('sidebarMedicalNotesInput').value;
+        const feedback = document.getElementById('saveMedicalNotesFeedback');
+        feedback.innerText = 'Guardando...';
+        feedback.className = 'text-primary fw-bold fst-normal';
+
+        axios.post(`/patients/${patientId}/quick-update`, {
+            medical_notes: val
+        }, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            feedback.innerText = '¡Guardado con éxito!';
+            feedback.className = 'text-success fw-bold fst-normal';
+            setTimeout(() => {
+                feedback.innerText = 'Solo consultorio';
+                feedback.className = 'text-muted fst-italic';
+            }, 3000);
+        })
+        .catch(err => {
+            feedback.innerText = 'Error al guardar';
+            feedback.className = 'text-danger fw-bold';
+        });
+    }
+</script>
 @endsection
