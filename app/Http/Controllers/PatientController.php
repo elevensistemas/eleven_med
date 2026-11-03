@@ -349,13 +349,15 @@ class PatientController extends Controller
     {
         $patient->load([
             'visits' => function($q) { clone $q->oldest(); }, 
-            'visits.doctor'
+            'visits.doctor',
+            'surgeries.doctor'
         ]);
         
         // Cargar las visitas explícitamente ordenadas por oldest (la relación 'visits' tiene latest() definido)
         $visits = $patient->visits()->with('doctor')->oldest()->get();
 
-        return view('patients.print', compact('patient', 'visits'));
+        $surgeries = $patient->surgeries()->with('doctor')->oldest('surgery_date')->get();
+        return view('patients.print', compact('patient', 'visits', 'surgeries'));
     }
 
     /**

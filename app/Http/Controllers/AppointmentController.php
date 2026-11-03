@@ -171,24 +171,23 @@ class AppointmentController extends Controller
 
         if (!$doctorId) return response()->json([]);
 
-        // Obtener el esquema de trabajo del doctor
+        // Obtener configuración del médico
+        $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
         $schedules = \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->get();
-        if ($schedules->isEmpty()) {
+
+        if (!$config && $schedules->isEmpty()) {
             return response()->json([]);
         }
 
-        $scheduleMap = []; // day_of_week => schedule
-        foreach ($schedules as $s) {
-            // PHP uses 0 (for Sunday) through 6 (for Saturday) by default in Carbon dayOfWeek
-            // But verify: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-            $scheduleMap[$s->day_of_week] = $s;
-        }
+        $scheduleMap = $schedules->keyBy('day_of_week');
+        $workingDays = $config ? $config->working_days : null;
+        $defaultDuration = $config->appointment_duration ?? 15;
 
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
         $daysInMonth = $startDate->daysInMonth;
         $endDate = $startDate->copy()->endOfMonth();
 
-        // Cargar todos los turnos del doctor en ese mes para checkear saturación
+        // Cargar todos los turnos del doctor en ese mes
         $appointments = Appointment::where('doctor_id', $doctorId)
             ->whereYear('date', $year)
             ->whereMonth('date', $month)
@@ -212,47 +211,113 @@ class AppointmentController extends Controller
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $currentDate = Carbon::createFromDate($year, $month, $day);
             $dateString = $currentDate->format('Y-m-d');
-            $dayOfWeek = $currentDate->dayOfWeek; // 0 (Sunday) to 6 (Saturday)
+            $dayOfWeek = $currentDate->dayOfWeek; // 0 (Sun) to 6 (Sat)
 
-            if (!isset($scheduleMap[$dayOfWeek])) {
+            // Determinar si este día está activo y sus intervalos
+            $intervals = [];
+            $slotDuration = $defaultDuration;
+
+            if (is_array($workingDays)) {
+                if (isset($workingDays[$dayOfWeek]) && is_array($workingDays[$dayOfWeek])) {
+                    $dayCfg = $workingDays[$dayOfWeek];
+                    if (!empty($dayCfg['active'])) {
+                        if (!empty($dayCfg['morning_active']) && !empty($dayCfg['morning_start']) && !empty($dayCfg['morning_end'])) {
+                            $intervals[] = [
+                                'start' => Carbon::parse($dateString . ' ' . $dayCfg['morning_start']),
+                                'end' => Carbon::parse($dateString . ' ' . $dayCfg['morning_end']),
+                            ];
+                        }
+                        if (!empty($dayCfg['afternoon_active']) && !empty($dayCfg['afternoon_start']) && !empty($dayCfg['afternoon_end'])) {
+                            $intervals[] = [
+                                'start' => Carbon::parse($dateString . ' ' . $dayCfg['afternoon_start']),
+                                'end' => Carbon::parse($dateString . ' ' . $dayCfg['afternoon_end']),
+                            ];
+                        }
+                    }
+                } elseif (in_array((string)$dayOfWeek, $workingDays) || in_array($dayOfWeek, $workingDays)) {
+                    // Legacy array
+                    if ($config->shift_1_start && $config->shift_1_end) {
+                        $intervals[] = [
+                            'start' => Carbon::parse($dateString . ' ' . $config->shift_1_start),
+                            'end' => Carbon::parse($dateString . ' ' . $config->shift_1_end),
+                        ];
+                    }
+                    if ($config->shift_2_start && $config->shift_2_end) {
+                        $intervals[] = [
+                            'start' => Carbon::parse($dateString . ' ' . $config->shift_2_start),
+                            'end' => Carbon::parse($dateString . ' ' . $config->shift_2_end),
+                        ];
+                    }
+                }
+            } elseif (isset($scheduleMap[$dayOfWeek])) {
+                $sch = $scheduleMap[$dayOfWeek];
+                $slotDuration = $sch->slot_duration_minutes ?: $defaultDuration;
+                $intervals[] = [
+                    'start' => Carbon::parse($dateString . ' ' . $sch->start_time),
+                    'end' => Carbon::parse($dateString . ' ' . $sch->end_time),
+                ];
+            }
+
+            // Filtrar bloqueos que afecten a este día
+            $dayBlocks = $blocks->filter(function($b) use ($dateString) {
+                return $b->start_datetime->format('Y-m-d') <= $dateString && $b->end_datetime->format('Y-m-d') >= $dateString;
+            });
+
+            // Verificar si hay bloqueo de día completo o vacaciones para este día
+            $isDayFullyBlocked = false;
+            $fullBlockReason = null;
+            foreach ($dayBlocks as $block) {
+                $bStart = $block->start_datetime->format('Y-m-d H:i');
+                $bEnd = $block->end_datetime->format('Y-m-d H:i');
+                if ($bStart <= ($dateString . ' 00:05') && $bEnd >= ($dateString . ' 23:50')) {
+                    $isDayFullyBlocked = true;
+                    $fullBlockReason = $block->reason ?: 'Bloqueado';
+                    break;
+                }
+            }
+
+            if (empty($intervals)) {
                 $availability[$dateString] = [
                     'status' => 'unavailable',
-                    'percentage' => 0
+                    'percentage' => 0,
+                    'is_blocked' => $isDayFullyBlocked,
+                    'reason' => $fullBlockReason,
+                ];
+            } elseif ($isDayFullyBlocked) {
+                $availability[$dateString] = [
+                    'status' => 'blocked',
+                    'percentage' => 0,
+                    'is_blocked' => true,
+                    'reason' => $fullBlockReason,
                 ];
             } else {
-                // Es un día laborable. Revisamos capacidad.
-                $sch = $scheduleMap[$dayOfWeek];
-                $start = Carbon::parse($dateString . ' ' . $sch->start_time);
-                $end = Carbon::parse($dateString . ' ' . $sch->end_time);
-
                 $totalSlotsPossible = 0;
                 $blockedSlotsCount = 0;
 
-                // Filtrar bloqueos que se solapen con este día específico
-                $dayBlocks = $blocks->filter(function($b) use ($dateString) {
-                    return $b->start_datetime->format('Y-m-d') <= $dateString && $b->end_datetime->format('Y-m-d') >= $dateString;
-                });
+                foreach ($intervals as $interval) {
+                    $tempStart = clone $interval['start'];
+                    $tempEndLimit = clone $interval['end'];
 
-                $tempStart = clone $start;
-                while ($tempStart < $end) {
-                    $tempEnd = (clone $tempStart)->addMinutes($sch->slot_duration_minutes);
-                    $totalSlotsPossible++;
+                    while ($tempStart < $tempEndLimit) {
+                        $tempEnd = (clone $tempStart)->addMinutes($slotDuration);
+                        $totalSlotsPossible++;
 
-                    foreach ($dayBlocks as $block) {
-                        if ($block->start_datetime < $tempEnd && $block->end_datetime > $tempStart) {
-                            $blockedSlotsCount++;
-                            break;
+                        foreach ($dayBlocks as $block) {
+                            if ($block->start_datetime < $tempEnd && $block->end_datetime > $tempStart) {
+                                $blockedSlotsCount++;
+                                break;
+                            }
                         }
-                    }
 
-                    $tempStart->addMinutes($sch->slot_duration_minutes);
+                        $tempStart->addMinutes($slotDuration);
+                    }
                 }
 
-                $availableSlotsPossible = $totalSlotsPossible - $blockedSlotsCount;
+                $availableSlotsPossible = max(0, $totalSlotsPossible - $blockedSlotsCount);
                 $bookedCount = isset($appointments[$dateString]) ? $appointments[$dateString]->count() : 0;
 
                 if ($availableSlotsPossible <= 0) {
-                    $status = 'unavailable';
+                    $status = 'blocked';
                     $percentage = 0;
                 } else {
                     $status = 'available';
@@ -264,7 +329,10 @@ class AppointmentController extends Controller
 
                 $availability[$dateString] = [
                     'status' => $status,
-                    'percentage' => $percentage
+                    'percentage' => $percentage,
+                    'is_blocked' => false,
+                    'available_slots' => $availableSlotsPossible,
+                    'booked_slots' => $bookedCount,
                 ];
             }
         }
@@ -273,44 +341,110 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Return list of exact time slots for a specific day, marking booked ones.
+     * Return list of exact time slots for a specific day, marking booked ones with full patient details.
      */
     public function getDaySlots(Request $request)
     {
         $doctorId = $request->doctor_id;
         $date = Carbon::parse($request->date);
-        
         $dateStr = $date->format('Y-m-d');
+        $dayOfWeek = $date->dayOfWeek; // 0=Sun, 1=Mon, ..., 6=Sat
+
+        // 1. Configuración del médico
+        $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
+        $doctorSchedule = \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->where('day_of_week', $dayOfWeek)->first();
+        $slotDuration = $config->appointment_duration ?? ($doctorSchedule->slot_duration_minutes ?? 15);
+
+        // 2. Determinar intervalos de atención del día
+        $intervals = [];
+        $workingDays = $config ? $config->working_days : null;
+
+        if (is_array($workingDays)) {
+            if (isset($workingDays[$dayOfWeek]) && is_array($workingDays[$dayOfWeek])) {
+                $dayCfg = $workingDays[$dayOfWeek];
+                if (!empty($dayCfg['active'])) {
+                    if (!empty($dayCfg['morning_active']) && !empty($dayCfg['morning_start']) && !empty($dayCfg['morning_end'])) {
+                        $intervals[] = [
+                            'start' => Carbon::parse($dateStr . ' ' . $dayCfg['morning_start']),
+                            'end' => Carbon::parse($dateStr . ' ' . $dayCfg['morning_end']),
+                            'shift' => 'Mañana'
+                        ];
+                    }
+                    if (!empty($dayCfg['afternoon_active']) && !empty($dayCfg['afternoon_start']) && !empty($dayCfg['afternoon_end'])) {
+                        $intervals[] = [
+                            'start' => Carbon::parse($dateStr . ' ' . $dayCfg['afternoon_start']),
+                            'end' => Carbon::parse($dateStr . ' ' . $dayCfg['afternoon_end']),
+                            'shift' => 'Tarde'
+                        ];
+                    }
+                }
+            } elseif (in_array((string)$dayOfWeek, $workingDays) || in_array($dayOfWeek, $workingDays)) {
+                if ($config->shift_1_start && $config->shift_1_end) {
+                    $intervals[] = [
+                        'start' => Carbon::parse($dateStr . ' ' . $config->shift_1_start),
+                        'end' => Carbon::parse($dateStr . ' ' . $config->shift_1_end),
+                        'shift' => 'Mañana'
+                    ];
+                }
+                if ($config->shift_2_start && $config->shift_2_end) {
+                    $intervals[] = [
+                        'start' => Carbon::parse($dateStr . ' ' . $config->shift_2_start),
+                        'end' => Carbon::parse($dateStr . ' ' . $config->shift_2_end),
+                        'shift' => 'Tarde'
+                    ];
+                }
+            }
+        } elseif ($doctorSchedule) {
+            $intervals[] = [
+                'start' => Carbon::parse($dateStr . ' ' . $doctorSchedule->start_time),
+                'end' => Carbon::parse($dateStr . ' ' . $doctorSchedule->end_time),
+                'shift' => 'General'
+            ];
+        }
+
+        // 3. Bloqueos que toquen este día
         $blocks = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
             ->where(function($q) use ($dateStr) {
                 $q->where('start_datetime', '<=', $dateStr . ' 23:59:59')
                   ->where('end_datetime', '>=', $dateStr . ' 00:00:00');
             })->get();
 
+        // Detectar si hay un bloqueo general de día completo o vacaciones
+        $fullDayBlock = $blocks->first(function($b) use ($dateStr) {
+            $bStart = $b->start_datetime->format('Y-m-d H:i');
+            $bEnd = $b->end_datetime->format('Y-m-d H:i');
+            return ($bStart <= $dateStr . ' 00:05') && ($bEnd >= $dateStr . ' 23:50');
+        });
+
+        // 4. Turnos agendados con datos completos del paciente
         $appointments = Appointment::with('patient')->where('doctor_id', $doctorId)
             ->whereDate('date', $dateStr)
             ->whereIn('status', ['pending', 'confirmed', 'no_show'])
+            ->orderBy('time')
             ->get()
-            ->groupBy('time')
-            ->toArray(); // Convierto a array para modificarlo fácilmente
+            ->groupBy(function($item) {
+                return Carbon::parse($item->time)->format('H:i:00');
+            });
 
         $slots = [];
-        $start = Carbon::parse($dateStr . ' ' . $schedule->start_time);
-        $end = Carbon::parse($dateStr . ' ' . $schedule->end_time);
+        $renderedAppointmentIds = [];
+        $now = Carbon::now();
 
-        $now = \Carbon\Carbon::now();
+        foreach ($intervals as $interval) {
+            $start = clone $interval['start'];
+            $end = clone $interval['end'];
 
-        while ($start <= $end) {
-            $timeString = $start->format('H:i:00');
-            $timeDisplay = $start->format('H:i');
-            $nextInterval = (clone $start)->addMinutes($schedule->slot_duration_minutes);
-            $isPast = $start < $now;
-            
-            // Check if this slot interval is blocked
-            $isBlocked = false;
-            $blockReason = '';
-            $blockId = null;
-            if ($start < $end) {
+            while ($start < $end) {
+                $timeString = $start->format('H:i:00');
+                $timeDisplay = $start->format('H:i');
+                $nextInterval = (clone $start)->addMinutes($slotDuration);
+                $isPast = $start < $now;
+
+                // Verificar si este turno cae dentro de un bloqueo
+                $isBlocked = false;
+                $blockReason = '';
+                $blockId = null;
+
                 foreach ($blocks as $block) {
                     if ($block->start_datetime < $nextInterval && $block->end_datetime > $start) {
                         $isBlocked = true;
@@ -319,129 +453,105 @@ class AppointmentController extends Controller
                         break;
                     }
                 }
-            }
 
-            if ($isBlocked) {
-                // If there was an appointment in this slot, detect conflict
-                $conflictPatient = null;
-                if (isset($appointments[$timeString])) {
-                    $app = $appointments[$timeString][0];
-                    $conflictPatient = collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ');
-                    unset($appointments[$timeString]);
-                }
-                $slots[] = [
-                    'time' => $timeDisplay,
-                    'status' => 'blocked',
-                    'reason' => $blockReason,
-                    'block_id' => $blockId,
-                    'conflict_patient' => $conflictPatient,
-                    'is_past' => $isPast
-                ];
-            } else {
-                // 1. Render EXACT match or Free Slot
-                if (isset($appointments[$timeString])) {
-                    foreach ($appointments[$timeString] as $app) {
+                if ($isBlocked) {
+                    $conflictPatient = null;
+                    if (isset($appointments[$timeString])) {
+                        $app = $appointments[$timeString]->first();
+                        if ($app && $app->patient) {
+                            $conflictPatient = collect([$app->patient->last_name, $app->patient->first_name])->filter()->join(', ');
+                        }
+                    }
+                    $slots[] = [
+                        'time' => $timeDisplay,
+                        'status' => 'blocked',
+                        'reason' => $blockReason,
+                        'block_id' => $blockId,
+                        'conflict_patient' => $conflictPatient,
+                        'is_past' => $isPast
+                    ];
+                } elseif (isset($appointments[$timeString])) {
+                    foreach ($appointments[$timeString] as $idx => $app) {
+                        $renderedAppointmentIds[] = $app->id;
+                        $p = $app->patient;
+                        $patientName = $p ? collect([$p->last_name, $p->first_name])->filter()->join(', ') : 'Paciente';
+                        $isExtra = $idx > 0 || (bool)$app->is_overbooked;
+
                         $slots[] = [
                             'time' => $timeDisplay,
-                            'status' => $app['status'] === 'no_show' ? 'no_show' : 'booked',
-                            'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', '),
-                            'appointment_id' => $app['id'],
+                            'status' => $app->status === 'no_show' ? 'no_show' : 'booked',
+                            'patient_id' => $app->patient_id,
+                            'patient_name' => $patientName,
+                            'patient_dni' => $p->document_number ?? '',
+                            'patient_phone' => $p->phone ?? '',
+                            'patient_os' => $p->health_insurance ?? '',
+                            'patient_affiliate' => $p->affiliate_number ?? '',
+                            'reason' => $app->reason ?? '',
+                            'notes' => $app->notes ?? '',
+                            'appointment_id' => $app->id,
+                            'is_extra' => $isExtra,
                             'is_past' => $isPast
                         ];
                     }
-                    unset($appointments[$timeString]);
                 } else {
-                    if ($start < $end) {
-                        $slots[] = [
-                            'time' => $timeDisplay,
-                            'status' => 'free',
-                            'is_past' => $isPast
-                        ];
-                    }
+                    $slots[] = [
+                        'time' => $timeDisplay,
+                        'status' => 'free',
+                        'is_past' => $isPast
+                    ];
                 }
-            }
 
-            // 2. Render Sobreturnos (OFF-INTERVAL entries strictly between this slot and next)
-            if ($start < $end) {
-                foreach ($appointments as $tStr => $apps) {
-                    if ($tStr > $timeString && $tStr < $nextInterval->format('H:i:00')) {
-                        $extraStart = Carbon::parse($dateStr . ' ' . $tStr);
-                        
-                        // Check if this extra slot is blocked
-                        $isExtraBlocked = false;
-                        $extraBlockReason = '';
-                        $extraBlockId = null;
-                        foreach ($blocks as $block) {
-                            if ($block->start_datetime <= $extraStart && $block->end_datetime > $extraStart) {
-                                $isExtraBlocked = true;
-                                $extraBlockReason = $block->reason ?: 'Bloqueado';
-                                $extraBlockId = $block->id;
-                                break;
-                            }
-                        }
-
-                        foreach ($apps as $app) {
-                            $slots[] = [
-                                'time' => Carbon::parse($tStr)->format('H:i'),
-                                'status' => $isExtraBlocked ? 'blocked' : ($app['status'] === 'no_show' ? 'no_show' : 'booked'),
-                                'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ') . ' (Extra)',
-                                'appointment_id' => $app['id'],
-                                'is_extra' => true,
-                                'reason' => $isExtraBlocked ? $extraBlockReason : null,
-                                'block_id' => $isExtraBlocked ? $extraBlockId : null,
-                                'is_past' => \Carbon\Carbon::parse($tStr) < $now
-                            ];
-                        }
-                        unset($appointments[$tStr]);
-                    }
-                }
-            }
-
-            $start->addMinutes($schedule->slot_duration_minutes);
-        }
-        
-        // 3. Any leftovers (before shift start or after shift end)
-        foreach ($appointments as $tStr => $apps) {
-            $extraStart = Carbon::parse($dateStr . ' ' . $tStr);
-            
-            // Check if blocked
-            $isExtraBlocked = false;
-            $extraBlockReason = '';
-            $extraBlockId = null;
-            foreach ($blocks as $block) {
-                if ($block->start_datetime <= $extraStart && $block->end_datetime > $extraStart) {
-                    $isExtraBlocked = true;
-                    $extraBlockReason = $block->reason ?: 'Bloqueado';
-                    $extraBlockId = $block->id;
-                    break;
-                }
-            }
-
-            foreach ($apps as $app) {
-                $slots[] = [
-                    'time' => Carbon::parse($tStr)->format('H:i'),
-                    'status' => $isExtraBlocked ? 'blocked' : ($app['status'] === 'no_show' ? 'no_show' : 'booked'),
-                    'patient_name' => collect([$app['patient']['last_name'] ?? '', $app['patient']['first_name'] ?? ''])->filter()->join(', ') . ' (Extra)',
-                    'appointment_id' => $app['id'],
-                    'is_extra' => true,
-                    'reason' => $isExtraBlocked ? $extraBlockReason : null,
-                    'block_id' => $isExtraBlocked ? $extraBlockId : null,
-                    'is_past' => \Carbon\Carbon::parse($tStr) < $now
-                ];
+                $start->addMinutes($slotDuration);
             }
         }
 
+        // 5. Turnos fuera de los intervalos regulares (sobreturnos en horarios atípicos)
+        foreach ($appointments as $tStr => $appGroup) {
+            foreach ($appGroup as $app) {
+                if (!in_array($app->id, $renderedAppointmentIds)) {
+                    $p = $app->patient;
+                    $patientName = $p ? collect([$p->last_name, $p->first_name])->filter()->join(', ') : 'Paciente';
+                    $appTime = Carbon::parse($dateStr . ' ' . $app->time);
+
+                    $slots[] = [
+                        'time' => $appTime->format('H:i'),
+                        'status' => $app->status === 'no_show' ? 'no_show' : 'booked',
+                        'patient_id' => $app->patient_id,
+                        'patient_name' => $patientName,
+                        'patient_dni' => $p->document_number ?? '',
+                        'patient_phone' => $p->phone ?? '',
+                        'patient_os' => $p->health_insurance ?? '',
+                        'patient_affiliate' => $p->affiliate_number ?? '',
+                        'reason' => $app->reason ?? '',
+                        'notes' => $app->notes ?? '',
+                        'appointment_id' => $app->id,
+                        'is_extra' => true,
+                        'is_past' => $appTime < $now
+                    ];
+                }
+            }
+        }
+
+        // Ordenar cronológicamente
+        usort($slots, function($a, $b) {
+            return strcmp($a['time'], $b['time']);
+        });
 
         return response()->json([
             'slots' => $slots,
-            'slot_duration' => $schedule->slot_duration_minutes
+            'slot_duration' => $slotDuration,
+            'full_day_block' => $fullDayBlock ? [
+                'id' => $fullDayBlock->id,
+                'reason' => $fullDayBlock->reason ?: 'Día Bloqueado / Vacaciones',
+                'start' => $fullDayBlock->start_datetime->format('d/m/Y'),
+                'end' => $fullDayBlock->end_datetime->format('d/m/Y'),
+            ] : null,
+            'intervals_count' => count($intervals),
+            'message' => empty($intervals) ? 'El profesional no tiene horario configurado para este día.' : ''
         ]);
     }
 
-    /**
-     * Phase 17: Escanea los próximos días para ubicar el turno mas cercano disponible para cada médico.
-     */
-    public function getNearestSlots()
+        public function getNearestSlots()
     {
         $doctors = User::role('médico')->with('schedules')->get();
         $results = [];
@@ -522,27 +632,33 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'doctor_id' => 'required|exists:users,id',
             'date' => 'required|date',
-            'block_type' => 'required|in:day,range,slot',
-            'start_time' => 'nullable|required_if:block_type,range,slot',
-            'end_time' => 'nullable|required_if:block_type,range,slot',
+            'end_date' => 'nullable|date',
+            'block_type' => 'required|string|in:day,vacation,range_days,range,slot',
+            'start_time' => 'nullable',
+            'end_time' => 'nullable',
             'reason' => 'required|string|max:255',
         ]);
 
         $date = $validated['date'];
-        
-        if ($validated['block_type'] === 'day') {
+
+        if ($validated['block_type'] === 'vacation' || $validated['block_type'] === 'range_days') {
+            $endDate = !empty($validated['end_date']) ? $validated['end_date'] : $date;
+            $startDatetime = $date . ' 00:00:00';
+            $endDatetime = $endDate . ' 23:59:59';
+        } elseif ($validated['block_type'] === 'day') {
             $startDatetime = $date . ' 00:00:00';
             $endDatetime = $date . ' 23:59:59';
         } else {
-            $startDatetime = $date . ' ' . $validated['start_time'] . ':00';
-            $endDatetime = $date . ' ' . $validated['end_time'] . ':00';
+            $startTime = !empty($validated['start_time']) ? $validated['start_time'] : '00:00';
+            $endTime = !empty($validated['end_time']) ? $validated['end_time'] : '23:59';
+            $startDatetime = $date . ' ' . $startTime . ':00';
+            $endDatetime = $date . ' ' . $endTime . ':00';
         }
 
-        // Validate that end is after start
         if (Carbon::parse($startDatetime) >= Carbon::parse($endDatetime)) {
             return response()->json([
                 'success' => false,
-                'message' => 'La hora de fin debe ser posterior a la de inicio.'
+                'message' => 'La fecha u hora de fin debe ser posterior a la de inicio.'
             ], 422);
         }
 
@@ -555,15 +671,12 @@ class AppointmentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Horario bloqueado correctamente.',
+            'message' => 'Bloqueo registrado exitosamente.',
             'block' => $block
         ]);
     }
 
-    /**
-     * Destroy a ScheduleBlock via AJAX
-     */
-    public function destroyBlock(\App\Models\ScheduleBlock $block)
+        public function destroyBlock(\App\Models\ScheduleBlock $block)
     {
         $block->delete();
 

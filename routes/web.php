@@ -44,6 +44,17 @@ Route::get('/run-seeders', function (\Illuminate\Http\Request $request) {
     }
 })->withoutMiddleware('web');
 
+// Fallback direct access to patient studies to prevent Apache 403 Forbidden on shared hostings
+Route::get('/storage/patients/{patient}/studies/{filename}', function ($patient, $filename) {
+    $study = \App\Models\PatientStudy::where('patient_id', $patient)
+        ->where('file_path', 'like', "%$filename")
+        ->first();
+    if ($study) {
+        return app(\App\Http\Controllers\PatientStudyController::class)->show($study);
+    }
+    abort(404, 'Estudio médico no encontrado.');
+});
+
 Route::middleware('auth')->group(function () {
     Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
     Route::resource('users', App\Http\Controllers\UserController::class);
@@ -65,6 +76,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('patients', App\Http\Controllers\PatientController::class);
     // Medical Studies specific routes
     Route::post('patients/{patient}/studies', [App\Http\Controllers\PatientStudyController::class, 'store'])->name('patient.studies.store');
+    Route::get('studies/{patientStudy}/view', [App\Http\Controllers\PatientStudyController::class, 'show'])->name('studies.show');
+    Route::get('studies/{patientStudy}/download', [App\Http\Controllers\PatientStudyController::class, 'download'])->name('studies.download');
     Route::delete('studies/{patientStudy}', [App\Http\Controllers\PatientStudyController::class, 'destroy'])->name('studies.destroy');
 
     // Comments specific route

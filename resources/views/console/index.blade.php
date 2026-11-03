@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Consola Pacientes (Flujo Interactivo)')
-@section('subtitle', 'Línea de tiempo unificada por paciente')
+@section('title', 'Consola Pacientes (Sala de Espera)')
+@section('subtitle', 'Flujo interactivo y control de tiempos en vivo')
 
 @section('content')
 
@@ -72,6 +72,10 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
     margin-bottom: 24px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     overflow: hidden;
+    transition: all 0.2s ease;
+}
+.patient-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
 }
 .patient-header {
     padding: 15px 24px;
@@ -82,7 +86,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
     background: #FFF9E6;
 }
 .patient-header-pill {
-    font-weight: 600;
+    font-weight: 700;
     color: #8D701C;
     font-size: 0.95rem;
 }
@@ -113,13 +117,18 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
 /* Blinking dot for live timer */
 @keyframes blink { 50% { opacity: 0; } }
 .live-dot { height: 8px; width: 8px; background-color: #dc3545; border-radius: 50%; display: inline-block; animation: blink 1s step-start infinite; margin-right: 5px; }
+
+.hover-primary:hover {
+    color: #0d6efd !important;
+    text-decoration: underline !important;
+}
 </style>
 
 <!-- Top Action Bar -->
 @php
     if (!function_exists('formatMins')) {
         function formatMins($mins) {
-            $mins = floor($mins);
+            $mins = max(0, floor($mins));
             if ($mins < 60) return $mins . ' min';
             $hrs = floor($mins / 60);
             $rem = $mins % 60;
@@ -127,7 +136,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         }
     }
 @endphp
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <button class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fs-5 fw-bold d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#newArrivalModal" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
         <i class="bi bi-plus-lg text-white"></i> Ingresar Nuevo Paciente
     </button>
@@ -139,28 +148,85 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
     </form>
 </div>
 
-<!-- Loop de Pacientes Activos -->
+<!-- Barra de Ordenamiento (Sala de Espera) -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white p-3" style="border: 1px solid rgba(0,0,0,0.06) !important;">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-bold text-dark small text-uppercase" style="letter-spacing: 0.5px;">
+                <i class="bi bi-filter-circle text-primary me-1"></i> Ordenar por:
+            </span>
+            <select id="consoleSortField" class="form-select form-select-sm bg-light border-0 shadow-none fw-semibold rounded-pill px-3 py-1" style="width: auto; cursor: pointer;">
+                <option value="llegada" selected>Horario de Llegada (Default)</option>
+                <option value="espera">Tiempo de Espera</option>
+                <option value="dilatacion">Tiempo de Dilatación</option>
+                <option value="agenda">Horario de Agenda (Turno)</option>
+                <option value="cobertura">Cobertura Médica</option>
+                <option value="nombre">Nombre de Paciente (A-Z)</option>
+            </select>
+            <button id="consoleSortDirectionBtn" class="btn btn-sm btn-light border rounded-pill px-3 fw-bold text-secondary shadow-sm" title="Alternar Ascendente / Descendente">
+                <i class="bi bi-sort-down fs-6 me-1" id="consoleSortDirectionIcon"></i>
+                <span id="consoleSortDirectionText">Ascendente</span>
+            </button>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 fw-bold" id="activePatientsCountBadge">
+                {{ $activePatients->count() }} paciente(s) en espera
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Contenedor de Pacientes Activos -->
+<div id="activePatientsContainer">
 @forelse($activePatients as $patient)
     @php
         $sortedAssigns = $patient->assignments->sortBy('started_at');
         $firstEvent = $sortedAssigns->first();
-        $llegada = $firstEvent ? $firstEvent->started_at->format('H:i') : '--:--';
+        $llegada = ($firstEvent && $firstEvent->started_at) ? $firstEvent->started_at->format('H:i') : '--:--';
+        $llegadaTimestamp = ($firstEvent && $firstEvent->started_at) ? $firstEvent->started_at->timestamp : 0;
+        
         $activeEvent = $patient->assignments->where('status', 'in_progress')->first();
         $currentStatus = $activeEvent ? $activeEvent->event_type : 'Terminado';
         
         // Sumar minutos por categoría
         $totals = ['Dilatación' => 0, 'Ingreso (espera)' => 0];
         foreach($patient->assignments as $a) {
-            $end = $a->ended_at ?? \Carbon\Carbon::now();
-            $diff = $a->started_at->diffInMinutes($end);
-            if(isset($totals[$a->event_type])) { $totals[$a->event_type] += $diff; }
+            if ($a->started_at) {
+                $end = $a->ended_at ?? \Carbon\Carbon::now();
+                $diff = max(0, $a->started_at->diffInMinutes($end));
+                if(isset($totals[$a->event_type])) { $totals[$a->event_type] += $diff; }
+            }
         }
+
+        // Datos de turno / agenda hoy
+        $todayAppt = $patient->appointments ? $patient->appointments->where('date', \Carbon\Carbon::today()->toDateString())->first() : null;
+        $horarioAgenda = $todayAppt ? substr($todayAppt->time, 0, 5) : null;
+        $agendaMinutes = 99999;
+        if ($horarioAgenda) {
+            $parts = explode(':', $horarioAgenda);
+            $agendaMinutes = ((int)$parts[0] * 60) + (int)($parts[1] ?? 0);
+        }
+
+        // Leyendas de secretaria
+        $notesRecepcion = $firstEvent ? trim($firstEvent->notes ?? '') : '';
+        $notesAgenda = $todayAppt ? trim(($todayAppt->notes ?: $todayAppt->reason) ?? '') : '';
+
+        // Tiempos calculados reales de inicio
+        $totalDiaMins = ($firstEvent && $firstEvent->started_at) ? max(0, $firstEvent->started_at->diffInMinutes(now())) : 0;
+        $totalDiaStr = $totalDiaMins < 60 ? $totalDiaMins . ' min' : floor($totalDiaMins/60) . ' hr ' . ($totalDiaMins%60) . ' min';
     @endphp
 
-    <div class="patient-card">
+    <div class="patient-card active-patient-card"
+         data-llegada="{{ $llegadaTimestamp }}"
+         data-espera="{{ $totals['Ingreso (espera)'] }}"
+         data-dilatacion="{{ $totals['Dilatación'] }}"
+         data-agenda="{{ $agendaMinutes }}"
+         data-cobertura="{{ strtolower($patient->obra_social ?? 'particular') }}"
+         data-nombre="{{ strtolower($patient->last_name . ' ' . $patient->first_name) }}">
+        
         <!-- Header -->
         <div class="patient-header">
-            <div class="d-flex align-items-center gap-3" style="width: 25%;">
+            <div class="d-flex align-items-center gap-3" style="width: 32%;">
                 @if($patient->photo_path)
                     <img src="{{ Storage::url($patient->photo_path) }}" alt="Foto" class="rounded-circle object-fit-cover shadow-sm" style="width: 50px; height: 50px; border: 2px solid var(--bs-warning);">
                 @else
@@ -169,13 +235,26 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                     </div>
                 @endif
                 <div>
-                    <h6 class="mb-0 fw-bold text-dark fs-5 text-capitalize d-flex align-items-center">
-                        {{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}
+                    <!-- Click en el nombre del paciente para ir directo a su Historia Clínica / Consulta -->
+                    <h6 class="mb-1 fw-bold text-dark fs-5 text-capitalize d-flex align-items-center">
+                        <a href="{{ route('patients.show', $patient) }}" class="text-dark text-decoration-none hover-primary fw-bold" title="Abrir Historia Clínica de {{ $patient->first_name }} {{ $patient->last_name }}">
+                            {{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}
+                            <i class="bi bi-box-arrow-up-right text-primary opacity-50 ms-2" style="font-size: 0.95rem;"></i>
+                        </a>
                         <button class="btn btn-sm btn-link p-0 ms-2" title="Agregar más pasos a este paciente" data-bs-toggle="modal" data-bs-target="#addMoreAssignmentsModal-{{ $patient->id }}">
                             <i class="bi bi-person-plus-fill" style="color: #7e448b; font-size: 1.3rem;"></i>
                         </button>
                     </h6>
-                    <small class="text-muted text-uppercase" style="font-size:0.75rem;">OS: {{ $patient->obra_social ?? 'Particular' }}</small>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge bg-white text-dark border px-2 py-1 shadow-none" style="font-size: 0.75rem;">
+                            <i class="bi bi-shield-check text-primary me-1"></i>Cobertura: <strong>{{ $patient->obra_social ?? 'Particular' }}</strong>{{ $patient->plan ? ' - ' . $patient->plan : '' }}
+                        </span>
+                        @if($horarioAgenda)
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1" style="font-size: 0.75rem;">
+                                <i class="bi bi-calendar-event me-1"></i>Turno: <strong>{{ $horarioAgenda }} hs</strong>
+                            </span>
+                        @endif
+                    </div>
                 </div>
             </div>
             
@@ -198,14 +277,30 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                 </div>
                 <div class="text-center">
                     <small class="text-muted d-block text-uppercase" style="font-size:0.7rem;">Total Día</small>
-                    @if($firstEvent)
-                        <span class="badge bg-dark px-3 py-1 rounded-pill total-day-timer" data-start="{{ $firstEvent->started_at->toIso8601String() }}">0'</span>
+                    @if($firstEvent && $firstEvent->started_at)
+                        <span class="badge bg-dark px-3 py-1 rounded-pill total-day-timer" data-start="{{ $firstEvent->started_at->toIso8601String() }}">Lleva: {{ $totalDiaStr }}</span>
                     @else
-                        <span class="badge bg-dark px-3 py-1 rounded-pill">0'</span>
+                        <span class="badge bg-dark px-3 py-1 rounded-pill">0 min</span>
                     @endif
                 </div>
             </div>
         </div>
+
+        <!-- Leyendas / Observaciones de la Secretaria -->
+        @if($notesRecepcion || $notesAgenda)
+            <div class="w-100 px-4 py-2 bg-warning bg-opacity-10 border-top border-bottom border-warning border-opacity-25 d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.85rem;">
+                <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-sticky-fill me-1"></i> Nota Secretaria:</span>
+                @if($notesRecepcion)
+                    <span class="text-dark"><strong>Recepción:</strong> {{ $notesRecepcion }}</span>
+                @endif
+                @if($notesRecepcion && $notesAgenda)
+                    <span class="text-muted">|</span>
+                @endif
+                @if($notesAgenda)
+                    <span class="text-dark"><strong>Turno / Agenda:</strong> {{ $notesAgenda }}</span>
+                @endif
+            </div>
+        @endif
 
         <!-- Body -->
         <div class="d-flex w-100">
@@ -230,15 +325,19 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                                 </td>
                                 <td>
                                     @if($a->status === 'in_progress')
+                                        @php
+                                            $currMins = $a->started_at ? max(0, $a->started_at->diffInMinutes(now())) : 0;
+                                            $currStr = $currMins < 60 ? $currMins . ' min' : floor($currMins/60) . ' hr ' . ($currMins%60) . ' min';
+                                        @endphp
                                         <div class="text-dark fw-bold flash-timer" data-start="{{ $a->started_at ? $a->started_at->toIso8601String() : '' }}">
-                                            <span class="live-dot"></span> 0 min
+                                            <span class="live-dot"></span> {{ $currStr }}
                                         </div>
                                     @elseif($a->status === 'pending')
                                         <span class="text-muted fw-bold"><i class="bi bi-hourglass-split"></i> En cola</span>
                                     @else
                                         @php
                                             $diff = ($a->started_at && $a->ended_at) ? $a->started_at->diff($a->ended_at) : null;
-                                            $timeStr = $diff ? ($diff->h > 0 ? $diff->h . 'hr ' . $diff->i . ' m' : $diff->i . ' min.') : '--';
+                                            $timeStr = $diff ? ($diff->h > 0 ? $diff->h . ' hr ' . $diff->i . ' min' : $diff->i . ' min') : '--';
                                         @endphp
                                         <span class="text-muted">{{ $timeStr }}</span>
                                     @endif
@@ -298,18 +397,18 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                 </div>
                 <form action="{{ route('console.assignments.append', $patient) }}" method="POST">
                     @csrf
-                    <input type="hidden" name="patient_id" value="{{ $patient->id }}">
-                    <div class="modal-body pt-4">
-                        <div class="d-flex justify-content-between align-items-end mb-3">
+                    <div class="modal-body pt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="fw-bold mb-0 text-dark">Nuevos Pasos a la Cola</h6>
-                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" onclick="addAppendRow({{ $patient->id }})">
-                                <i class="bi bi-plus-circle-fill"></i> Agregar Asignación
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" onclick="addAppendRow({{ $patient->id }})">
+                                <i class="bi bi-plus-circle me-1"></i> Añadir Otro Paso
                             </button>
                         </div>
+                        
                         <div id="appendContainer-{{ $patient->id }}">
-                            <div class="row gx-3 align-items-end mb-3" id="append-row-{{ $patient->id }}-0">
+                            <div class="row gx-3 align-items-end mb-3">
                                 <div class="col-md-5">
-                                    <label class="form-label text-muted small fw-bold">Tipo</label>
+                                    <label class="form-label text-muted small fw-bold">Estado</label>
                                     <select name="event_types[]" class="form-select border-secondary border-opacity-25 shadow-sm" required>
                                         <option value="Ingreso (espera)">Ingreso (espera)</option>
                                         <option value="Dilatación">Dilatación</option>
@@ -318,7 +417,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label text-muted small fw-bold">Médico</label>
+                                    <label class="form-label text-muted small fw-bold">Médico Referencia</label>
                                     <select name="doctor_ids[]" class="form-select border-secondary border-opacity-25 shadow-sm">
                                         <option value="">Cualquier médico / Staff</option>
                                         @foreach($doctors as $d)
@@ -327,47 +426,41 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                                     </select>
                                 </div>
                                 <div class="col-md-1 text-center">
-                                    <button type="button" class="btn btn-link text-danger p-0 mt-4" style="font-size: 1.2rem;" disabled>
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    <!-- No delete for first row -->
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer border-0 pt-0 pb-4 px-4 d-flex">
-                        <button type="submit" class="btn btn-primary w-100 py-2 rounded-pill fw-bold" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
-                            Agregar a la Cola <i class="bi bi-send-fill ms-1"></i>
+                    <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                            Guardar Nuevos Pasos
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-
 @empty
     <div class="text-center py-5 empty-waiting-room" style="min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; background-image: url('{{ asset('images/empty_waiting_room.png') }}'); background-size: contain; background-position: center; background-repeat: no-repeat; border-radius: 1.5rem; position: relative;">
-        <!-- Semi-transparent overlay to ensure text readability in both light and dark modes -->
         <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.6); border-radius: 1.5rem;" class="bg-overlay-light"></div>
         <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17, 24, 39, 0.8); border-radius: 1.5rem; display: none;" class="bg-overlay-dark"></div>
         
         <div style="position: relative; z-index: 2; padding: 2rem; background: rgba(255,255,255,0.95); border-radius: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.08); max-width: 500px; backdrop-filter: blur(5px);" class="empty-state-card">
-            <div class="mb-3">
-                <i class="bi bi-door-open" style="font-size: 3.5rem; color: #5e6ad2;"></i>
+            <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-3 shadow-sm" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                <i class="bi bi-clock-history fs-1" style="color: var(--primary-color);"></i>
             </div>
             <h4 class="fw-bold" style="color: #2c3e50;">Sala de Espera Despejada</h4>
-            <p class="text-muted mb-0">Ningún paciente ha ingresado aún. Pulsa el botón superior para ingresar al primer paciente del día.</p>
+            <p class="text-muted mb-4" style="line-height: 1.6;">No hay pacientes aguardando ni en proceso en este momento. Utiliza el botón superior para dar ingreso a un paciente.</p>
+            <button class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-bold d-inline-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#newArrivalModal" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border: none;">
+                <i class="bi bi-person-plus-fill"></i> Ingresar Primer Paciente
+            </button>
         </div>
     </div>
-
-    <style>
-        body.theme-dark .bg-overlay-light { display: none !important; }
-        body.theme-dark .bg-overlay-dark { display: block !important; }
-        body.theme-dark .empty-state-card { background: rgba(30, 41, 59, 0.95) !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; }
-        body.theme-dark .empty-state-card h4 { color: #f8f9fa !important; }
-        body.theme-dark .empty-state-card p.text-muted { color: #adb5bd !important; }
-    </style>
 @endforelse
+</div> <!-- Fin #activePatientsContainer -->
 
+<!-- Historial (Dados de Alta Hoy) -->
 @if($finishedPatients->count() > 0)
     <div class="mt-5 mb-4 d-flex align-items-center gap-3 opacity-75">
         <h5 class="fw-bold text-muted mb-0"><i class="bi bi-archive-fill me-2"></i> Historial (Dados de Alta Hoy)</h5>
@@ -378,7 +471,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
     @php
         $sortedAssigns = $patient->assignments->sortBy('started_at');
         $firstEvent = $sortedAssigns->first();
-        $llegada = $firstEvent ? $firstEvent->started_at->format('H:i') : '--:--';
+        $llegada = ($firstEvent && $firstEvent->started_at) ? $firstEvent->started_at->format('H:i') : '--:--';
         $lastEvent = $sortedAssigns->last();
         $salida = $lastEvent && $lastEvent->ended_at ? $lastEvent->ended_at->format('H:i') : '--:--';
         
@@ -386,15 +479,17 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         $totals = ['Dilatación' => 0, 'Ingreso (espera)' => 0];
         $totalMinutes = 0;
         foreach($patient->assignments as $a) {
-            $end = $a->ended_at ?? \Carbon\Carbon::now();
-            $diff = $a->started_at->diffInMinutes($end);
-            $totalMinutes += $diff;
-            if(isset($totals[$a->event_type])) { $totals[$a->event_type] += $diff; }
+            if ($a->started_at) {
+                $end = $a->ended_at ?? \Carbon\Carbon::now();
+                $diff = max(0, $a->started_at->diffInMinutes($end));
+                $totalMinutes += $diff;
+                if(isset($totals[$a->event_type])) { $totals[$a->event_type] += $diff; }
+            }
         }
     @endphp
     <div class="patient-card history-card" style="margin-bottom: 16px;">
         <div class="patient-header">
-            <div class="d-flex align-items-center gap-3" style="width: 25%;">
+            <div class="d-flex align-items-center gap-3" style="width: 32%;">
                 @if($patient->photo_path)
                     <img src="{{ Storage::url($patient->photo_path) }}" alt="Foto" class="rounded-circle object-fit-cover shadow-sm" style="width: 50px; height: 50px; border: 2px solid var(--bs-secondary); filter: grayscale(50%);">
                 @else
@@ -403,8 +498,15 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                     </div>
                 @endif
                 <div>
-                    <h6 class="mb-0 fw-bold text-dark fs-5 text-capitalize">{{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}</h6>
-                    <small class="text-muted text-uppercase" style="font-size:0.75rem;">Alta Diaria</small>
+                    <h6 class="mb-1 fw-bold text-dark fs-5 text-capitalize">
+                        <a href="{{ route('patients.show', $patient) }}" class="text-dark text-decoration-none hover-primary fw-bold" title="Abrir Historia Clínica de {{ $patient->first_name }} {{ $patient->last_name }}">
+                            {{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}
+                            <i class="bi bi-box-arrow-up-right text-secondary opacity-50 ms-2" style="font-size: 0.9rem;"></i>
+                        </a>
+                    </h6>
+                    <small class="text-muted text-uppercase" style="font-size:0.75rem;">
+                        <i class="bi bi-shield-check me-1"></i>Cobertura: {{ $patient->obra_social ?? 'Particular' }} | Alta Diaria
+                    </small>
                 </div>
             </div>
             <div class="d-flex justify-content-between align-items-center flex-grow-1 px-4">
@@ -428,60 +530,31 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         </div>
         <div class="px-4 py-2 history-route-bar d-flex justify-content-between align-items-center">
             <div>
-                <small class="text-muted fw-bold">Recorrido:</small> 
-                @foreach($sortedAssigns as $a)
-                    <span class="badge bg-light text-dark border me-1">{{ $a->event_type }} ({{ formatMins($a->started_at->diffInMinutes($a->ended_at)) }})</span>
+                <small class="fw-bold me-2">Recorrido:</small>
+                @foreach($sortedAssigns as $idx => $step)
+                    <span class="badge rounded-pill me-1 {{ $step->status == 'completed' ? 'border border-secondary bg-white text-secondary' : 'bg-secondary' }}">
+                        {{ $step->event_type }}
+                        @if($step->doctor) ({{ $step->doctor->name }}) @endif
+                    </span>
+                    @if(!$loop->last) <i class="bi bi-chevron-right text-muted small me-1"></i> @endif
                 @endforeach
             </div>
-            <button class="btn btn-sm btn-link text-decoration-none text-muted" data-bs-toggle="collapse" data-bs-target="#history-table-{{ $patient->id }}">
-                <i class="bi bi-plus-circle-fill"></i> Ver detalles
-            </button>
-        </div>
-        <div class="collapse" id="history-table-{{ $patient->id }}">
-            <div class="d-flex w-100">
-                <div class="flex-grow-1">
-                    <table class="table inner-table mb-0 border-top">
-                        <thead>
-                            <tr>
-                                <th class="ps-5">Ingreso</th>
-                                <th>Fin</th>
-                                <th>Estado</th>
-                                <th>Transcurrido</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($sortedAssigns as $a)
-                                <tr>
-                                    <td class="ps-5 text-secondary">{{ $a->started_at ? $a->started_at->format('H:i') : '--:--' }}</td>
-                                    <td class="text-secondary">{{ $a->ended_at ? $a->ended_at->format('H:i') : '' }}</td>
-                                    <td>
-                                        <span class="fw-bold text-dark">{{ $a->event_type }}</span>
-                                    </td>
-                                    <td>
-                                        @php
-                                            $diff = ($a->started_at && $a->ended_at) ? $a->started_at->diff($a->ended_at) : null;
-                                            $timeStr = $diff ? ($diff->h > 0 ? $diff->h . 'hr ' . $diff->i . ' m' : $diff->i . ' min.') : '--';
-                                        @endphp
-                                        <span class="text-muted">{{ $timeStr }}</span>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+            <div>
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                    <i class="bi bi-check2-all me-1"></i> Finalizado
+                </span>
             </div>
         </div>
     </div>
     @endforeach
 @endif
 
-
-<!-- Modal Ingresar Nuevo Paciente (Llegada) -->
+<!-- Modal para Registrar Nuevo Ingreso a la Clínica -->
 <div class="modal fade" id="newArrivalModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4 shadow-lg">
             <div class="modal-header border-0 bg-light rounded-top-4 pb-2">
-                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-person-plus-fill text-primary me-2"></i> Ingreso a Clínica</h5>
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-person-plus-fill text-primary me-2"></i> Ingreso a Sala de Espera</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ route('console.assignments.store') }}" method="POST">
@@ -507,7 +580,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                         </select>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label class="form-label text-muted small fw-bold">Médico Referencia (Opcional)</label>
                         <select name="doctor_ids[]" class="form-select bg-light border-0 shadow-none py-2">
                             <option value="" selected>Sin especificar aún</option>
@@ -515,6 +588,11 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                                 <option value="{{ $d->id }}">{{ $d->name }}</option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">Observaciones / Leyenda de Recepción (Opcional)</label>
+                        <textarea name="notes" rows="2" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Ej: Trae estudios de otra clínica, paciente en silla de ruedas, urgencia..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0 pb-4 px-4 d-flex">
@@ -528,8 +606,8 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
 </div>
 
 <script>
-    // Motores de Cronometraje en Vivo
-    setInterval(() => {
+    // Motores de Cronometraje en Vivo (Nunca se resetean al navegar)
+    function updateAllTimers() {
         const now = new Date();
         
         // Timer de Evento Activo (Fila de tabla)
@@ -537,7 +615,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
             const startStr = el.getAttribute('data-start');
             if(startStr) {
                 const start = new Date(startStr);
-                const diffMins = Math.floor((now - start) / 60000);
+                const diffMins = Math.max(0, Math.floor((now - start) / 60000));
                 
                 let timeStr = diffMins + ' min';
                 if (diffMins >= 60) {
@@ -555,7 +633,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
             const startStr = el.getAttribute('data-start');
             if(startStr) {
                 const start = new Date(startStr);
-                const diffMins = Math.floor((now - start) / 60000);
+                const diffMins = Math.max(0, Math.floor((now - start) / 60000));
                 
                 let timeStr = diffMins + ' min';
                 if (diffMins >= 60) {
@@ -567,8 +645,104 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                 el.innerHTML = `Lleva: ${timeStr}`;
             }
         });
-        
-    }, 10000); // Actualiza cada 10 segs para no sobrecargar
+    }
+
+    // Inicializar timers INMEDIATAMENTE sin esperar intervalo
+    updateAllTimers();
+    // Actualizar periódicamente cada 5 segundos
+    setInterval(updateAllTimers, 5000);
+
+    // Sistema de Ordenamiento de la Sala de Espera
+    function initConsoleSorting() {
+        const sortFieldSelect = document.getElementById('consoleSortField');
+        const sortDirBtn = document.getElementById('consoleSortDirectionBtn');
+        const sortDirIcon = document.getElementById('consoleSortDirectionIcon');
+        const sortDirText = document.getElementById('consoleSortDirectionText');
+        const container = document.getElementById('activePatientsContainer');
+
+        if (!sortFieldSelect || !sortDirBtn || !container) return;
+
+        // Recuperar preferencia de orden guardada en localStorage
+        let sortField = localStorage.getItem('console_sort_field') || 'llegada';
+        let sortDir = localStorage.getItem('console_sort_dir') || 'asc';
+
+        sortFieldSelect.value = sortField;
+        updateDirectionUI();
+
+        function updateDirectionUI() {
+            if (sortDir === 'asc') {
+                sortDirIcon.className = 'bi bi-sort-down fs-6 me-1';
+                sortDirText.innerText = 'Ascendente';
+            } else {
+                sortDirIcon.className = 'bi bi-sort-up fs-6 me-1';
+                sortDirText.innerText = 'Descendente';
+            }
+        }
+
+        function applySorting() {
+            const cards = Array.from(container.querySelectorAll('.active-patient-card'));
+            if (cards.length === 0) return;
+
+            cards.sort((a, b) => {
+                let valA, valB;
+                switch(sortField) {
+                    case 'llegada':
+                        valA = parseInt(a.getAttribute('data-llegada')) || 0;
+                        valB = parseInt(b.getAttribute('data-llegada')) || 0;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
+                    case 'espera':
+                        valA = parseFloat(a.getAttribute('data-espera')) || 0;
+                        valB = parseFloat(b.getAttribute('data-espera')) || 0;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
+                    case 'dilatacion':
+                        valA = parseFloat(a.getAttribute('data-dilatacion')) || 0;
+                        valB = parseFloat(b.getAttribute('data-dilatacion')) || 0;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
+                    case 'agenda':
+                        valA = parseInt(a.getAttribute('data-agenda')) || 99999;
+                        valB = parseInt(b.getAttribute('data-agenda')) || 99999;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
+                    case 'cobertura':
+                        valA = (a.getAttribute('data-cobertura') || '').trim();
+                        valB = (b.getAttribute('data-cobertura') || '').trim();
+                        return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                    case 'nombre':
+                        valA = (a.getAttribute('data-nombre') || '').trim();
+                        valB = (b.getAttribute('data-nombre') || '').trim();
+                        return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                    default:
+                        return 0;
+                }
+            });
+
+            cards.forEach(card => container.appendChild(card));
+        }
+
+        sortFieldSelect.addEventListener('change', function() {
+            sortField = this.value;
+            localStorage.setItem('console_sort_field', sortField);
+            applySorting();
+        });
+
+        sortDirBtn.addEventListener('click', function() {
+            sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+            localStorage.setItem('console_sort_dir', sortDir);
+            updateDirectionUI();
+            applySorting();
+        });
+
+        applySorting();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initConsoleSorting();
+    });
 
     // Logic for dynamic row addition in Append Assignment Modal
     let appendCounters = {};

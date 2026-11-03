@@ -273,30 +273,46 @@ body.theme-dark .cal-day.available:hover {
   </div>
 </div>
 
-<!-- Modal: Bloquear Horario / Agenda -->
+<!-- Modal: Bloquear Horario / Agenda / Vacaciones -->
 <div class="modal fade" id="blockAgendaModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 rounded-4 shadow">
         <div class="modal-header border-bottom-0 pb-0">
-            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Bloquear Agenda/Horarios</h5>
+            <div>
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Bloquear Agenda / Vacaciones</h5>
+                <small class="text-muted fw-bold" id="blockDoctorNameLabel">Médico: --</small>
+            </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <form action="{{ route('api.agenda.blocks.store') }}" method="POST" id="blockAgendaForm">
             @csrf
             <input type="hidden" name="doctor_id" id="blockDoctorId">
-            <input type="hidden" name="date" id="blockDate">
             
             <div class="modal-body p-4">
                 <div class="row g-3">
                     <div class="col-md-12">
                         <label class="form-label text-muted small fw-bold">Tipo de Bloqueo *</label>
                         <select name="block_type" id="blockTypeSelect" class="form-control bg-light border-0 shadow-none form-select" required>
-                            <option value="day">Día completo (Todo el día)</option>
-                            <option value="range">Franja horaria (Rango de horas)</option>
-                            <option value="slot">Turno específico (Un solo turno)</option>
+                            <option value="vacation">🌴 Vacaciones / Rango de días (Desde - Hasta)</option>
+                            <option value="day">⛔ Día completo (Anular un día)</option>
+                            <option value="range">⏰ Franja horaria (ej: Anular Mañana o Tarde)</option>
+                            <option value="slot">🚫 Turno único (Un horario específico)</option>
                         </select>
                     </div>
 
+                    <!-- Fecha Desde -->
+                    <div class="col-md-6" id="blockStartDateCol">
+                        <label class="form-label text-muted small fw-bold" id="blockStartDateLabel">Fecha Desde *</label>
+                        <input type="date" name="date" class="form-control bg-light border-0 shadow-none" id="blockDate" required>
+                    </div>
+
+                    <!-- Fecha Hasta (Vacaciones o Rango de Días) -->
+                    <div class="col-md-6" id="blockEndDateCol">
+                        <label class="form-label text-muted small fw-bold">Fecha Hasta (inclusive) *</label>
+                        <input type="date" name="end_date" class="form-control bg-light border-0 shadow-none" id="blockEndDate">
+                    </div>
+
+                    <!-- Horas (Franja horaria o turno único) -->
                     <div class="col-md-6 time-fields d-none">
                         <label class="form-label text-muted small fw-bold">Hora de Inicio *</label>
                         <input type="time" name="start_time" class="form-control bg-light border-0 shadow-none" id="blockStartTime">
@@ -308,8 +324,8 @@ body.theme-dark .cal-day.available:hover {
                     </div>
 
                     <div class="col-md-12">
-                        <label class="form-label text-muted small fw-bold">Motivo / Notas del Bloqueo *</label>
-                        <input type="text" name="reason" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Trámite personal, Congreso, etc." required>
+                        <label class="form-label text-muted small fw-bold">Motivo del Bloqueo *</label>
+                        <input type="text" name="reason" id="blockReasonInput" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Vacaciones de verano, Quirófano, Congreso, Licencia..." required>
                     </div>
                 </div>
             </div>
@@ -321,7 +337,6 @@ body.theme-dark .cal-day.available:hover {
     </div>
   </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
     // Phase 21: Modal Asíncrono Live Search Integration
@@ -478,14 +493,22 @@ body.theme-dark .cal-day.available:hover {
             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
             const dayData = availabilityMap[dateStr] || { status: 'unavailable', percentage: 0 };
             
-            // Retrocompatibilidad defensiva por si en algún cache viejo viene string
             const status = typeof dayData === 'object' ? dayData.status : dayData;
             const percentage = typeof dayData === 'object' ? dayData.percentage : 0;
+            const isBlocked = typeof dayData === 'object' ? Boolean(dayData.is_blocked) : (status === 'blocked');
+            const blockReason = typeof dayData === 'object' ? (dayData.reason || 'Bloqueado') : 'Bloqueado';
             
             let extraClass = '';
             const div = document.createElement('div');
 
-            if (status === 'unavailable') {
+            if (status === 'blocked' || isBlocked) {
+                extraClass = 'blocked';
+                div.title = `Bloqueado: ${blockReason}`;
+                div.style.background = '#fff3cd';
+                div.style.color = '#856404';
+                div.style.border = '2px solid #ffc107';
+                div.style.fontWeight = 'bold';
+            } else if (status === 'unavailable') {
                 extraClass = 'unavailable opacity-50';
                 div.title = 'No atiende';
             } else if (status === 'full') {
@@ -495,7 +518,6 @@ body.theme-dark .cal-day.available:hover {
                 extraClass = 'available';
                 div.title = `Ocupado: ${percentage}%`;
                 
-                // Set CSS variables instead of inline styles for dark mode compatibility
                 div.style.setProperty('--fill-percentage', `${percentage}%`);
                 if (percentage >= 50) {
                     div.setAttribute('data-filled', 'true');
@@ -507,7 +529,8 @@ body.theme-dark .cal-day.available:hover {
             div.className = `cal-day ${extraClass}`;
             div.innerText = day;
             
-            if (status === 'available' || status === 'full') {
+            // Permitir clic en disponibles, llenos o bloqueados para inspeccionar y desbloquear
+            if (status === 'available' || status === 'full' || status === 'blocked' || isBlocked) {
                 div.onclick = (e) => loadDaySlots(doctorId, dateStr, e);
             }
 
@@ -518,9 +541,10 @@ body.theme-dark .cal-day.available:hover {
     function loadDaySlots(doctorId, dateStr, e) {
         doctorStates[doctorId].selectedDateStr = dateStr;
         
-        // Remove class from siblings in THIS specific grid
         const grid = document.getElementById(`miniCalendarGrid_${doctorId}`);
-        grid.querySelectorAll('.cal-day').forEach(el => el.classList.remove('selected-day'));
+        if (grid) {
+            grid.querySelectorAll('.cal-day').forEach(el => el.classList.remove('selected-day'));
+        }
         if (e && e.target) {
              e.target.classList.add('selected-day');
         }
@@ -543,8 +567,14 @@ body.theme-dark .cal-day.available:hover {
             .then(res => {
                 document.getElementById(`dateLoadingSpinner_${doctorId}`).classList.add('d-none');
                 
-                if(res.data.slots.length === 0) {
-                     document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = res.data.message || "Sin horarios";
+                if (res.data.slots.length === 0) {
+                     document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = res.data.message || "Sin horarios de atención para este día.";
+                     slotsContainer.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-calendar-x fs-1 text-secondary opacity-50 d-block mb-2"></i>
+                            <h6 class="text-dark">${res.data.message || 'Sin horarios de atención'}</h6>
+                            <small>Este profesional no tiene horario configurado para este día de la semana.</small>
+                        </div>`;
                      return;
                 }
 
@@ -568,33 +598,46 @@ body.theme-dark .cal-day.available:hover {
 
                 let html = '';
 
-                // Add timeline legend at the top
+                // Si hay un bloqueo general de día completo o vacaciones, mostrar banner destacado arriba
+                if (res.data.full_day_block) {
+                    const blk = res.data.full_day_block;
+                    html += `
+                    <div class="alert alert-warning border-0 rounded-4 p-3 d-flex align-items-center justify-content-between mb-3 shadow-sm" style="background: rgba(255, 193, 7, 0.2); border-left: 5px solid #ffc107 !important;">
+                        <div>
+                            <h6 class="fw-bold mb-1 text-dark"><i class="bi bi-shield-lock-fill text-warning me-2 fs-5"></i> DÍA BLOQUEADO</h6>
+                            <span class="text-dark small"><strong>Motivo:</strong> ${blk.reason} (${blk.start} al ${blk.end})</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold shadow-sm" onclick="unblockSlot(${blk.id}, ${doctorId}, '${dateStr}')">
+                            <i class="bi bi-unlock-fill me-1"></i> Desbloquear Día
+                        </button>
+                    </div>`;
+                }
+
+                // Barra de referencias
                 html += `
                 <div class="d-flex gap-2 mb-3 justify-content-start flex-wrap bg-light p-2 rounded-3 border" style="font-size: 0.75rem;">
                     <span class="text-muted fw-bold text-uppercase me-2 align-self-center" style="font-size: 0.65rem;">Referencias:</span>
                     <span class="badge border bg-white text-success px-2 py-1"><span class="d-inline-block rounded-circle me-1" style="width:8px; height:8px; background:#198754;"></span> Turno Asignado</span>
                     <span class="badge border bg-white text-primary px-2 py-1"><span class="d-inline-block rounded-circle me-1" style="width:8px; height:8px; background:#0d6efd;"></span> Sobreturno</span>
                     <span class="badge border bg-white text-warning px-2 py-1"><span class="d-inline-block rounded-circle me-1" style="width:8px; height:8px; background:#fd7e14;"></span> Bloqueado</span>
-                </div>
-                `;
+                </div>`;
                 
                 res.data.slots.forEach(slot => {
                     const isPast = slot.is_past;
 
                     if (slot.status === 'booked') {
-                        let actionsHtml = '';
-                        // Permitir acciones incluso si es pasado, para poder marcar ausencias
                         let sobreTurnoBtn = !isPast ? `
                             <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
                                 + Sobreturno
                             </button>` : `<span class="badge bg-secondary bg-opacity-10 text-secondary border me-2">Expirado</span>`;
 
-                        actionsHtml = `
+                        let actionsHtml = `
                             ${sobreTurnoBtn}
                             <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
+                                <li><a class="dropdown-item py-2 text-primary fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2"></i> Abrir Historia Clínica</a></li>
                                 <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
@@ -603,31 +646,51 @@ body.theme-dark .cal-day.available:hover {
                         const isExtra = slot.is_extra || false;
                         const cardClass = isExtra ? 'slot-extra' : 'slot-booked';
                         const timeColorClass = isExtra ? 'text-primary' : 'text-success';
-                        const statusText = isExtra ? 'Sobreturno' : 'Ocupado';
+                        const statusText = isExtra ? 'Sobreturno' : 'Asignado';
                         const statusColorClass = isExtra ? 'text-primary' : 'text-success';
-                        const iconClass = isExtra ? 'bi-person-badge-fill' : 'bi-person-lock';
+                        const iconClass = isExtra ? 'bi-person-badge-fill' : 'bi-person-check-fill';
 
                         html += `
-                        <div class="slot-card ${cardClass} flex-row justify-content-between ${isPast ? 'opacity-75' : ''}">
-                            <div class="d-flex align-items-center gap-3 pe-2">
-                                <span class="slot-time d-block ${timeColorClass}">${slot.time}</span>
-                                <div>
-                                    <h6 class="mb-0 fw-bold text-dark"><i class="bi ${iconClass} me-1"></i> ${slot.patient_name}</h6>
-                                    <small class="${statusColorClass}">${statusText}</small>
+                        <div class="slot-card ${cardClass} flex-column align-items-stretch mb-2 ${isPast ? 'opacity-75' : ''}">
+                            <div class="d-flex align-items-center justify-content-between w-100">
+                                <div class="d-flex align-items-center gap-3 pe-2">
+                                    <span class="slot-time d-block ${timeColorClass}">${slot.time}</span>
+                                    <div>
+                                        <h6 class="mb-0 fw-bold">
+                                            <a href="/patients/${slot.patient_id}" class="text-dark text-decoration-none" title="Abrir Historia Clínica de ${slot.patient_name}">
+                                                <i class="bi ${iconClass} text-primary me-1"></i> ${slot.patient_name}
+                                            </a>
+                                        </h6>
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mt-1" style="font-size: 0.78rem;">
+                                            ${slot.patient_dni ? `<span class="text-muted"><i class="bi bi-card-text me-1"></i>DNI: <strong>${slot.patient_dni}</strong></span>` : ''}
+                                            ${slot.patient_phone ? `<span class="text-muted"><i class="bi bi-telephone me-1"></i>${slot.patient_phone}</span>` : ''}
+                                            ${slot.patient_os ? `<span class="badge bg-light text-primary border"><i class="bi bi-hospital me-1"></i>${slot.patient_os} ${slot.patient_affiliate ? '(' + slot.patient_affiliate + ')' : ''}</span>` : ''}
+                                            <span class="badge ${isExtra ? 'bg-primary' : 'bg-success'} bg-opacity-10 ${statusColorClass}">${statusText}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center dropdown">
+                                    ${actionsHtml}
                                 </div>
                             </div>
-                            <div class="d-flex align-items-center dropdown">
-                                ${actionsHtml}
+                            ${(slot.reason || slot.notes) ? `
+                            <div class="mt-2 pt-1 border-top d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                                ${slot.reason ? `<div><span class="text-secondary fw-bold">Motivo:</span> <span class="text-dark">${slot.reason}</span></div>` : ''}
+                                ${slot.notes ? `<div><span class="text-primary fw-bold"><i class="bi bi-chat-left-dots me-1"></i>Secretaría:</span> <span class="text-muted fst-italic">${slot.notes}</span></div>` : ''}
                             </div>
+                            ` : ''}
                         </div>`;
                     } else if (slot.status === 'no_show') {
                         html += `
-                        <div class="slot-card slot-noshow flex-row justify-content-between" style="border-left: 4px solid #ccc; background: #fafafa;">
+                        <div class="slot-card slot-noshow flex-row justify-content-between mb-2" style="border-left: 4px solid #ccc; background: #fafafa;">
                             <div class="d-flex align-items-center gap-3 pe-2">
                                 <span class="slot-time d-block text-muted" style="text-decoration: line-through;">${slot.time}</span>
                                 <div>
                                     <h6 class="mb-0 fw-bold text-muted" style="text-decoration: line-through;"><i class="bi bi-person-x-fill me-1"></i> ${slot.patient_name}</h6>
-                                    <span class="badge border border-secondary text-secondary rounded-pill" style="font-size: 0.7rem;">Ausente</span>
+                                    <div class="d-flex gap-2 align-items-center mt-1">
+                                        <span class="badge border border-secondary text-secondary rounded-pill" style="font-size: 0.7rem;">Ausente</span>
+                                        ${slot.patient_dni ? `<small class="text-muted">DNI: ${slot.patient_dni}</small>` : ''}
+                                    </div>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center dropdown">
@@ -635,13 +698,14 @@ body.theme-dark .cal-day.available:hover {
                                     <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
+                                    <li><a class="dropdown-item py-2 text-primary fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2"></i> Abrir HC</a></li>
                                     <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
                                 </ul>
                             </div>
                         </div>`;
                     } else if (slot.status === 'blocked') {
                         html += `
-                        <div class="slot-card slot-blocked justify-content-between position-relative pe-2">
+                        <div class="slot-card slot-blocked justify-content-between position-relative pe-2 mb-2">
                             <div class="d-flex align-items-center gap-3 flex-grow-1">
                                 <span class="slot-time d-block text-warning">${slot.time}</span>
                                 <div>
@@ -658,7 +722,7 @@ body.theme-dark .cal-day.available:hover {
                     } else {
                         if (!isPast) {
                             html += `
-                            <div class="slot-card slot-free justify-content-between position-relative pe-2">
+                            <div class="slot-card slot-free justify-content-between position-relative pe-2 mb-2">
                                 <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
                                     <span class="slot-time d-block text-success">${slot.time}</span>
                                     <div>
@@ -680,7 +744,7 @@ body.theme-dark .cal-day.available:hover {
                             </div>`;
                         } else {
                             html += `
-                            <div class="slot-card justify-content-between position-relative pe-2" style="background: #f8f9fa; border: 1px dashed #ced4da; opacity: 0.6; cursor: not-allowed;">
+                            <div class="slot-card justify-content-between position-relative pe-2 mb-2" style="background: #f8f9fa; border: 1px dashed #ced4da; opacity: 0.6; cursor: not-allowed;">
                                 <div class="d-flex align-items-center gap-3 flex-grow-1">
                                     <span class="slot-time d-block text-muted">${slot.time}</span>
                                     <div>
@@ -696,7 +760,6 @@ body.theme-dark .cal-day.available:hover {
                 slotsContainer.innerHTML = html;
             });
     }
-
     // Phase 17: Express Slots Loader (Integrated into Doctor Cards)
     function loadNearestSlots() {
         // Pre-cleaning UI to show we are searching
@@ -829,24 +892,61 @@ body.theme-dark .cal-day.available:hover {
         .catch(err => alert('Ocurrió un error al registrar la ausencia.'));
     }
 
-    // Lógica para alternar inputs de hora en el modal de bloqueo
+    // Lógica para alternar inputs de fecha y hora en el modal de bloqueo
     const blockTypeSelect = document.getElementById('blockTypeSelect');
     const timeFields = document.querySelectorAll('.time-fields');
+    const blockStartDateCol = document.getElementById('blockStartDateCol');
+    const blockStartDateLabel = document.getElementById('blockStartDateLabel');
+    const blockEndDateCol = document.getElementById('blockEndDateCol');
     const blockStartTime = document.getElementById('blockStartTime');
     const blockEndTime = document.getElementById('blockEndTime');
+    const blockEndDate = document.getElementById('blockEndDate');
+    const blockReasonInput = document.getElementById('blockReasonInput');
 
     if (blockTypeSelect) {
         blockTypeSelect.addEventListener('change', function() {
-            if (this.value === 'day') {
+            const val = this.value;
+
+            if (val === 'vacation') {
+                blockEndDateCol.classList.remove('d-none');
+                blockEndDate.setAttribute('required', 'true');
+                blockStartDateLabel.innerText = 'Fecha Desde *';
                 timeFields.forEach(el => el.classList.add('d-none'));
                 blockStartTime.removeAttribute('required');
                 blockEndTime.removeAttribute('required');
-            } else {
+                blockReasonInput.placeholder = 'Ej: Vacaciones de Verano / Invierno';
+            } else if (val === 'day') {
+                blockEndDateCol.classList.add('d-none');
+                blockEndDate.removeAttribute('required');
+                blockStartDateLabel.innerText = 'Fecha *';
+                timeFields.forEach(el => el.classList.add('d-none'));
+                blockStartTime.removeAttribute('required');
+                blockEndTime.removeAttribute('required');
+                blockReasonInput.placeholder = 'Ej: Anulación de día, Congreso, Licencia médica';
+            } else { // range or slot
+                blockEndDateCol.classList.add('d-none');
+                blockEndDate.removeAttribute('required');
+                blockStartDateLabel.innerText = 'Fecha *';
                 timeFields.forEach(el => el.classList.remove('d-none'));
                 blockStartTime.setAttribute('required', 'true');
                 blockEndTime.setAttribute('required', 'true');
+                blockReasonInput.placeholder = val === 'range' ? 'Ej: Mañana bloqueada por cirugías' : 'Ej: Turno bloqueado por trámite';
             }
         });
+    }
+
+    function openDirectBlockModal(doctorId, doctorName) {
+        document.getElementById('blockDoctorId').value = doctorId;
+        document.getElementById('blockDoctorNameLabel').innerText = `Médico: ${doctorName}`;
+        
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('blockDate').value = today;
+        document.getElementById('blockEndDate').value = today;
+        document.getElementById('blockTypeSelect').value = 'vacation';
+        document.getElementById('blockTypeSelect').dispatchEvent(new Event('change'));
+        
+        const modal = new bootstrap.Modal(document.getElementById('blockAgendaModal'));
+        modal.show();
     }
 
     function quickBlockSlot(doctorId, date, time, duration) {
@@ -854,7 +954,6 @@ body.theme-dark .cal-day.available:hover {
         document.getElementById('blockDate').value = date;
         document.getElementById('blockTypeSelect').value = 'slot';
         
-        // Calculate end time based on duration
         const [hours, minutes] = time.split(':');
         const start = new Date();
         start.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -866,7 +965,6 @@ body.theme-dark .cal-day.available:hover {
         document.getElementById('blockStartTime').value = startTimeStr;
         document.getElementById('blockEndTime').value = endTimeStr;
         
-        // Trigger event listener for visibility
         blockTypeSelect.dispatchEvent(new Event('change'));
         
         const modal = new bootstrap.Modal(document.getElementById('blockAgendaModal'));
@@ -879,11 +977,11 @@ body.theme-dark .cal-day.available:hover {
         
         document.getElementById('blockDoctorId').value = doctorId;
         document.getElementById('blockDate').value = dateStr;
+        document.getElementById('blockEndDate').value = dateStr;
         document.getElementById('blockTypeSelect').value = 'day';
         document.getElementById('blockStartTime').value = '';
         document.getElementById('blockEndTime').value = '';
         
-        // Trigger event listener for visibility
         blockTypeSelect.dispatchEvent(new Event('change'));
         
         const modal = new bootstrap.Modal(document.getElementById('blockAgendaModal'));
@@ -908,7 +1006,7 @@ body.theme-dark .cal-day.available:hover {
                 .then(res => {
                     const modalEl = document.getElementById('blockAgendaModal');
                     const modal = bootstrap.Modal.getInstance(modalEl);
-                    if(modal) modal.hide();
+                    if (modal) modal.hide();
 
                     const doctorId = data.doctor_id;
                     const dateStr = data.date;
@@ -931,7 +1029,7 @@ body.theme-dark .cal-day.available:hover {
     }
 
     function unblockSlot(blockId, doctorId, dateStr) {
-        if(!confirm('¿Estás seguro de que deseas eliminar este bloqueo y liberar el horario?')) return;
+        if (!confirm('¿Estás seguro de que deseas eliminar este bloqueo y liberar la agenda?')) return;
         
         axios.delete(`/api/agenda/blocks/${blockId}`, {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
@@ -943,7 +1041,6 @@ body.theme-dark .cal-day.available:hover {
         })
         .catch(err => alert('Ocurrió un error al intentar quitar el bloqueo.'));
     }
-
     // Init Call
     document.addEventListener('DOMContentLoaded', () => {
         // Init all calendars

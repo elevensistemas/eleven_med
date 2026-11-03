@@ -719,7 +719,7 @@ body.theme-dark .sidebar-nav-container {
                         <div class="col-md-6 col-xl-4 study-card-item" data-date="{{ $study->created_at->timestamp }}">
                             <div class="card bg-white border-0 shadow-sm rounded-4 h-100 overflow-hidden" style="border: 1px solid rgba(0,0,0,0.05) !important;">
                                 @if(in_array(strtolower($study->file_type), ['jpg', 'jpeg', 'png', 'webp']))
-                                    <div style="height: 180px; background-image: url('{{ Storage::url($study->file_path) }}'); background-size: cover; background-position: center;" class="border-bottom"></div>
+                                    <div style="height: 180px; background-image: url('{{ route('studies.show', $study) }}'); background-size: cover; background-position: center;" class="border-bottom"></div>
                                 @else
                                     <div style="height: 180px;" class="bg-light d-flex align-items-center justify-content-center border-bottom text-muted">
                                         <i class="bi bi-file-earmark-pdf-fill" style="font-size: 5rem; color: #dc3545;"></i>
@@ -736,7 +736,10 @@ body.theme-dark .sidebar-nav-container {
                                     </p>
                                     
                                     <div class="d-flex justify-content-between pt-3 border-top border-light">
-                                        <a href="{{ Storage::url($study->file_path) }}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill px-3 fw-bold"><i class="bi bi-eye"></i> Ver</a>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <a href="{{ route('studies.show', $study) }}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill px-3 fw-bold"><i class="bi bi-eye"></i> Ver</a>
+                                            <a href="{{ route('studies.download', $study) }}" class="btn btn-sm btn-light text-secondary rounded-pill px-2 fw-bold" title="Descargar"><i class="bi bi-download"></i></a>
+                                        </div>
                                         <form action="{{ route('studies.destroy', $study) }}" method="POST">
                                             @csrf @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-light text-danger rounded-pill px-3 fw-bold" onclick="return confirm('¿Borrar este estudio permanentemente?');"><i class="bi bi-trash"></i></button>
@@ -797,54 +800,65 @@ body.theme-dark .sidebar-nav-container {
 
             <!-- Tab: Cirugías -->
             <div class="tab-pane fade" id="cirugias" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-heart-pulse text-danger me-2"></i> Módulo Quirúrgico Integral</h5>
-                    <div class="d-flex gap-3 align-items-center">
-                        <button id="sortCirugiasBtn" class="btn btn-light fw-bold text-secondary rounded-pill shadow-sm px-3" style="font-size: 0.9rem;">
-                            <i class="bi bi-sort-down me-1"></i> Más recientes
+                <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3 flex-wrap gap-2">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-bandaid text-danger me-2"></i> Cirugías</h5>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <!-- Filtro por ojo -->
+                        <div class="btn-group btn-group-sm shadow-sm" role="group" aria-label="Filtro de ojo">
+                            <button type="button" class="btn btn-secondary active cirugia-filter-eye-btn" data-filter-eye="all">Todos</button>
+                            <button type="button" class="btn btn-outline-secondary cirugia-filter-eye-btn" data-filter-eye="OD">Solo OD</button>
+                            <button type="button" class="btn btn-outline-secondary cirugia-filter-eye-btn" data-filter-eye="OI">Solo OI</button>
+                        </div>
+                        <!-- Botón Orden Asc / Desc -->
+                        <button id="sortCirugiasSpartanBtn" class="btn btn-light border fw-bold text-secondary rounded-pill shadow-sm px-3 btn-sm">
+                            <i class="bi bi-sort-down me-1" id="sortCirugiasSpartanIcon"></i> <span id="sortCirugiasSpartanText">Más recientes primero</span>
                         </button>
                     </div>
                 </div>
                 
-                <h5 class="fw-bold text-dark mb-4"><i class="bi bi-clock-history text-muted me-2"></i>Historial Quirúrgico</h5>
+                <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size: 0.82rem; letter-spacing: 0.5px;">
+                    <i class="bi bi-list-task me-1"></i> Resumen de Cirugías
+                </h6>
+
                 @if($patient->surgeries->count() > 0)
-                    <div class="timeline position-relative mb-5" id="cirugiasGrid" style="padding-left: 2.5rem;">
-                        <div class="position-absolute h-100 border-start border-2 border-primary border-opacity-25" style="left: 0.8rem; top: 0;"></div>
-                        @foreach($patient->surgeries as $surg)
-                            @php 
-                                $color = 'secondary';
-                                if($surg->eye == 'OD') $color = 'primary';
-                                if($surg->eye == 'OI') $color = 'success';
-                            @endphp
-                            <div class="position-relative mb-5 cirugia-item" data-date="{{ $surg->surgery_date->timestamp }}">
-                                <div class="position-absolute bg-{{ $color }} rounded-circle shadow-sm" style="width: 1.4rem; height: 1.4rem; left: -2.4rem; top: 0.2rem; border: 4px solid #fff;"></div>
-                                <div class="bg-white p-4 rounded-4 shadow-sm" style="border: 1px solid rgba(0,0,0,0.05);">
-                                    <div class="d-flex justify-content-between mb-3 border-bottom pb-3">
-                                        <h6 class="fw-bold text-dark mb-0 fs-5 d-flex align-items-center gap-2">Cirugía Completada <span class="badge bg-{{ $color }} rounded-pill px-3">{{ $surg->eye }}</span></h6>
-                                        <div class="d-flex align-items-center gap-3">
-                                            <span class="text-muted fw-bold bg-light px-3 py-1 rounded-pill"><i class="bi bi-calendar me-1"></i> {{ $surg->surgery_date->format('d/m/Y') }}</span>
-                                            <form action="{{ route('surgeries.destroy', $surg) }}" method="POST">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-2 shadow-sm" onclick="return confirm('¿ELIMINAR registro quirúrgico permanentemente?');" title="Borrar Cirugía"><i class="bi bi-trash"></i></button>
-                                            </form>
-                                        </div>
+                    <div class="bg-white rounded-3 border shadow-sm mb-5 p-2" id="cirugiasSpartanContainer">
+                        <div class="d-flex flex-column gap-1" id="cirugiasSpartanList">
+                            @foreach($patient->surgeries->sortByDesc('surgery_date') as $surg)
+                                <div class="cirugia-spartan-row d-flex justify-content-between align-items-center py-2 px-3 rounded-2 border-bottom hover-bg-light transition-all"
+                                     data-eye="{{ $surg->eye }}"
+                                     data-date="{{ $surg->surgery_date ? $surg->surgery_date->timestamp : 0 }}">
+                                    <div class="d-flex align-items-center gap-2 flex-grow-1 flex-wrap me-2">
+                                        <span class="badge {{ $surg->eye == 'OD' ? 'bg-primary' : ($surg->eye == 'OI' ? 'bg-success' : 'bg-secondary') }} px-2 py-1" style="font-size: 0.8rem;">
+                                            {{ $surg->eye }}
+                                        </span>
+                                        <span class="fw-semibold text-dark">{{ $surg->notes }}</span>
+                                        <span class="text-muted fw-bold">---</span>
+                                        <span class="text-secondary font-monospace small"><i class="bi bi-calendar3 me-1"></i>{{ $surg->surgery_date ? $surg->surgery_date->format('d/m/Y') : '-' }}</span>
+                                        @if($surg->doctor)
+                                            <span class="text-muted small">({{ $surg->doctor->name }})</span>
+                                        @endif
                                     </div>
-                                    <div class="p-3 bg-light rounded-3 text-dark fs-6" style="white-space: pre-line;">{{ $surg->notes }}</div>
+                                    <div class="d-flex align-items-center">
+                                        <form action="{{ route('surgeries.destroy', $surg) }}" method="POST" class="d-inline m-0">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle p-1 px-2 border-0 shadow-none" onclick="return confirm('¿ELIMINAR este registro quirúrgico del historial?');" title="Borrar Cirugía">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
-                            </div>
-                        @endforeach
+                            @endforeach
+                        </div>
                     </div>
                 @else
-                    <div class="py-5 text-center bg-light rounded-4 mb-5" style="border: 2px dashed #dee2e6;">
-                        <div class="bg-white rounded-circle shadow-sm d-inline-flex justify-content-center align-items-center mb-3" style="width: 80px; height: 80px;">
-                            <i class="bi bi-bandaid fs-1 text-muted opacity-50"></i>
-                        </div>
-                        <h5 class="fw-bold">Sin operaciones documentadas</h5>
-                        <p class="text-muted mb-0">Registrá los procedimientos quirúgicos de los ojos en los paneles de abajo.</p>
+                    <div class="py-4 text-center bg-light rounded-3 mb-5 border border-dashed">
+                        <p class="text-muted mb-0 small">Sin cirugías previas registradas para este paciente.</p>
                     </div>
                 @endif
                 
-                <h5 class="fw-bold text-dark mb-4"><i class="bi bi-plus-circle text-muted me-2"></i>Registrar Nueva Cirugía</h5>
+                <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size: 0.82rem; letter-spacing: 0.5px;">
+                    <i class="bi bi-plus-circle me-1"></i> Cargar Nuevas Cirugías
+                </h6>
                 <form action="{{ route('patient.surgeries.store', $patient) }}" method="POST">
                     @csrf
                     <div class="row g-4 mb-3">
@@ -852,17 +866,17 @@ body.theme-dark .sidebar-nav-container {
                         <div class="col-md-6">
                             <div class="card border-0 bg-primary bg-opacity-10 shadow-sm rounded-4 h-100">
                                 <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
-                                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-eye-fill me-2 bg-primary text-white p-2 rounded-circle shadow-sm"></i> Cirugía OD (Ojo Derecho)</h6>
+                                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-eye-fill me-2 bg-primary text-white p-2 rounded-circle shadow-sm"></i> Cirugía OD</h6>
                                 </div>
                                 <div class="card-body p-4 pt-2">
                                     <div class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(126, 68, 139, 0.1) !important;">
                                         <div class="mb-3">
                                             <label class="form-label text-muted small fw-bold">Fecha de Cirugía</label>
-                                            <input type="date" name="od_date" class="form-control bg-light border-0 shadow-none rounded-3">
+                                            <input type="date" name="od_date" value="{{ date('Y-m-d') }}" class="form-control bg-light border-0 shadow-none rounded-3">
                                         </div>
                                         <div class="mb-2">
                                             <label class="form-label text-muted small fw-bold">Plan / LIO / Notas</label>
-                                            <textarea name="od_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, lente utilizada..."></textarea>
+                                            <textarea name="od_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, tipo de cirugía, lente utilizada..."></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -873,17 +887,17 @@ body.theme-dark .sidebar-nav-container {
                         <div class="col-md-6">
                             <div class="card border-0 bg-success bg-opacity-10 shadow-sm rounded-4 h-100">
                                 <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
-                                    <h6 class="fw-bold text-success mb-0"><i class="bi bi-eye-fill me-2 bg-success text-white p-2 rounded-circle shadow-sm"></i> Cirugía OI (Ojo Izquierdo)</h6>
+                                    <h6 class="fw-bold text-success mb-0"><i class="bi bi-eye-fill me-2 bg-success text-white p-2 rounded-circle shadow-sm"></i> Cirugía OI</h6>
                                 </div>
                                 <div class="card-body p-4 pt-2">
                                     <div class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(25, 135, 84, 0.1) !important;">
                                         <div class="mb-3">
                                             <label class="form-label text-muted small fw-bold">Fecha de Cirugía</label>
-                                            <input type="date" name="oi_date" class="form-control bg-light border-0 shadow-none rounded-3">
+                                            <input type="date" name="oi_date" value="{{ date('Y-m-d') }}" class="form-control bg-light border-0 shadow-none rounded-3">
                                         </div>
                                         <div class="mb-2">
                                             <label class="form-label text-muted small fw-bold">Plan / LIO / Notas</label>
-                                            <textarea name="oi_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, lente utilizada..."></textarea>
+                                            <textarea name="oi_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, tipo de cirugía, lente utilizada..."></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -894,7 +908,7 @@ body.theme-dark .sidebar-nav-container {
                     <!-- Single Save Button at the bottom -->
                     <div class="d-flex justify-content-end mt-4">
                         <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm d-flex align-items-center gap-2 py-2 border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); font-size: 1.05rem;">
-                            <i class="bi bi-save2 me-2"></i> Guardar Procedimientos
+                            <i class="bi bi-save2 me-2"></i> Guardar Cirugías
                         </button>
                     </div>
                 </form>
@@ -1012,10 +1026,34 @@ body.theme-dark .sidebar-nav-container {
 
             <!-- Tab: Historia Clínica -->
             <div class="tab-pane fade" id="historial" role="tabpanel">
+                @php
+                    $timelineItems = collect();
+
+                    foreach($patient->visits as $visit) {
+                        $timelineItems->push((object)[
+                            'type' => 'visit',
+                            'date' => $visit->created_at,
+                            'data' => $visit,
+                        ]);
+                    }
+
+                    foreach($patient->surgeries as $surg) {
+                        $surgDate = $surg->surgery_date ? \Carbon\Carbon::parse($surg->surgery_date)->endOfDay() : $surg->created_at;
+                        $timelineItems->push((object)[
+                            'type' => 'surgery',
+                            'date' => $surgDate,
+                            'data' => $surg,
+                        ]);
+                    }
+
+                    // Por default el último siempre arriba (más recientes primero)
+                    $timelineItems = $timelineItems->sortByDesc('date');
+                @endphp
+
                 <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-journal-medical text-primary me-2"></i> Historia Clínica</h5>
                     <div class="d-flex gap-2">
-                        @if($patient->visits->count() > 0)
+                        @if($timelineItems->count() > 0)
                         <a href="{{ route('patients.history.print', $patient) }}" target="_blank" class="btn btn-dark rounded-pill px-3 shadow-sm text-white d-flex align-items-center gap-2 fw-medium" title="Vista para Imprimir / Pantalla Completa" style="font-size: 0.85rem;">
                             <i class="bi bi-printer"></i> Imprimir Full
                         </a>
@@ -1029,7 +1067,7 @@ body.theme-dark .sidebar-nav-container {
                     </div>
                 </div>
 
-                @if($patient->visits->count() > 0)
+                @if($timelineItems->count() > 0)
                     <!-- UI Tipo Documento (Legacy style + Modern) -->
                     <div class="bg-white rounded-4 shadow-sm p-4 p-md-5 mx-0" style="border: 1px solid rgba(0,0,0,0.05);">
                         <!-- Cabecera de Documento -->
@@ -1048,86 +1086,119 @@ body.theme-dark .sidebar-nav-container {
 
                         <!-- Contenedor Flex para ordenar -->
                         <div id="visitasListContainer" class="d-flex flex-column gap-5">
-                            @foreach($patient->visits as $visit)
-                            <div class="visit-item p-3 rounded-4 mb-4" style="{{ $visit->is_open ? 'background-color: rgba(25, 135, 84, 0.03); border-left: 5px solid #198754; border-top: 1px solid rgba(0,0,0,0.05); border-right: 1px solid rgba(0,0,0,0.05); border-bottom: 1px solid rgba(0,0,0,0.05);' : 'border-left: 1px solid rgba(0,0,0,0.05);' }}">
-                                <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
-                                    <h6 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;">
-                                        <i class="bi bi-record-circle {{ $visit->is_open ? 'text-success' : 'text-primary' }} me-2"></i> 
-                                        Visita: {{ $visit->created_at->format('d-M-Y') }}
-                                        @if($visit->is_open)
-                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1 ms-2" style="font-size: 0.8rem;"><i class="bi bi-unlock-fill me-1"></i> Abierta</span>
-                                        @else
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2 py-1 ms-2" style="font-size: 0.8rem;"><i class="bi bi-lock-fill me-1"></i> Cerrada</span>
-                                        @endif
-                                    </h6>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <h6 class="text-secondary mb-0 fw-bold me-3" style="font-size: 1.05rem;">Médico: {{ $visit->doctor->name ?? 'Staff' }}</h6>
-                                        @if($visit->is_open)
-                                            <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;">
-                                                <i class="bi bi-pencil-fill"></i> Continuar
-                                            </a>
-                                        @endif
-                                        <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-{{ $visit->is_open ? 'success' : 'danger' }} rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="{{ $visit->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
-                                                <i class="bi {{ $visit->is_open ? 'bi-unlock-fill' : 'bi-lock-fill' }}"></i> {{ $visit->is_open ? 'Cerrar' : 'Reabrir' }}
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                                <hr class="my-3 border-secondary opacity-10" style="border-width: 2px;">
-                                
-                                <div class="px-2" style="font-size: 0.95rem;">
-                                    @if($visit->motivo_consulta)
-                                        <div class="row align-items-start mb-3">
-                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Motivo:</div>
-                                            <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $visit->motivo_consulta }}</div>
-                                        </div>
-                                    @endif
-
-                                    @if($visit->diagnostico)
-                                        <div class="row align-items-start mb-3">
-                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Diagnóstico:</div>
-                                            <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $visit->diagnostico }}</div>
-                                        </div>
-                                    @endif
-
-                                    @if($visit->tratamiento_oftalmologico || $visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
-                                        <div class="row align-items-start mb-3">
-                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Tratamiento:</div>
-                                            <div class="col-9 col-md-10 text-secondary">
-                                                @if($visit->tratamiento_oftalmologico)
-                                                    <div style="white-space: pre-line; margin-bottom: 1.5rem; padding-top:2px;">{{ $visit->tratamiento_oftalmologico }}</div>
+                            @foreach($timelineItems as $item)
+                                @if($item->type === 'visit')
+                                    @php $visit = $item->data; @endphp
+                                    <div class="visit-item p-3 rounded-4 mb-4" style="{{ $visit->is_open ? 'background-color: rgba(25, 135, 84, 0.03); border-left: 5px solid #198754; border-top: 1px solid rgba(0,0,0,0.05); border-right: 1px solid rgba(0,0,0,0.05); border-bottom: 1px solid rgba(0,0,0,0.05);' : 'border-left: 1px solid rgba(0,0,0,0.05);' }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                                            <h6 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;">
+                                                <i class="bi bi-record-circle {{ $visit->is_open ? 'text-success' : 'text-primary' }} me-2"></i> 
+                                                Visita: {{ $visit->created_at->format('d-M-Y') }}
+                                                @if($visit->is_open)
+                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1 ms-2" style="font-size: 0.8rem;"><i class="bi bi-unlock-fill me-1"></i> Abierta</span>
+                                                @else
+                                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2 py-1 ms-2" style="font-size: 0.8rem;"><i class="bi bi-lock-fill me-1"></i> Cerrada</span>
                                                 @endif
-                                                
-                                                @if($visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
-                                                    <div class="row mt-3 mb-1 font-monospace">
-                                                        <div class="col-12 col-lg-8 offset-lg-4">
-                                                            @if($visit->av_od_lejos)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OD Lejos:</div><div class="col-6">{{ $visit->av_od_lejos }}</div></div>@endif
-                                                            @if($visit->av_oi_lejos)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OI Lejos:</div><div class="col-6">{{ $visit->av_oi_lejos }}</div></div>@endif
-                                                            @if($visit->av_od_cerca)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OD Cerca:</div><div class="col-6">{{ $visit->av_od_cerca }}</div></div>@endif
-                                                            @if($visit->av_oi_cerca)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OI Cerca:</div><div class="col-6">{{ $visit->av_oi_cerca }}</div></div>@endif
-                                                        </div>
+                                            </h6>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <h6 class="text-secondary mb-0 fw-bold me-3" style="font-size: 1.05rem;">Médico: {{ $visit->doctor->name ?? 'Staff' }}</h6>
+                                                @if($visit->is_open)
+                                                    <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;">
+                                                        <i class="bi bi-pencil-fill"></i> Continuar
+                                                    </a>
+                                                @endif
+                                                <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-{{ $visit->is_open ? 'success' : 'danger' }} rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="{{ $visit->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
+                                                        <i class="bi {{ $visit->is_open ? 'bi-unlock-fill' : 'bi-lock-fill' }}"></i> {{ $visit->is_open ? 'Cerrar' : 'Reabrir' }}
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                        <hr class="my-3 border-secondary opacity-10" style="border-width: 2px;">
+                                        
+                                        <div class="px-2" style="font-size: 0.95rem;">
+                                            @if($visit->motivo_consulta)
+                                                <div class="row align-items-start mb-3">
+                                                    <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Motivo:</div>
+                                                    <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $visit->motivo_consulta }}</div>
+                                                </div>
+                                            @endif
+
+                                            @if($visit->diagnostico)
+                                                <div class="row align-items-start mb-3">
+                                                    <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Diagnóstico:</div>
+                                                    <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $visit->diagnostico }}</div>
+                                                </div>
+                                            @endif
+
+                                            @if($visit->tratamiento_oftalmologico || $visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
+                                                <div class="row align-items-start mb-3">
+                                                    <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Tratamiento:</div>
+                                                    <div class="col-9 col-md-10 text-secondary">
+                                                        @if($visit->tratamiento_oftalmologico)
+                                                            <div style="white-space: pre-line; margin-bottom: 1.5rem; padding-top:2px;">{{ $visit->tratamiento_oftalmologico }}</div>
+                                                        @endif
+                                                        
+                                                        @if($visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
+                                                            <div class="row mt-3 mb-1 font-monospace">
+                                                                <div class="col-12 col-lg-8 offset-lg-4">
+                                                                    @if($visit->av_od_lejos)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OD Lejos:</div><div class="col-6">{{ $visit->av_od_lejos }}</div></div>@endif
+                                                                    @if($visit->av_oi_lejos)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OI Lejos:</div><div class="col-6">{{ $visit->av_oi_lejos }}</div></div>@endif
+                                                                    @if($visit->av_od_cerca)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OD Cerca:</div><div class="col-6">{{ $visit->av_od_cerca }}</div></div>@endif
+                                                                    @if($visit->av_oi_cerca)<div class="row mb-1"><div class="col-6 text-end text-dark fw-bold">OI Cerca:</div><div class="col-6">{{ $visit->av_oi_cerca }}</div></div>@endif
+                                                                </div>
+                                                            </div>
+                                                        @endif
                                                     </div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    @endif
+                                                </div>
+                                            @endif
 
-                                    @if($visit->pio || $visit->bmc || $visit->obi || $visit->otros_examen || $visit->antecedentes_oftalmologicos)
-                                        <div class="row align-items-start mb-2 mt-4 pt-3 border-top border-light">
-                                            <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Examen Gral:</div>
-                                            <div class="col-9 col-md-10 text-secondary" style="padding-top:2px;">
-                                                @if($visit->antecedentes_oftalmologicos)<p class="mb-1"><span class="fw-bold text-dark">Ant. Oftalm.:</span> {{ $visit->antecedentes_oftalmologicos }}</p>@endif
-                                                @if($visit->pio)<p class="mb-1"><span class="fw-bold text-dark">PIO:</span> {{ $visit->pio }}</p>@endif
-                                                @if($visit->bmc)<p class="mb-1"><span class="fw-bold text-dark">BMC:</span> {{ $visit->bmc }}</p>@endif
-                                                @if($visit->obi)<p class="mb-1"><span class="fw-bold text-dark">OBI:</span> {{ $visit->obi }}</p>@endif
-                                                @if($visit->otros_examen)<p class="mb-1"><span class="fw-bold text-dark">Otros:</span> <span style="white-space: pre-line;">{{ $visit->otros_examen }}</span></p>@endif
+                                            @if($visit->pio || $visit->bmc || $visit->obi || $visit->otros_examen || $visit->antecedentes_oftalmologicos)
+                                                <div class="row align-items-start mb-2 mt-4 pt-3 border-top border-light">
+                                                    <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Examen Gral:</div>
+                                                    <div class="col-9 col-md-10 text-secondary" style="padding-top:2px;">
+                                                        @if($visit->antecedentes_oftalmologicos)<p class="mb-1"><span class="fw-bold text-dark">Ant. Oftalm.:</span> {{ $visit->antecedentes_oftalmologicos }}</p>@endif
+                                                        @if($visit->pio)<p class="mb-1"><span class="fw-bold text-dark">PIO:</span> {{ $visit->pio }}</p>@endif
+                                                        @if($visit->bmc)<p class="mb-1"><span class="fw-bold text-dark">BMC:</span> {{ $visit->bmc }}</p>@endif
+                                                        @if($visit->obi)<p class="mb-1"><span class="fw-bold text-dark">OBI:</span> {{ $visit->obi }}</p>@endif
+                                                        @if($visit->otros_examen)<p class="mb-1"><span class="fw-bold text-dark">Otros:</span> <span style="white-space: pre-line;">{{ $visit->otros_examen }}</span></p>@endif
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @elseif($item->type === 'surgery')
+                                    @php $surg = $item->data; @endphp
+                                    <!-- Cirugía Mechada con Desplazamiento -->
+                                    <div class="surgery-timeline-item p-3 rounded-4 mb-4" style="margin-left: 2.75rem; background-color: #fafbfc; border-left: 5px solid {{ $surg->eye == 'OD' ? '#0d6efd' : ($surg->eye == 'OI' ? '#198754' : '#6f42c1') }}; border-top: 1px solid rgba(0,0,0,0.06); border-right: 1px solid rgba(0,0,0,0.06); border-bottom: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                                        <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                                            <h6 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;">
+                                                <i class="bi bi-heart-pulse-fill text-danger me-2"></i>
+                                                Cirugía: {{ $surg->surgery_date ? $surg->surgery_date->format('d-M-Y') : $surg->created_at->format('d-M-Y') }}
+                                                <span class="badge {{ $surg->eye == 'OD' ? 'bg-primary' : ($surg->eye == 'OI' ? 'bg-success' : 'bg-secondary') }} rounded-pill px-3 py-1 ms-2" style="font-size: 0.8rem;">
+                                                    Ojo {{ $surg->eye }}
+                                                </span>
+                                            </h6>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <h6 class="text-secondary mb-0 fw-bold me-3" style="font-size: 1.05rem;">Cirujano: {{ $surg->doctor->name ?? 'Staff' }}</h6>
+                                                <form action="{{ route('surgeries.destroy', $surg) }}" method="POST" class="d-inline m-0">
+                                                    @csrf @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;" onclick="return confirm('¿ELIMINAR este registro quirúrgico de la historia clínica?');" title="Borrar Cirugía">
+                                                        <i class="bi bi-trash"></i> Borrar
+                                                    </button>
+                                                </form>
                                             </div>
                                         </div>
-                                    @endif
-                                </div>
-                            </div>
+                                        <hr class="my-3 border-secondary opacity-10" style="border-width: 2px;">
+                                        <div class="px-2" style="font-size: 0.95rem;">
+                                            <div class="row align-items-start">
+                                                <div class="col-3 col-md-2 text-dark font-monospace fw-bold" style="letter-spacing:-0.5px;">Procedimiento:</div>
+                                                <div class="col-9 col-md-10 text-secondary" style="white-space: pre-line; padding-top:2px;">{{ $surg->notes }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
                     </div>
@@ -1137,12 +1208,12 @@ body.theme-dark .sidebar-nav-container {
                             <i class="bi bi-journal-x fs-1 text-primary opacity-50"></i>
                         </div>
                         <h5 class="fw-bold text-dark">La Ficha Clínica está vacía</h5>
-                        <p class="text-muted mb-0">Haz click en "Cargar Nueva Evolución" para comenzar la atención oftalmológica.</p>
+                        <p class="text-muted mb-0">Haz click en "Cargar Nueva Evolución" o registra una cirugía para comenzar el historial.</p>
                     </div>
                 @endif
             </div>
 
-        </div> <!-- Fin Bottom Tabs Content -->
+            </div> <!-- Fin Bottom Tabs Content -->
 
     </div>
 </div>
@@ -1226,6 +1297,74 @@ document.addEventListener('DOMContentLoaded', function() {
                     const dateB = parseInt(b.getAttribute('data-date')) || 0;
                     return direction === 'asc' ? dateA - dateB : dateB - dateA;
                 });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
                 items.forEach(item => grid.appendChild(item));
                 
                 if (direction === 'desc') {
@@ -1239,6 +1378,74 @@ document.addEventListener('DOMContentLoaded', function() {
                 direction = direction === 'desc' ? 'asc' : 'desc';
                 updateSort();
             });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
             updateSort(); // Inicializar el orden correcto
         }
     }
@@ -1246,10 +1453,146 @@ document.addEventListener('DOMContentLoaded', function() {
     bindSortLogic('sortStudiesBtn', 'studiesGrid', 'study-card-item');
     bindSortLogic('sortDiagnosticosBtn', 'diagnosticosGrid', 'diagnostico-item');
     bindSortLogic('sortComentariosBtn', 'comentariosGrid', 'comentario-item');
-    bindSortLogic('sortCirugiasBtn', 'cirugiasGrid', 'cirugia-item');
+    initCirugiasSpartan();
 });
 
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
+
 // Sorting Documento Clínico JS
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.setProperty('display', 'flex', 'important');
+            } else {
+                row.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
 function toggleHistorialOrder() {
     const container = document.getElementById('visitasListContainer');
     const btnText = document.getElementById('textOrderHistorial');
@@ -1365,6 +1708,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
                         return response.json().then(err => { throw err; }).catch(e => {
                             throw new Error('Error HTTP: ' + response.status);
                         });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
                     }
                     return response.json();
                 })
@@ -1393,6 +1804,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
                 .finally(() => {
                     resetOverlay();
                 });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
             }, 'image/jpeg', 0.8);
         } catch (e) {
             console.error(e);
@@ -1414,6 +1893,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
 
     reader.readAsDataURL(file);
 });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
 </script>
 <!-- Opciones de Avatar Modal -->
 <div class="modal fade" id="photoOptionsModal" tabindex="-1" aria-hidden="true">
@@ -1500,6 +2047,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
                     select.appendChild(option);
                 });
 
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
+
                 startCamera(videoDevices[0].deviceId);
             })
             .catch(err => {
@@ -1507,6 +2122,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
                 alert('No se pudo acceder a las cámaras. Verifique los permisos del navegador.');
                 bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
             });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
     }
 
     function startCamera(deviceId) {
@@ -1532,6 +2215,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
                 console.error('Error starting camera:', err);
                 alert('Hubo un error al encender la cámara.');
             });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
     }
 
     function stopCamera() {
@@ -1597,12 +2348,148 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
             console.error('Upload Error:', err);
             alert('Fallo la subida de la foto de la cámara.');
         });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
     }
 
     // Modal hide event to make sure camera turns off if clicked outside
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function () {
         stopCamera();
     });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
 </script>
 
 <!-- Modal Asistente Clínico IA -->
@@ -1692,6 +2579,74 @@ document.getElementById('patientPhotoInput').addEventListener('change', function
             btn.disabled = false;
             alert('Fallo la conexión con el Asistente IA.');
         });
+
+// Lógica de Resumen Espartano de Cirugías
+function initCirugiasSpartan() {
+    const list = document.getElementById('cirugiasSpartanList');
+    if (!list) return;
+
+    let currentOrder = 'desc'; // Por default: últimas/más recientes arriba
+    let currentFilter = 'all';  // 'all', 'OD', 'OI'
+
+    const filterBtns = document.querySelectorAll('.cirugia-filter-eye-btn');
+    const sortBtn = document.getElementById('sortCirugiasSpartanBtn');
+    const sortIcon = document.getElementById('sortCirugiasSpartanIcon');
+    const sortText = document.getElementById('sortCirugiasSpartanText');
+
+    function applyFilterAndSort() {
+        const rows = Array.from(list.querySelectorAll('.cirugia-spartan-row'));
+
+        // Filtrado por ojo
+        rows.forEach(row => {
+            const eye = row.getAttribute('data-eye');
+            if (currentFilter === 'all' || eye === currentFilter) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Ordenamiento ascendente o descendente por fecha
+        rows.sort((a, b) => {
+            const dateA = parseInt(a.getAttribute('data-date')) || 0;
+            const dateB = parseInt(b.getAttribute('data-date')) || 0;
+            return currentOrder === 'asc' ? (dateA - dateB) : (dateB - dateA);
+        });
+
+        rows.forEach(row => list.appendChild(row));
+    }
+
+    if (sortBtn) {
+        sortBtn.addEventListener('click', function() {
+            if (currentOrder === 'desc') {
+                currentOrder = 'asc';
+                if (sortText) sortText.innerText = 'Más antiguas primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-up me-1';
+            } else {
+                currentOrder = 'desc';
+                if (sortText) sortText.innerText = 'Más recientes primero';
+                if (sortIcon) sortIcon.className = 'bi bi-sort-down me-1';
+            }
+            applyFilterAndSort();
+        });
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('active', 'btn-secondary', 'text-white');
+                b.classList.add('btn-outline-secondary');
+            });
+
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('active', 'btn-secondary', 'text-white');
+            currentFilter = this.getAttribute('data-filter-eye');
+            applyFilterAndSort();
+        });
+    });
+
+    applyFilterAndSort();
+}
     }
 </script>
 

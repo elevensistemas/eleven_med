@@ -24,7 +24,9 @@ class ConsoleController extends Controller
             })
             ->with(['assignments' => function ($q) {
                 $q->whereDate('created_at', Carbon::today())->orderBy('id', 'asc');
-            }, 'assignments.doctor'])
+            }, 'assignments.doctor', 'appointments' => function ($q) {
+                $q->whereDate('date', \Carbon\Carbon::today())->orderBy('time', 'asc');
+            }])
             ->get();
             
         // Filter active assignments by the active session_id only
@@ -45,7 +47,9 @@ class ConsoleController extends Controller
             })
             ->with(['assignments' => function ($q) {
                 $q->whereDate('started_at', Carbon::today())->orderBy('started_at', 'asc');
-            }, 'assignments.doctor'])
+            }, 'assignments.doctor', 'appointments' => function ($q) {
+                $q->whereDate('date', \Carbon\Carbon::today())->orderBy('time', 'asc');
+            }])
             ->get();
             
         // Filter finished to only show their latest session block

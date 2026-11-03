@@ -11,19 +11,19 @@ class PatientSurgeryController extends Controller
     public function store(Request $request, Patient $patient)
     {
         $request->validate([
-            'od_date' => 'nullable|required_with:od_notes|date',
-            'od_notes' => 'nullable|required_with:od_date|string',
-            'oi_date' => 'nullable|required_with:oi_notes|date',
-            'oi_notes' => 'nullable|required_with:oi_date|string',
+            'od_date' => 'nullable|date',
+            'od_notes' => 'nullable|string',
+            'oi_date' => 'nullable|date',
+            'oi_notes' => 'nullable|string',
         ]);
 
-        $hasOd = $request->filled('od_date') && $request->filled('od_notes');
-        $hasOi = $request->filled('oi_date') && $request->filled('oi_notes');
+        $hasOd = $request->filled('od_notes');
+        $hasOi = $request->filled('oi_notes');
 
         if (!$hasOd && !$hasOi) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Debe completar la fecha y notas de al menos un ojo (OD u OI) para poder guardar.');
+                ->with('error', 'Debe completar el procedimiento o notas de al menos un ojo (OD u OI) para poder guardar.');
         }
 
         $createdCount = 0;
@@ -32,8 +32,8 @@ class PatientSurgeryController extends Controller
             PatientSurgery::create([
                 'patient_id' => $patient->id,
                 'eye' => 'OD',
-                'surgery_date' => $request->od_date,
-                'notes' => $request->od_notes,
+                'surgery_date' => $request->filled('od_date') ? $request->od_date : now()->toDateString(),
+                'notes' => trim($request->od_notes),
                 'created_by' => \Auth::id(),
             ]);
             $createdCount++;
@@ -43,8 +43,8 @@ class PatientSurgeryController extends Controller
             PatientSurgery::create([
                 'patient_id' => $patient->id,
                 'eye' => 'OI',
-                'surgery_date' => $request->oi_date,
-                'notes' => $request->oi_notes,
+                'surgery_date' => $request->filled('oi_date') ? $request->oi_date : now()->toDateString(),
+                'notes' => trim($request->oi_notes),
                 'created_by' => \Auth::id(),
             ]);
             $createdCount++;
@@ -54,7 +54,8 @@ class PatientSurgeryController extends Controller
             ? 'Procedimientos quirúrgicos registrados correctamente para ambos ojos.'
             : 'Procedimiento quirúrgico registrado correctamente.';
 
-        return redirect()->route('patients.show', ['patient' => $patient, 'active_tab' => 'surgeries'])
+        return redirect()->route('patients.show', ['patient' => $patient, 'tab' => 'cirugias'])
+                         ->with('active_tab', 'cirugias')
                          ->with('success', $msg);
     }
 
@@ -63,7 +64,8 @@ class PatientSurgeryController extends Controller
         $patientId = $patientSurgery->patient_id;
         $patientSurgery->delete();
 
-        return redirect()->route('patients.show', ['patient' => $patientId, 'active_tab' => 'surgeries'])
-                         ->with('success', 'Registro quirúrgico eliminado.');
+        return redirect()->back()
+                         ->with('active_tab', 'cirugias')
+                         ->with('success', 'Registro quirúrgico eliminado correctamente.');
     }
 }

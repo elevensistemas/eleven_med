@@ -23,6 +23,7 @@
         .refraccion-row { display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 2px; }
         .refraccion-label { width: 80px; text-align: right; font-weight: bold; }
         .refraccion-value { width: 120px; text-align: left; }
+        .surgery-print-item { margin-left: 35px; border-left: 3px solid #000; padding: 10px 14px; margin-bottom: 22px; page-break-inside: avoid; background-color: #fafafa; }
         @media print {
             body { padding: 0; background: #fff; }
             .document-container { padding: 0; box-shadow: none; max-width: 100%; margin: 0; }
@@ -63,80 +64,109 @@
             </div>
         </div>
 
-        @if($patient->surgeries && $patient->surgeries->count() > 0)
-            <div style="margin-bottom: 20px; border: 1px solid #000; padding: 10px;">
-                <h4 style="margin: 0 0 10px 0; text-transform: uppercase;">Historial Quirúrgico</h4>
-                <ul style="margin: 0; padding-left: 20px;">
-                    @foreach($patient->surgeries->sortByDesc('surgery_date') as $surg)
-                        <li style="margin-bottom: 5px;">
-                            <strong>{{ $surg->surgery_date->format('d/m/Y') }} - Ojo {{ $surg->eye }}:</strong> {{ $surg->notes }}
-                        </li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+        @php
+            $timelineItems = collect();
+
+            if (isset($visits)) {
+                foreach ($visits as $visit) {
+                    $timelineItems->push((object)[
+                        'type' => 'visit',
+                        'date' => $visit->created_at,
+                        'data' => $visit,
+                    ]);
+                }
+            }
+
+            $allSurgeries = $surgeries ?? $patient->surgeries ?? collect();
+            foreach ($allSurgeries as $surg) {
+                $surgDate = $surg->surgery_date ? \Carbon\Carbon::parse($surg->surgery_date)->startOfDay() : $surg->created_at;
+                $timelineItems->push((object)[
+                    'type' => 'surgery',
+                    'date' => $surgDate,
+                    'data' => $surg,
+                ]);
+            }
+
+            // Orden cronológico (de más antiguas a más recientes para el documento impreso)
+            $timelineItems = $timelineItems->sortBy('date');
+        @endphp
 
         <div class="visits-container">
-            @forelse($visits as $visit)
-                <div class="visit-item">
-                    <div class="visit-header">
-                        <div>Visita: {{ $visit->created_at->format('d-M-Y') }}</div>
-                        <div>Médico: {{ $visit->doctor->name ?? 'Staff' }}</div>
-                    </div>
-                    
-                    <div class="visit-content">
-                        @if($visit->motivo_consulta)
-                            <div class="row-data">
-                                <div class="label">Motivo:</div>
-                                <div class="value">{{ $visit->motivo_consulta }}</div>
-                            </div>
-                        @endif
-
-                        @if($visit->diagnostico)
-                            <div class="row-data">
-                                <div class="label">Diagnóstico:</div>
-                                <div class="value">{{ $visit->diagnostico }}</div>
-                            </div>
-                        @endif
-
-                        @if($visit->tratamiento_oftalmologico || $visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
-                            <div class="row-data">
-                                <div class="label">Tratamiento:</div>
-                                <div class="value">
-                                    @if($visit->tratamiento_oftalmologico)
-                                        <div>{{ $visit->tratamiento_oftalmologico }}</div>
-                                    @endif
-                                </div>
-                            </div>
-                            
-                            @if($visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
-                                <div class="refraccion-box">
-                                    @if($visit->av_od_lejos)<div class="refraccion-row"><div class="refraccion-label">OD Lejos:</div><div class="refraccion-value">{{ $visit->av_od_lejos }}</div></div>@endif
-                                    @if($visit->av_oi_lejos)<div class="refraccion-row"><div class="refraccion-label">OI Lejos:</div><div class="refraccion-value">{{ $visit->av_oi_lejos }}</div></div>@endif
-                                    @if($visit->av_od_cerca)<div class="refraccion-row"><div class="refraccion-label">OD Cerca:</div><div class="refraccion-value">{{ $visit->av_od_cerca }}</div></div>@endif
-                                    @if($visit->av_oi_cerca)<div class="refraccion-row"><div class="refraccion-label">OI Cerca:</div><div class="refraccion-value">{{ $visit->av_oi_cerca }}</div></div>@endif
+            @forelse($timelineItems as $item)
+                @if($item->type === 'visit')
+                    @php $visit = $item->data; @endphp
+                    <div class="visit-item">
+                        <div class="visit-header">
+                            <div>Visita: {{ $visit->created_at->format('d-M-Y') }}</div>
+                            <div>Médico: {{ $visit->doctor->name ?? 'Staff' }}</div>
+                        </div>
+                        
+                        <div class="visit-content">
+                            @if($visit->motivo_consulta)
+                                <div class="row-data">
+                                    <div class="label">Motivo:</div>
+                                    <div class="value">{{ $visit->motivo_consulta }}</div>
                                 </div>
                             @endif
-                        @endif
 
-                        @if($visit->pio || $visit->bmc || $visit->obi || $visit->otros_examen || $visit->antecedentes_oftalmologicos)
-                            <div style="margin-top: 10px; border-top: 1px dotted #ccc; padding-top: 5px;">
+                            @if($visit->diagnostico)
                                 <div class="row-data">
-                                    <div class="label">Examen:</div>
+                                    <div class="label">Diagnóstico:</div>
+                                    <div class="value">{{ $visit->diagnostico }}</div>
+                                </div>
+                            @endif
+
+                            @if($visit->tratamiento_oftalmologico || $visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
+                                <div class="row-data">
+                                    <div class="label">Tratamiento:</div>
                                     <div class="value">
-                                        @if($visit->antecedentes_oftalmologicos)<div style="margin-bottom:2px;"><strong>Ant. Oftalm.:</strong> {{ $visit->antecedentes_oftalmologicos }}</div>@endif
-                                        @if($visit->pio)<div style="margin-bottom:2px;"><strong>PIO:</strong> {{ $visit->pio }}</div>@endif
-                                        @if($visit->bmc)<div style="margin-bottom:2px;"><strong>BMC:</strong> {{ $visit->bmc }}</div>@endif
-                                        @if($visit->obi)<div style="margin-bottom:2px;"><strong>OBI:</strong> {{ $visit->obi }}</div>@endif
-                                        @if($visit->otros_examen)<div style="margin-bottom:2px;"><strong>Otros:</strong> {{ $visit->otros_examen }}</div>@endif
+                                        @if($visit->tratamiento_oftalmologico)
+                                            <div>{{ $visit->tratamiento_oftalmologico }}</div>
+                                        @endif
                                     </div>
                                 </div>
-                            </div>
-                        @endif
+                                
+                                @if($visit->av_od_lejos || $visit->av_oi_lejos || $visit->av_od_cerca || $visit->av_oi_cerca)
+                                    <div class="refraccion-box">
+                                        @if($visit->av_od_lejos)<div class="refraccion-row"><div class="refraccion-label">OD Lejos:</div><div class="refraccion-value">{{ $visit->av_od_lejos }}</div></div>@endif
+                                        @if($visit->av_oi_lejos)<div class="refraccion-row"><div class="refraccion-label">OI Lejos:</div><div class="refraccion-value">{{ $visit->av_oi_lejos }}</div></div>@endif
+                                        @if($visit->av_od_cerca)<div class="refraccion-row"><div class="refraccion-label">OD Cerca:</div><div class="refraccion-value">{{ $visit->av_od_cerca }}</div></div>@endif
+                                        @if($visit->av_oi_cerca)<div class="refraccion-row"><div class="refraccion-label">OI Cerca:</div><div class="refraccion-value">{{ $visit->av_oi_cerca }}</div></div>@endif
+                                    </div>
+                                @endif
+                            @endif
+
+                            @if($visit->pio || $visit->bmc || $visit->obi || $visit->otros_examen || $visit->antecedentes_oftalmologicos)
+                                <div style="margin-top: 10px; border-top: 1px dotted #ccc; padding-top: 5px;">
+                                    <div class="row-data">
+                                        <div class="label">Examen:</div>
+                                        <div class="value">
+                                            @if($visit->antecedentes_oftalmologicos)<div style="margin-bottom:2px;"><strong>Ant. Oftalm.:</strong> {{ $visit->antecedentes_oftalmologicos }}</div>@endif
+                                            @if($visit->pio)<div style="margin-bottom:2px;"><strong>PIO:</strong> {{ $visit->pio }}</div>@endif
+                                            @if($visit->bmc)<div style="margin-bottom:2px;"><strong>BMC:</strong> {{ $visit->bmc }}</div>@endif
+                                            @if($visit->obi)<div style="margin-bottom:2px;"><strong>OBI:</strong> {{ $visit->obi }}</div>@endif
+                                            @if($visit->otros_examen)<div style="margin-bottom:2px;"><strong>Otros:</strong> {{ $visit->otros_examen }}</div>@endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
                     </div>
-                </div>
+                @elseif($item->type === 'surgery')
+                    @php $surg = $item->data; @endphp
+                    <!-- Cirugía Mechada con Desplazamiento -->
+                    <div class="surgery-print-item">
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10.5pt; margin-bottom: 6px; border-bottom: 1px dashed #777; padding-bottom: 3px;">
+                            <div>CIRUGÍA OJO {{ $surg->eye }}: {{ $surg->surgery_date ? $surg->surgery_date->format('d-M-Y') : $surg->created_at->format('d-M-Y') }}</div>
+                            <div>Cirujano: {{ $surg->doctor->name ?? 'Staff' }}</div>
+                        </div>
+                        <div style="font-size: 10pt; white-space: pre-line;">
+                            <strong>Procedimiento / Notas:</strong> {{ $surg->notes }}
+                        </div>
+                    </div>
+                @endif
             @empty
-                <p style="text-align: center; font-style: italic; color: #666; margin-top: 40px;">No hay registro de visitas clínicas previas para este paciente.</p>
+                <p style="text-align: center; font-style: italic; color: #666; margin-top: 40px;">No hay registro de visitas clínicas ni cirugías previas para este paciente.</p>
             @endforelse
         </div>
     </div>

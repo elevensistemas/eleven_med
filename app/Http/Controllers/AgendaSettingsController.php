@@ -88,61 +88,126 @@ class AgendaSettingsController extends Controller
      */
     public function storeConfig(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'doctor_id' => 'required|exists:users,id',
-            'working_days' => 'required|array',
             'appointment_duration' => 'required|integer',
-            'shift_1_start' => 'required|date_format:H:i',
-            'shift_1_end' => 'required|date_format:H:i|after:shift_1_start',
-            'shift_2_start' => 'nullable|date_format:H:i',
-            'shift_2_end' => 'nullable|date_format:H:i|after:shift_2_start',
+            'days' => 'nullable|array',
+            'working_days' => 'nullable|array',
         ]);
 
+        $doctorId = $request->doctor_id;
+        $appointmentDuration = (int)$request->appointment_duration;
+        $daysData = $request->input('days');
+
+        $formattedWorkingDays = [];
+        $minMorningStart = null;
+        $maxMorningEnd = null;
+        $minAfternoonStart = null;
+        $maxAfternoonEnd = null;
+
+        if (is_array($daysData)) {
+            // Configuración detallada por cada día (Lunes a Sábado)
+            foreach (['1', '2', '3', '4', '5', '6'] as $dayKey) {
+                $intKey = (int)$dayKey;
+                $d = $daysData[$dayKey] ?? [];
+                $isActive = !empty($d['active']);
+                $mActive = $isActive && !empty($d['morning_active']);
+                $aActive = $isActive && !empty($d['afternoon_active']);
+
+                $mStart = ($mActive && !empty($d['morning_start'])) ? $d['morning_start'] : null;
+                $mEnd = ($mActive && !empty($d['morning_end'])) ? $d['morning_end'] : null;
+                $aStart = ($aActive && !empty($d['afternoon_start'])) ? $d['afternoon_start'] : null;
+                $aEnd = ($aActive && !empty($d['afternoon_end'])) ? $d['afternoon_end'] : null;
+
+                // Si se marcó el día como activo pero no se tildó ningún turno, no tiene horarios
+                $hasAnyShift = ($mActive && $mStart && $mEnd) || ($aActive && $aStart && $aEnd);
+
+                $formattedWorkingDays[$intKey] = [
+                    'active' => $isActive && $hasAnyShift,
+                    'morning_active' => $mActive && $mStart && $mEnd,
+                    'morning_start' => $mStart,
+                    'morning_end' => $mEnd,
+                    'afternoon_active' => $aActive && $aStart && $aEnd,
+                    'afternoon_start' => $aStart,
+                    'afternoon_end' => $aEnd,
+                ];
+
+                if ($mStart && (!$minMorningStart || $mStart < $minMorningStart)) $minMorningStart = $mStart;
+                if ($mEnd && (!$maxMorningEnd || $mEnd > $maxMorningEnd)) $maxMorningEnd = $mEnd;
+                if ($aStart && (!$minAfternoonStart || $aStart < $minAfternoonStart)) $minAfternoonStart = $aStart;
+                if ($aEnd && (!$maxAfternoonEnd || $aEnd > $maxAfternoonEnd)) $maxAfternoonEnd = $aEnd;
+            }
+        } elseif ($request->has('working_days')) {
+            // Formato simple legacy
+            $workingDays = $request->input('working_days', []);
+            $shift1Start = $request->input('shift_1_start', '08:00');
+            $shift1End = $request->input('shift_1_end', '12:00');
+            $shift2Start = $request->input('shift_2_start');
+            $shift2End = $request->input('shift_2_end');
+
+            foreach (['1', '2', '3', '4', '5', '6'] as $dayKey) {
+                $intKey = (int)$dayKey;
+                $isActive = in_array($dayKey, $workingDays);
+                $formattedWorkingDays[$intKey] = [
+                    'active' => $isActive,
+                    'morning_active' => $isActive,
+                    'morning_start' => $shift1Start,
+                    'morning_end' => $shift1End,
+                    'afternoon_active' => $isActive && !empty($shift2Start) && !empty($shift2End),
+                    'afternoon_start' => $shift2Start,
+                    'afternoon_end' => $shift2End,
+                ];
+            }
+            $minMorningStart = $shift1Start;
+            $maxMorningEnd = $shift1End;
+            $minAfternoonStart = $shift2Start;
+            $maxAfternoonEnd = $shift2End;
+        }
+
+        // Guardar en DoctorConfiguration
         \App\Models\DoctorConfiguration::updateOrCreate(
-            ['doctor_id' => $validated['doctor_id']],
+            ['doctor_id' => $doctorId],
             [
-                'working_days' => $validated['working_days'],
-                'shift_1_start' => $validated['shift_1_start'],
-                'shift_1_end' => $validated['shift_1_end'],
-                'shift_2_start' => $validated['shift_2_start'],
-                'shift_2_end' => $validated['shift_2_end'],
-                'appointment_duration' => $validated['appointment_duration']
+                'working_days' => $formattedWorkingDays,
+                'shift_1_start' => $minMorningStart ?: '08:00',
+                'shift_1_end' => $maxMorningEnd ?: '12:00',
+                'shift_2_start' => $minAfternoonStart,
+                'shift_2_end' => $maxAfternoonEnd,
+                'appointment_duration' => $appointmentDuration
             ]
         );
 
-        // Phase 19: Sincronización Automática con `doctor_schedules`
-        // 1. Limpiamos cualquier schedule previo
-        \App\Models\DoctorSchedule::where('doctor_id', $validated['doctor_id'])->delete();
+        // Sincronizar con DoctorSchedule para compatibilidad
+        \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->delete();
 
-        // 2. Iteramos por cada día operativo que se ha marcado (ej: "1" para lunes, "3" para miércoles...)
-        // OJO: Sunday was 0, our DB uses 0=Sun, 1=Mon, ..., 6=Sat. Check what settings form sent.
-        foreach ($validated['working_days'] as $dayVal) {
-            // El formulario manda strings "1", "2"... "6"
-            // If they selected 1 (Lunes), map it:
-            $dayOfWeek = (int)$dayVal;
-            
-            // Turno Mañana (Principal)
-            \App\Models\DoctorSchedule::create([
-                'doctor_id' => $validated['doctor_id'],
-                'day_of_week' => $dayOfWeek, // 1 for Monday
-                'start_time' => $validated['shift_1_start'],
-                'end_time' => $validated['shift_1_end'],
-                'slot_duration_minutes' => $validated['appointment_duration']
-            ]);
+        foreach ($formattedWorkingDays as $dayOfWeek => $dayData) {
+            if (!empty($dayData['active'])) {
+                $startTime = null;
+                $endTime = null;
 
-            // Turno Tarde (Opcional - Partido)
-            if (!empty($validated['shift_2_start']) && !empty($validated['shift_2_end'])) {
-                // IMPORTANT: The migration constrained `doctor_id` and `day_of_week` to be UNIQUE.
-                // Si el turno es partido, 'doctor_schedules' en la tabla actual no soporta dos filas para el mismo día (por la clave única).
-                // WORKAROUND FASE 19: Actualizamos el End Time del turno creado recién para que cubra todo el día (desde el inicio de la mañana hasta el fin de la tarde). 
-                // Esto permite que el Master Calendar (Phase 16) pinte todos los turnos. El médico verá slots desde la mañana hasta la tarde de corrido.
-                // En futuras versiones se tendría que borrar la unique key de migration.
-                \App\Models\DoctorSchedule::where('doctor_id', $validated['doctor_id'])
-                    ->where('day_of_week', $dayOfWeek)
-                    ->update(['end_time' => $validated['shift_2_end']]);
+                if (!empty($dayData['morning_active']) && !empty($dayData['morning_start'])) {
+                    $startTime = $dayData['morning_start'];
+                    $endTime = !empty($dayData['morning_end']) ? $dayData['morning_end'] : null;
+                }
+                if (!empty($dayData['afternoon_active']) && !empty($dayData['afternoon_end'])) {
+                    if (!$startTime) {
+                        $startTime = $dayData['afternoon_start'];
+                    }
+                    $endTime = $dayData['afternoon_end'];
+                }
+
+                if ($startTime && $endTime) {
+                    \App\Models\DoctorSchedule::create([
+                        'doctor_id' => $doctorId,
+                        'day_of_week' => (int)$dayOfWeek,
+                        'start_time' => $startTime,
+                        'end_time' => $endTime,
+                        'slot_duration_minutes' => $appointmentDuration
+                    ]);
+                }
             }
         }
 
-        return redirect()->route('agenda.settings')->with('success', 'El patrón base de trabajo semanal para este profesional se ha registrado y reflejado automáticamente en el Calendario Maestro.');
+        return redirect()->route('agenda.settings')->with('success', 'Los horarios semanales personalizados por día se han guardado y sincronizado correctamente con la agenda.');
     }
 }

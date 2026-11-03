@@ -40,13 +40,64 @@ class PatientStudyController extends Controller
     }
 
     /**
+     * Display the study file inline in the browser.
+     */
+    public function show(PatientStudy $patientStudy)
+    {
+        // 1. Verificar si existe en el disco public de Laravel (storage/app/public)
+        if (Storage::disk('public')->exists($patientStudy->file_path)) {
+            $path = Storage::disk('public')->path($patientStudy->file_path);
+            $mime = Storage::disk('public')->mimeType($patientStudy->file_path) ?? @mime_content_type($path) ?? 'application/octet-stream';
+            return response()->file($path, [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="' . addslashes($patientStudy->original_name ?? basename($patientStudy->file_path)) . '"',
+            ]);
+        }
+
+        // 2. Fallback: verificar si existe en public/storage
+        $altPath = public_path('storage/' . $patientStudy->file_path);
+        if (file_exists($altPath)) {
+            $mime = @mime_content_type($altPath) ?: 'application/octet-stream';
+            return response()->file($altPath, [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="' . addslashes($patientStudy->original_name ?? basename($patientStudy->file_path)) . '"',
+            ]);
+        }
+
+        abort(404, 'Estudio médico no encontrado en el servidor.');
+    }
+
+    /**
+     * Download the study file.
+     */
+    public function download(PatientStudy $patientStudy)
+    {
+        if (Storage::disk('public')->exists($patientStudy->file_path)) {
+            return Storage::disk('public')->download($patientStudy->file_path, $patientStudy->original_name);
+        }
+
+        $altPath = public_path('storage/' . $patientStudy->file_path);
+        if (file_exists($altPath)) {
+            return response()->download($altPath, $patientStudy->original_name);
+        }
+
+        abort(404, 'Estudio médico no encontrado en el servidor.');
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(PatientStudy $patientStudy)
     {
-        // Delete actual file
+        // Delete actual file from public disk
         if (Storage::disk('public')->exists($patientStudy->file_path)) {
             Storage::disk('public')->delete($patientStudy->file_path);
+        }
+
+        // Also delete from public/storage if present
+        $altPath = public_path('storage/' . $patientStudy->file_path);
+        if (file_exists($altPath)) {
+            @unlink($altPath);
         }
 
         $patientStudy->delete();
