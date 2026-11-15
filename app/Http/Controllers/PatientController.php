@@ -18,23 +18,7 @@ class PatientController extends Controller
         $patients = Patient::with('latestVisit.doctor')->withCount(['appointments as ausencias_count' => function ($query) {
             $query->where('status', 'no_show');
         }])->when($search, function ($query, $search) {
-            $altPhone = null;
-            if (preg_match('/^11([\s\-]*)(.*)$/', $search, $matches)) {
-                $altPhone = '15' . $matches[1] . $matches[2];
-            } elseif (preg_match('/^15([\s\-]*)(.*)$/', $search, $matches)) {
-                $altPhone = '11' . $matches[1] . $matches[2];
-            }
-
-            return $query->where(function($q) use ($search, $altPhone) {
-                $q->where('last_name', 'like', "%{$search}%")
-                  ->orWhere('first_name', 'like', "%{$search}%")
-                  ->orWhere('dni', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
-                  
-                if ($altPhone) {
-                    $q->orWhere('phone', 'like', "%{$altPhone}%");
-                }
-            });
+            return $this->applyPatientSearch($query, $search);
         })->latest()->paginate(15);
         
         return view('patients.index', compact('patients', 'search'));
@@ -74,6 +58,7 @@ class PatientController extends Controller
             'medical_notes' => 'nullable|string',
         ]);
 
+        if (!empty($validated['phone'])) { $validated['phone'] = self::formatArgentinePhone($validated['phone']); }
         $patient = Patient::create($validated);
 
         return redirect()->route('patients.show', $patient)->with('success', 'Paciente registrado correctamente.');
@@ -101,30 +86,14 @@ class PatientController extends Controller
         $search = $request->get('q');
         if (!$search) return redirect()->back();
 
-        $altPhone = null;
-        if (preg_match('/^11([\s\-]*)(.*)$/', $search, $matches)) {
-            $altPhone = '15' . $matches[1] . $matches[2];
-        } elseif (preg_match('/^15([\s\-]*)(.*)$/', $search, $matches)) {
-            $altPhone = '11' . $matches[1] . $matches[2];
-        }
-
-        $query = Patient::where(function($q) use ($search, $altPhone) {
-            $q->where('dni', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhere('first_name', 'like', "%{$search}%")
-              ->orWhere('phone', 'like', "%{$search}%");
-              
-            if ($altPhone) {
-                $q->orWhere('phone', 'like', "%{$altPhone}%");
-            }
-        });
+        $query = $this->applyPatientSearch(Patient::query(), $search);
                         
-        // Si encontramos uno único, vamos directo a su ficha
+        // Si encontramos un único resultado, vamos directo a su ficha
         if ($query->count() === 1) {
             return redirect()->route('patients.show', $query->first());
         }
 
-        // Si hay varios o cero, lo mandamos al index con el filtro
+        // Si hay varios o cero, lo mandamos a la lista filtrada
         return redirect()->route('patients.index', ['search' => $search]);
     }
 
@@ -138,26 +107,10 @@ class PatientController extends Controller
             return response()->json([]);
         }
 
-        $altPhone = null;
-        if (preg_match('/^11([\s\-]*)(.*)$/', $search, $matches)) {
-            $altPhone = '15' . $matches[1] . $matches[2];
-        } elseif (preg_match('/^15([\s\-]*)(.*)$/', $search, $matches)) {
-            $altPhone = '11' . $matches[1] . $matches[2];
-        }
+        $query = $this->applyPatientSearch(Patient::query(), $search);
 
-        $query = Patient::where(function($q) use ($search, $altPhone) {
-            $q->where('dni', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhere('first_name', 'like', "%{$search}%")
-              ->orWhere('phone', 'like', "%{$search}%");
-              
-            if ($altPhone) {
-                $q->orWhere('phone', 'like', "%{$altPhone}%");
-            }
-        });
-
-        $patients = $query->limit(10)
-                        ->get(['id', 'first_name', 'last_name', 'dni']);
+        $patients = $query->limit(15)
+                        ->get(['id', 'first_name', 'last_name', 'dni', 'phone', 'code']);
         return response()->json($patients);
     }
 
@@ -317,6 +270,7 @@ class PatientController extends Controller
             'medical_notes' => 'nullable|string',
         ]);
 
+        if (!empty($validated['phone'])) { $validated['phone'] = self::formatArgentinePhone($validated['phone']); }
         $patient->update($validated);
 
         return redirect()->route('patients.show', $patient)->with('success', 'Datos actualizados.');
@@ -536,5 +490,87 @@ Formatea tu respuesta en texto plano ordenado, usando viñetas. Se conciso y pro
                 'message' => 'Error de conexión con la IA: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Enhanced universal patient search matching:
+     * DNI, First Name, Last Name, Full Name, Phone, Email,
+     * Recommendation / Deriving Doctor, Medical Notes / Antecedentes,
+     * Folder Code or numeric ID.
+     */
+    protected function applyPatientSearch($query, $search)
+    {
+        if (!$search) return $query;
+        $term = trim($search);
+
+        $altPhone = null;
+        if (preg_match('/^11([\s\-]*)(.*)$/', $term, $matches)) {
+            $altPhone = '15' . $matches[1] . $matches[2];
+        } elseif (preg_match('/^15([\s\-]*)(.*)$/', $term, $matches)) {
+            $altPhone = '11' . $matches[1] . $matches[2];
+        }
+
+        $cleanDigits = preg_replace('/[^0-9]/', '', $term);
+
+        return $query->where(function($q) use ($term, $altPhone, $cleanDigits) {
+            $q->where('dni', 'like', "%{$term}%")
+              ->orWhere('last_name', 'like', "%{$term}%")
+              ->orWhere('first_name', 'like', "%{$term}%")
+              ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$term}%"])
+              ->orWhereRaw("CONCAT(last_name, ' ', first_name) LIKE ?", ["%{$term}%"])
+              ->orWhere('phone', 'like', "%{$term}%")
+              ->orWhere('email', 'like', "%{$term}%")
+              ->orWhere('recommendation', 'like', "%{$term}%")
+              ->orWhere('medical_notes', 'like', "%{$term}%")
+              ->orWhere('code', 'like', "%{$term}%");
+
+            if ($cleanDigits && strlen($cleanDigits) <= 8) {
+                $intVal = intval($cleanDigits);
+                if ($intVal > 0) {
+                    $q->orWhere('id', $intVal);
+                }
+            }
+
+            if ($altPhone) {
+                $q->orWhere('phone', 'like', "%{$altPhone}%");
+            }
+        });
+    }
+
+    /**
+     * Format and standardize Argentine phone numbers to +54 9 [area] [num]
+     * Eliminates leading 0 and redundant 15 so WhatsApp and dialers always succeed.
+     */
+    public static function formatArgentinePhone($phone)
+    {
+        if (!$phone) return null;
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+        if (empty($digits)) return $phone;
+
+        if (str_starts_with($digits, '549')) {
+            $digits = substr($digits, 3);
+        } elseif (str_starts_with($digits, '54')) {
+            $digits = substr($digits, 2);
+        }
+
+        if (str_starts_with($digits, '0')) {
+            $digits = ltrim($digits, '0');
+        }
+
+        if (str_starts_with($digits, '11') && substr($digits, 2, 2) === '15') {
+            $digits = '11' . substr($digits, 4);
+        } elseif (preg_match('/^(2\d{2,3}|3\d{2,3})15(\d{6,7})$/', $digits, $m)) {
+            $digits = $m[1] . $m[2];
+        }
+
+        if (str_starts_with($digits, '11')) {
+            return '+54 9 11 ' . substr($digits, 2);
+        } elseif (preg_match('/^(2\d{2}|3\d{2})(.*)$/', $digits, $m)) {
+            return '+54 9 ' . $m[1] . ' ' . $m[2];
+        } elseif (preg_match('/^(2\d{3}|3\d{3})(.*)$/', $digits, $m)) {
+            return '+54 9 ' . $m[1] . ' ' . $m[2];
+        }
+
+        return '+54 9 ' . $digits;
     }
 }

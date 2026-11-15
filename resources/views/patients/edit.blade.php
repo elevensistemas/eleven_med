@@ -72,8 +72,15 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">Teléfono / Celular</label>
-                        <input type="tel" name="phone" class="form-control modern-input" value="{{ old('phone', $patient->phone) }}">
+                        <label class="form-label text-muted small d-flex justify-content-between align-items-center">
+                            <span>Teléfono / Celular (WhatsApp)</span>
+                            <span class="badge bg-light text-muted border" style="font-size:0.7rem;">Sin 0 ni 15</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0 fw-bold text-success rounded-start-pill ps-3"><i class="bi bi-whatsapp me-1"></i> +54 9</span>
+                            <input type="tel" name="phone" id="patientPhoneInput" class="form-control modern-input rounded-end-pill" placeholder="Ej: 11 4455-6677 o 221 456-7890" value="{{ old('phone', $patient->phone ? preg_replace('/^\+54\s*9\s*/', '', $patient->phone) : '') }}">
+                        </div>
+                        <small class="text-muted" style="font-size: 0.72rem;">El sistema normaliza automáticamente prefijos para mensajes de WhatsApp.</small>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label text-muted small">Correo Electrónico</label>

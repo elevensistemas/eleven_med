@@ -922,46 +922,117 @@ body.theme-dark .sidebar-nav-container {
                 </form>
             </div>
 
-            <!-- Tab: Turnos -->
+            <!-- Tab: Turnos y Asignaciones -->
             <div class="tab-pane fade" id="turnos" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-calendar-check text-primary me-2"></i> Historial de Turnos</h5>
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-light flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-check text-primary me-2"></i> Historial Completo de Turnos y Concurrencias</h5>
+                        <small class="text-muted">Turnos programados, sobreturnos, asistencias y ausencias registradas.</small>
+                    </div>
+                    <a href="{{ route('agenda.index') }}?preselect_patient_id={{ $patient->id }}&preselect_patient_fname={{ urlencode($patient->first_name) }}&preselect_patient_lname={{ urlencode($patient->last_name) }}&preselect_patient_dni={{ $patient->dni }}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 btn-sm">
+                        <i class="bi bi-calendar-plus"></i> Agendar Nuevo Turno
+                    </a>
                 </div>
                 
-                @php $turnosNormales = $patient->appointments ? $patient->appointments->where('is_overbooked', false) : collect(); @endphp
+                @php 
+                    $allAppts = $patient->appointments ? $patient->appointments->sortByDesc('date') : collect();
+                    $todayStr = now()->toDateString();
+                    $futuros = $allAppts->filter(fn($a) => $a->date >= $todayStr && $a->status !== 'cancelled');
+                    $pasados = $allAppts->filter(fn($a) => $a->date < $todayStr && $a->status === 'completed');
+                    $ausencias = $allAppts->filter(fn($a) => $a->status === 'no_show' || $a->status === 'cancelled');
+                @endphp
+
+                <!-- Tarjetas de Resumen Rápido -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="card border-0 rounded-4 p-3 shadow-sm bg-primary bg-opacity-10 border-start border-4 border-primary">
+                            <span class="text-muted small fw-bold text-uppercase" style="font-size:0.75rem;">Turnos Próximos / Futuros</span>
+                            <h4 class="fw-bold text-primary mb-0 mt-1">{{ $futuros->count() }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 rounded-4 p-3 shadow-sm bg-success bg-opacity-10 border-start border-4 border-success">
+                            <span class="text-muted small fw-bold text-uppercase" style="font-size:0.75rem;">Turnos Concurridos / Atendidos</span>
+                            <h4 class="fw-bold text-success mb-0 mt-1">{{ $pasados->count() }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 rounded-4 p-3 shadow-sm bg-danger bg-opacity-10 border-start border-4 border-danger">
+                            <span class="text-muted small fw-bold text-uppercase" style="font-size:0.75rem;">No Concurrencias / Cancelaciones</span>
+                            <h4 class="fw-bold text-danger mb-0 mt-1">{{ $ausencias->count() }}</h4>
+                        </div>
+                    </div>
+                </div>
                 
-                @if($turnosNormales->count() > 0)
+                @if($allAppts->count() > 0)
                     <div class="table-responsive bg-white rounded-4 shadow-sm" style="border: 1px solid rgba(0,0,0,0.05);">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-light text-muted small fw-bold text-uppercase">
                                 <tr>
-                                    <th class="ps-4">Fecha/Hora</th>
+                                    <th class="ps-4">Fecha / Hora</th>
+                                    <th>Tipo</th>
                                     <th>Profesional</th>
-                                    <th>Motivo</th>
-                                    <th>Estado</th>
+                                    <th>Motivo / Especialidad</th>
+                                    <th>Estado / Concurrencia</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($turnosNormales as $appt)
-                                    <tr>
+                                @foreach($allAppts as $appt)
+                                    @php
+                                        $isFuture = ($appt->date >= $todayStr);
+                                    @endphp
+                                    <tr class="{{ $isFuture ? 'table-primary bg-opacity-10' : '' }}">
                                         <td class="ps-4">
-                                            <div class="fw-bold text-dark">{{ \Carbon\Carbon::parse($appt->date)->format('d/m/Y') }}</div>
+                                            <div class="fw-bold {{ $isFuture ? 'text-primary' : 'text-dark' }}">{{ \Carbon\Carbon::parse($appt->date)->format('d/m/Y') }}</div>
                                             <div class="small text-muted"><i class="bi bi-clock me-1"></i>{{ \Carbon\Carbon::parse($appt->time)->format('H:i') }} hs</div>
                                         </td>
                                         <td>
-                                            <span class="d-flex align-items-center gap-2"><div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-person-fill fs-6"></i></div> {{ $appt->doctor->name ?? '-' }}</span>
+                                            @if($appt->is_overbooked)
+                                                <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-3 py-1 fw-bold" style="font-size:0.75rem;">
+                                                    <i class="bi bi-exclamation-circle me-1"></i> Sobreturno
+                                                </span>
+                                            @else
+                                                <span class="badge bg-light text-secondary border rounded-pill px-3 py-1" style="font-size:0.75rem;">
+                                                    Turno Regular
+                                                </span>
+                                            @endif
                                         </td>
-                                        <td class="text-secondary">{{ Str::limit($appt->reason ?? '-', 35) }}</td>
                                         <td>
-                                            @php
-                                                $statusColor = match($appt->status) {
-                                                    'completed' => 'success',
-                                                    'cancelled' => 'danger',
-                                                    'confirmed' => 'primary',
-                                                    default => 'warning'
-                                                };
-                                            @endphp
-                                            <span class="badge bg-{{ $statusColor }} bg-opacity-10 text-{{ $statusColor }} border border-{{ $statusColor }} border-opacity-25 rounded-pill px-3">{{ ucfirst($appt->status) }}</span>
+                                            <span class="d-flex align-items-center gap-2">
+                                                <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">
+                                                    <i class="bi bi-person-fill fs-6"></i>
+                                                </div> 
+                                                {{ $appt->doctor->name ?? '-' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-secondary">
+                                            <span class="fw-medium text-dark">{{ $appt->reason ?? 'Consulta' }}</span>
+                                            @if($appt->notes)
+                                                <small class="d-block text-muted" style="font-size:0.75rem;">{{ $appt->notes }}</small>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($appt->status === 'completed')
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                                    <i class="bi bi-check-circle-fill me-1"></i> Atendido
+                                                </span>
+                                            @elseif($appt->status === 'no_show')
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                                    <i class="bi bi-x-circle-fill me-1"></i> No Concurrió
+                                                </span>
+                                            @elseif($appt->status === 'cancelled')
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-3 py-1 fw-bold">
+                                                    <i class="bi bi-slash-circle me-1"></i> Cancelado
+                                                </span>
+                                            @elseif($isFuture)
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                                    <i class="bi bi-calendar-event me-1"></i> Próximo Turno
+                                                </span>
+                                            @else
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                                    {{ ucfirst($appt->status) }}
+                                                </span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -971,8 +1042,8 @@ body.theme-dark .sidebar-nav-container {
                 @else
                     <div class="py-5 text-center bg-light rounded-4" style="border: 2px dashed #dee2e6;">
                         <i class="bi bi-calendar-x fs-1 text-secondary opacity-50 mb-3 d-block"></i>
-                        <h5 class="fw-bold text-dark">Sin turnos normales</h5>
-                        <p class="text-muted">El paciente no registra turnos en el sistema.</p>
+                        <h5 class="fw-bold text-dark">Sin turnos registrados</h5>
+                        <p class="text-muted">El paciente no registra turnos pasados ni futuros en el sistema.</p>
                     </div>
                 @endif
             </div>
