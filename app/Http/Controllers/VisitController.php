@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Patient;
 use App\Models\Visit;
 use App\Models\VisitLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,7 +18,12 @@ class VisitController extends Controller
             return redirect()->route('visits.edit', $openVisit)->with('info', 'Redirigido a la evolución clínica que está abierta.');
         }
 
-        return view('visits.create', compact('patient'));
+        $lastVisit = $patient->visits()->latest()->first();
+        $doctors = User::whereHas('roles', function($q) {
+            $q->whereIn('name', ['médico', 'administrador']);
+        })->orderBy('name')->get();
+
+        return view('visits.create', compact('patient', 'lastVisit', 'doctors'));
     }
 
     public function store(Request $request, Patient $patient)
@@ -28,6 +34,7 @@ class VisitController extends Controller
         }
 
         $validated = $request->validate([
+            'doctor_id' => 'nullable|exists:users,id',
             'motivo_consulta' => 'nullable|string',
             'diagnostico' => 'nullable|string',
             'antecedentes_oftalmologicos' => 'nullable|string',
@@ -47,10 +54,10 @@ class VisitController extends Controller
         ]);
         
         $validated['patient_id'] = $patient->id;
-        $validated['doctor_id'] = Auth::id();
+        $validated['doctor_id'] = $request->filled('doctor_id') ? $request->input('doctor_id') : Auth::id();
         $validated['is_open'] = true;
 
-                // Actualizar derivación / recomendación o comentarios médicos si se enviaron en la consulta
+        // Actualizar derivación / recomendación o comentarios médicos si se enviaron en la consulta
         if ($request->has('recommendation')) {
             $patient->recommendation = $request->input('recommendation');
         }
@@ -74,12 +81,18 @@ class VisitController extends Controller
     public function edit(Visit $visit)
     {
         $patient = $visit->patient;
-        return view('visits.edit', compact('visit', 'patient'));
+        $previousVisits = $patient->visits()->where('id', '!=', $visit->id)->orderBy('created_at', 'desc')->get();
+        $doctors = User::whereHas('roles', function($q) {
+            $q->whereIn('name', ['médico', 'administrador']);
+        })->orderBy('name')->get();
+
+        return view('visits.edit', compact('visit', 'patient', 'previousVisits', 'doctors'));
     }
 
     public function update(Request $request, Visit $visit)
     {
         $validated = $request->validate([
+            'doctor_id' => 'nullable|exists:users,id',
             'motivo_consulta' => 'nullable|string',
             'diagnostico' => 'nullable|string',
             'antecedentes_oftalmologicos' => 'nullable|string',
@@ -98,7 +111,11 @@ class VisitController extends Controller
             'av_oi_cerca' => 'nullable|string|max:255',
         ]);
 
-                $visit->update($validated);
+        if ($request->filled('doctor_id')) {
+            $validated['doctor_id'] = $request->input('doctor_id');
+        }
+
+        $visit->update($validated);
         $patient = $visit->patient;
 
         // Actualizar derivación / recomendación o comentarios médicos en la ficha del paciente
@@ -109,7 +126,6 @@ class VisitController extends Controller
             $patient->medical_notes = $request->input('medical_notes');
         }
         $patient->save();
-        $patient = $visit->patient;
 
         if ($request->has('close_visit') && $request->input('close_visit') == '1') {
             $visit->is_open = false;
@@ -125,7 +141,21 @@ class VisitController extends Controller
             return redirect()->route('patients.show', $patient)->with('success', 'Visita clínica cerrada correctamente.')->with('active_tab', 'last-visit');
         }
 
-        return redirect()->route('patients.show', $patient)->with('success', 'Evolución clínica actualizada.')->with('active_tab', 'last-visit');
+        if ($request->has('reopen_visit') && $request->input('reopen_visit') == '1') {
+            $visit->is_open = true;
+            $visit->save();
+
+            // Log open status
+            VisitLog::create([
+                'visit_id' => $visit->id,
+                'user_id' => Auth::id(),
+                'action' => 'open',
+            ]);
+
+            return redirect()->route('visits.edit', $visit)->with('success', 'Consulta reabierta para continuar atendiendo.');
+        }
+
+        return redirect()->route('patients.show', $patient)->with('success', 'Evolución clínica actualizada correctamente.')->with('active_tab', 'last-visit');
     }
 
     public function toggleStatus(Visit $visit)

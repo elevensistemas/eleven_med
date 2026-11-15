@@ -218,7 +218,8 @@ body.theme-dark .sidebar-nav-container {
             </form>
             @endif
             <h5 class="fw-bold mb-2 text-dark" style="font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
-            <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-sm mb-2"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
+            <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-sm mb-1"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold mb-2" style="font-size: 0.85rem;" title="Número de Carpeta correlativo institucional"><i class="bi bi-folder2-open me-1"></i> Carpeta #{{ $patient->code ?: sprintf("%06d", $patient->id) }}</span>
         </div>
 
         <div class="mb-5">
@@ -257,7 +258,11 @@ body.theme-dark .sidebar-nav-container {
     <div class="col-md-8 col-lg-9 col-xl-10 p-3 p-xl-4 bg-white">
         <!-- HEADER TOP -->
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold text-dark mb-0 m-0 p-0">Tablero del Paciente</h5>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h5 class="fw-bold text-dark mb-0">{{ $patient->last_name }}, {{ $patient->first_name }}</h5>
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-folder2-open me-1"></i> Carpeta: #{{ $patient->code ?: sprintf("%06d", $patient->id) }}</span>
+                <span class="badge bg-light text-secondary border px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-card-text me-1"></i> DNI: {{ $patient->dni }}</span>
+            </div>
             <a href="{{ route('agenda.index') }}?preselect_patient_id={{ $patient->id }}&preselect_patient_fname={{ urlencode($patient->first_name) }}&preselect_patient_lname={{ urlencode($patient->last_name) }}&preselect_patient_dni={{ $patient->dni }}" class="btn btn-gradient-warning rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 py-1 text-decoration-none">
                 <i class="bi bi-calendar-plus"></i> Dar turno
             </a>
@@ -337,8 +342,13 @@ body.theme-dark .sidebar-nav-container {
                             <span class="fw-bold text-dark">{{ $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->format('d M, Y') : '-' }}</span>
                         </div>
                         <div class="col-md-4 d-flex justify-content-between border-end pe-3 ps-3">
-                            <span class="text-muted fw-bold">Recomendó:</span>
-                            <span class="fw-bold text-dark">-</span>
+                            <span class="text-muted fw-bold">Derivó / Recomendó:</span>
+                            <span class="fw-bold text-dark d-flex align-items-center gap-1">
+                                <span id="displayRecommendationText">{{ $patient->recommendation ?: "Sin especificar" }}</span>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-primary ms-1" onclick="openEditRecommendationModal()" title="Editar derivación / recomendación">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                            </span>
                         </div>
                         <div class="col-md-4 d-flex justify-content-between ps-3">
                             <span class="text-muted fw-bold">C. I.V.A.:</span>
@@ -673,11 +683,9 @@ body.theme-dark .sidebar-nav-container {
                                             <div class="text-dark fw-medium lh-sm w-100" style="font-size: 0.95rem; white-space: pre-line; padding-top: 0.35rem;">{{ $visit->motivo_consulta ?? '-' }}</div>
                                             <!-- Actions -->
                                             <div class="col-md-2 position-absolute bottom-0 end-0 d-flex justify-content-end align-items-end pe-4 pb-2 gap-2">
-                                                @if($visit->is_open)
-                                                    <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-light text-primary rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" title="Editar evolución">
-                                                        <i class="bi bi-pencil-fill"></i>
-                                                    </a>
-                                                @endif
+                                                <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-light text-primary rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" title="{{ $visit->is_open ? 'Continuar consulta' : 'Modificar consulta' }}">
+                                                    <i class="bi {{ $visit->is_open ? 'bi-pencil-fill' : 'bi-pencil-square' }}"></i>
+                                                </a>
                                                 <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline">
                                                     @csrf
                                                     <button type="submit" class="btn btn-sm btn-light {{ $visit->is_open ? 'text-success font-weight-bold' : 'text-danger' }} rounded-circle p-2 shadow-sm border border-secondary border-opacity-10" title="{{ $visit->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
@@ -1102,11 +1110,9 @@ body.theme-dark .sidebar-nav-container {
                                             </h6>
                                             <div class="d-flex align-items-center gap-2">
                                                 <h6 class="text-secondary mb-0 fw-bold me-3" style="font-size: 1.05rem;">Médico: {{ $visit->doctor->name ?? 'Staff' }}</h6>
-                                                @if($visit->is_open)
-                                                    <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;">
-                                                        <i class="bi bi-pencil-fill"></i> Continuar
-                                                    </a>
-                                                @endif
+                                                <a href="{{ route('visits.edit', $visit) }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;">
+                                                    <i class="bi {{ $visit->is_open ? 'bi-pencil-fill' : 'bi-pencil-square' }}"></i> {{ $visit->is_open ? 'Continuar' : 'Modificar' }}
+                                                </a>
                                                 <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline">
                                                     @csrf
                                                     <button type="submit" class="btn btn-sm btn-outline-{{ $visit->is_open ? 'success' : 'danger' }} rounded-pill fw-bold px-3 py-1 d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="{{ $visit->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
@@ -1348,11 +1354,16 @@ function initCirugiasSpartan() {
 
         // Filtrado por ojo
         rows.forEach(row => {
-            const eye = row.getAttribute('data-eye');
-            if (currentFilter === 'all' || eye === currentFilter) {
-                row.style.display = 'flex';
+            const eye = (row.getAttribute('data-eye') || '').toUpperCase().trim();
+            const filter = currentFilter.toUpperCase().trim();
+            if (filter === 'ALL' || eye === filter) {
+                row.classList.remove('d-none');
+                row.classList.add('d-flex');
+                row.style.setProperty('display', 'flex', 'important');
             } else {
-                row.style.display = 'none';
+                row.classList.remove('d-flex');
+                row.classList.add('d-none');
+                row.style.setProperty('display', 'none', 'important');
             }
         });
 

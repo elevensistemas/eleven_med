@@ -1,34 +1,40 @@
 @extends('layouts.admin')
 
 @section('title', 'Editar Evolución Clínica')
-@section('subtitle', 'Editando consulta para: ' . $patient->last_name . ', ' . $patient->first_name)
+@section('subtitle', 'Consulta del ' . $visit->created_at->format('d/m/Y - H:i') . ' para: ' . $patient->last_name . ', ' . $patient->first_name)
 
 @section('content')
 <div class="row align-items-center mb-4">
-    <div class="col d-flex gap-3 align-items-center flex-wrap">
-        <a href="{{ route('patients.show', $patient) }}" class="btn btn-light rounded-pill px-4 text-primary fw-bold shadow-sm border-0">
-            <i class="bi bi-arrow-left me-2"></i> Volver a la Ficha
-        </a>
-        <button type="button" class="btn rounded-pill px-4 text-white fw-bold shadow-sm border-0 d-flex align-items-center gap-2" data-bs-toggle="offcanvas" data-bs-target="#historyOffcanvas" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
-            <i class="bi bi-journal-medical"></i> Ver Historia Clínica
-        </button>
-        
-        @if($visit->is_open)
-            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-2 fw-bold d-inline-flex align-items-center gap-1">
-                <i class="bi bi-unlock-fill"></i> Consulta Abierta
-            </span>
+    <div class="col d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <a href="{{ route('patients.show', $patient) }}" class="btn btn-light rounded-pill px-4 text-primary fw-bold shadow-sm border-0">
+                <i class="bi bi-arrow-left me-2"></i> Volver a la Ficha
+            </a>
+            <button type="button" class="btn rounded-pill px-4 text-white fw-bold shadow-sm border-0 d-flex align-items-center gap-2" data-bs-toggle="offcanvas" data-bs-target="#historyOffcanvas" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                <i class="bi bi-journal-medical"></i> Ver Historia Completa
+            </button>
             
-            <form action="{{ route('visits.toggleStatus', $visit) }}" method="POST" class="d-inline ms-auto">
-                @csrf
-                <button type="submit" class="btn btn-outline-danger rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2" onclick="return confirm('¿Está seguro de cerrar esta consulta? Una vez cerrada, se guardará en la historia clínica del paciente.');">
-                    <i class="bi bi-lock-fill"></i> Cerrar Consulta
-                </button>
-            </form>
-        @else
-            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-3 py-2 fw-bold d-inline-flex align-items-center gap-1">
-                <i class="bi bi-lock-fill"></i> Consulta Cerrada
-            </span>
-        @endif
+            @if($visit->is_open)
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-2 fw-bold d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-unlock-fill"></i> Consulta Abierta en Curso
+                </span>
+            @else
+                <span class="badge bg-secondary bg-opacity-10 text-dark border border-secondary border-opacity-25 rounded-pill px-3 py-2 fw-bold d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-lock-fill text-muted"></i> Consulta Cerrada / Histórica (Edición Habilitada)
+                </span>
+            @endif
+        </div>
+
+        <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm border">
+            <label class="small fw-bold text-muted mb-0 text-nowrap"><i class="bi bi-person-badge text-primary me-1"></i> Médico actuante:</label>
+            <select name="doctor_id" form="formEditVisit" class="form-select form-select-sm border-0 bg-light rounded-pill shadow-none fw-bold text-dark" style="min-width: 200px;">
+                @foreach($doctors as $doc)
+                    <option value="{{ $doc->id }}" {{ (old('doctor_id', $visit->doctor_id) == $doc->id) ? 'selected' : '' }}>
+                        {{ $doc->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
     </div>
 </div>
 
@@ -41,7 +47,80 @@
 @endif
 
 <div class="modern-card p-4">
-    <form action="{{ route('visits.update', $visit) }}" method="POST">
+
+    <!-- Bloque Superior: Consulta Anterior en Detalle (Si existen consultas previas a esta) -->
+    @if(isset($previousVisits) && $previousVisits->count() > 0)
+        @php $prevV = $previousVisits->first(); @endphp
+        <div class="card border rounded-4 shadow-sm mb-4" style="background: linear-gradient(135deg, rgba(30, 60, 114, 0.04) 0%, rgba(42, 82, 152, 0.07) 100%); border: 1.5px solid rgba(42, 82, 152, 0.25) !important;">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3 px-4 flex-wrap gap-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#prevVisitCollapse">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge rounded-pill px-3 py-2 text-white shadow-sm" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                        <i class="bi bi-clock-history me-1"></i> Ver Consulta Previa del {{ $prevV->created_at->format('d/m/Y - H:i') }}
+                    </span>
+                    <span class="text-dark small fw-bold"><i class="bi bi-person me-1 text-primary"></i> Dr. {{ $prevV->doctor->name ?? 'Staff' }}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-white bg-white border rounded-pill px-3 py-1 shadow-sm text-primary fw-bold" onclick="copyPreviousVisitData(event)">
+                        <i class="bi bi-clipboard-plus me-1 text-success"></i> Copiar antecedentes a esta consulta
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light rounded-circle p-1" style="width: 30px; height: 30px;">
+                        <i class="bi bi-chevron-down" id="prevVisitIcon"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="collapse" id="prevVisitCollapse">
+                <div class="card-body pt-0 px-4 pb-4 border-top border-secondary border-opacity-10 mt-2">
+                    <div class="row g-3 small mt-1">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-white rounded-3 border shadow-sm">
+                                <strong class="text-primary d-block mb-1"><i class="bi bi-chat-square-text me-1"></i> Motivo Previo:</strong>
+                                <div class="text-dark">{{ $prevV->motivo_consulta ?: 'Sin registrar' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-white rounded-3 border shadow-sm">
+                                <strong class="text-danger d-block mb-1"><i class="bi bi-check2-circle me-1"></i> Diagnóstico Previo:</strong>
+                                <div class="text-dark fw-bold">{{ $prevV->diagnostico ?: 'Sin registrar' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-white rounded-3 border shadow-sm">
+                                <strong class="text-secondary d-block mb-1"><i class="bi bi-eye me-1"></i> Ant. Oftalmológicos:</strong>
+                                <div class="text-dark" id="prevAntOft">{{ $prevV->antecedentes_oftalmologicos ?: '-' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-white rounded-3 border shadow-sm">
+                                <strong class="text-success d-block mb-1"><i class="bi bi-capsule me-1"></i> Tratamiento Oftalmológico:</strong>
+                                <div class="text-dark fw-bold text-success" id="prevTratOft">{{ $prevV->tratamiento_oftalmologico ?: '-' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-white rounded-3 border shadow-sm">
+                                <strong class="text-secondary d-block mb-1"><i class="bi bi-activity me-1"></i> Examen Físico:</strong>
+                                <div class="text-dark">
+                                    <span class="me-2"><strong>PIO:</strong> {{ $prevV->pio ?: '-' }}</span> | 
+                                    <span class="mx-2"><strong>BMC:</strong> {{ $prevV->bmc ?: '-' }}</span> | 
+                                    <span class="ms-2"><strong>OBI:</strong> {{ $prevV->obi ?: '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-white rounded-3 border shadow-sm">
+                                <strong class="text-secondary d-block mb-1"><i class="bi bi-eyeglasses me-1"></i> Agudeza Visual:</strong>
+                                <div class="text-dark">
+                                    <span class="me-2"><strong>Lejos:</strong> OD {{ $prevV->av_od_lejos ?: '-' }} / OI {{ $prevV->av_oi_lejos ?: '-' }}</span> | 
+                                    <span class="ms-2"><strong>Cerca:</strong> OD {{ $prevV->av_od_cerca ?: '-' }} / OI {{ $prevV->av_oi_cerca ?: '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <form id="formEditVisit" action="{{ route('visits.update', $visit) }}" method="POST">
         @csrf
         @method('PUT')
         
@@ -60,66 +139,69 @@
                         <span><i class="bi bi-journal-text text-warning me-1"></i> COMENTARIOS MÉDICOS</span>
                         <span class="badge bg-warning bg-opacity-25 text-dark border border-warning" style="font-size:0.65rem;">Solo Consultorio (No se imprime)</span>
                     </label>
-                    <textarea name="medical_notes" rows="2" class="form-control bg-white border shadow-none rounded-3" style="font-size:0.85rem;" placeholder="Notas y comentarios médicos permanentes del paciente...">{{ old('medical_notes', $patient->medical_notes) }}</textarea>
+                    <textarea name="medical_notes" rows="1" class="form-control bg-white border shadow-none rounded-3 auto-expand" style="min-height: 38px; resize: none; overflow-y: hidden; font-size:0.85rem;" placeholder="Notas y comentarios médicos permanentes del paciente...">{{ old('medical_notes', $patient->medical_notes) }}</textarea>
                 </div>
             </div>
         </div>
 
         <!-- Bloque 1: Visita Actual -->
-        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2"><i class="bi bi-clipboard-plus me-2"></i> Motivo y Diagnóstico</h5>
-        <div class="row g-4 mb-5">
+        <h5 class="fw-bold text-primary mb-3 border-bottom pb-2 d-flex align-items-center justify-content-between">
+            <span><i class="bi bi-clipboard-plus me-2"></i> Motivo y Diagnóstico</span>
+            <small class="text-muted fw-normal fs-6">Campos compactos auto-expandibles</small>
+        </h5>
+        <div class="row g-3 mb-4">
             <div class="col-md-12">
                 <label class="form-label text-muted small fw-bold">Motivo Consulta</label>
-                <textarea name="motivo_consulta" rows="2" class="form-control bg-light border-0 shadow-none rounded-4 p-3" placeholder="Síntomas principales reportados por el paciente..." {{ !$visit->is_open ? 'disabled' : '' }}>{{ old('motivo_consulta', $visit->motivo_consulta) }}</textarea>
+                <textarea name="motivo_consulta" rows="1" class="form-control bg-light border-0 shadow-none rounded-3 p-2 px-3 auto-expand" style="min-height: 42px; resize: none; overflow-y: hidden;" placeholder="Síntomas principales reportados por el paciente...">{{ old('motivo_consulta', $visit->motivo_consulta) }}</textarea>
             </div>
             <div class="col-md-12">
                 <label class="form-label text-muted small fw-bold">Diagnóstico Presuntivo / Definitivo</label>
-                <textarea name="diagnostico" rows="2" class="form-control bg-light border-0 shadow-none rounded-4 p-3" placeholder="Impresión diagnóstica final de esta visita..." {{ !$visit->is_open ? 'disabled' : '' }}>{{ old('diagnostico', $visit->diagnostico) }}</textarea>
+                <textarea name="diagnostico" rows="1" class="form-control bg-light border-0 shadow-none rounded-3 p-2 px-3 auto-expand" style="min-height: 42px; resize: none; overflow-y: hidden;" placeholder="Impresión diagnóstica final de esta visita...">{{ old('diagnostico', $visit->diagnostico) }}</textarea>
             </div>
         </div>
 
         <!-- Bloque 2: Anamnesis / Historial -->
-        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2"><i class="bi bi-clock-history me-2"></i> Historial y Tratamientos Previos</h5>
-        <div class="row g-4 mb-5">
+        <h5 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="bi bi-clock-history me-2"></i> Historial y Tratamientos Previos</h5>
+        <div class="row g-3 mb-4">
             <div class="col-md-6">
                 <label class="form-label text-muted small fw-bold">Antecedentes Oftalmológicos</label>
-                <textarea name="antecedentes_oftalmologicos" rows="3" class="form-control bg-light border-0 shadow-none rounded-4 p-3" placeholder="Cirugías visuales, glaucoma familiar, patologías oculares previas..." {{ !$visit->is_open ? 'disabled' : '' }}>{{ old('antecedentes_oftalmologicos', $visit->antecedentes_oftalmologicos) }}</textarea>
+                <textarea name="antecedentes_oftalmologicos" id="inputAntOft" rows="1" class="form-control bg-light border-0 shadow-none rounded-3 p-2 px-3 auto-expand" style="min-height: 42px; resize: none; overflow-y: hidden;" placeholder="Cirugías visuales, glaucoma familiar, patologías oculares previas...">{{ old('antecedentes_oftalmologicos', $visit->antecedentes_oftalmologicos) }}</textarea>
             </div>
             <div class="col-md-6">
                 <label class="form-label text-muted small fw-bold text-success"><i class="bi bi-capsule"></i> Tratamiento Oftalmológico (Actual/Recetado)</label>
-                <textarea name="tratamiento_oftalmologico" rows="3" class="form-control bg-light border-0 shadow-none rounded-4 p-3 border-start border-4 border-success mt-1" style="border-radius: 4px 16px 16px 4px !important;" placeholder="Gotas, medicación intraocular..." {{ !$visit->is_open ? 'disabled' : '' }}>{{ old('tratamiento_oftalmologico', $visit->tratamiento_oftalmologico) }}</textarea>
+                <textarea name="tratamiento_oftalmologico" id="inputTratOft" rows="1" class="form-control bg-light border-0 shadow-none rounded-3 p-2 px-3 auto-expand border-start border-4 border-success" style="min-height: 42px; resize: none; overflow-y: hidden;" placeholder="Gotas, medicación intraocular...">{{ old('tratamiento_oftalmologico', $visit->tratamiento_oftalmologico) }}</textarea>
             </div>
             <div class="col-md-6">
                 <label class="form-label text-muted small fw-bold">Antecedentes Generales</label>
-                <textarea name="antecedentes_generales" rows="2" class="form-control bg-light border-0 shadow-none rounded-4 p-3" placeholder="Hipertensión, diabetes, cirugías sistémicas..." {{ !$visit->is_open ? 'disabled' : '' }}>{{ old('antecedentes_generales', $visit->antecedentes_generales) }}</textarea>
+                <textarea name="antecedentes_generales" rows="1" class="form-control bg-light border-0 shadow-none rounded-3 p-2 px-3 auto-expand" style="min-height: 42px; resize: none; overflow-y: hidden;" placeholder="Hipertensión, diabetes, cirugías sistémicas...">{{ old('antecedentes_generales', $visit->antecedentes_generales) }}</textarea>
             </div>
             <div class="col-md-6">
                 <label class="form-label text-muted small fw-bold">Tratamientos Generales</label>
-                <textarea name="tratamientos_generales" rows="2" class="form-control bg-light border-0 shadow-none rounded-4 p-3" placeholder="Medicación crónica sistémica..." {{ !$visit->is_open ? 'disabled' : '' }}>{{ old('tratamientos_generales', $visit->tratamientos_generales) }}</textarea>
+                <textarea name="tratamientos_generales" rows="1" class="form-control bg-light border-0 shadow-none rounded-3 p-2 px-3 auto-expand" style="min-height: 42px; resize: none; overflow-y: hidden;" placeholder="Medicación crónica sistémica...">{{ old('tratamientos_generales', $visit->tratamientos_generales) }}</textarea>
             </div>
         </div>
 
         <!-- Bloque 3: Examen Físico y Agudeza Visual (OD / OI estrictos) -->
-        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2"><i class="bi bi-eye-fill me-2"></i> Examen Biomicroscópico y Agudeza Visual</h5>
+        <h5 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="bi bi-eye-fill me-2"></i> Examen Biomicroscópico y Agudeza Visual</h5>
         <div class="row g-4 mb-4">
             
             <!-- Columna Izquierda: Métricas Físicas -->
             <div class="col-lg-5 border-end pe-lg-4">
                 <div class="mb-3">
                     <label class="form-label text-muted small fw-bold">PIO (Presión Intraocular)</label>
-                    <input type="text" name="pio" class="form-control form-control-lg bg-light border-0 shadow-none rounded-pill px-4" placeholder="Ej: 14 mmHg OD / 16 mmHg OI" value="{{ old('pio', $visit->pio) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                    <input type="text" name="pio" class="form-control bg-light border-0 shadow-none rounded-pill px-4" placeholder="Ej: 14 mmHg OD / 16 mmHg OI" value="{{ old('pio', $visit->pio) }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label text-muted small fw-bold">BMC (Biomicroscopía)</label>
-                    <input type="text" name="bmc" class="form-control form-control-lg bg-light border-0 shadow-none rounded-pill px-4" placeholder="Córnea clara, CA formada..." value="{{ old('bmc', $visit->bmc) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                    <input type="text" name="bmc" class="form-control bg-light border-0 shadow-none rounded-pill px-4" placeholder="Córnea clara, CA formada..." value="{{ old('bmc', $visit->bmc) }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label text-muted small fw-bold">OBI (Oftalmoscopía)</label>
-                    <input type="text" name="obi" class="form-control form-control-lg bg-light border-0 shadow-none rounded-pill px-4" placeholder="Papila excav. fisiológica, mácula sana..." value="{{ old('obi', $visit->obi) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                    <input type="text" name="obi" class="form-control bg-light border-0 shadow-none rounded-pill px-4" placeholder="Papila excav. fisiológica, mácula sana..." value="{{ old('obi', $visit->obi) }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label text-muted small fw-bold">Otros Hallazgos / Estudios Solicitados</label>
-                    <input type="text" name="otros_examen" class="form-control form-control-lg bg-light border-0 shadow-none rounded-pill px-4" placeholder="Ej: Pido OCT macular" value="{{ old('otros_examen', $visit->otros_examen) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                    <input type="text" name="otros_examen" class="form-control bg-light border-0 shadow-none rounded-pill px-4" placeholder="Ej: Pido OCT macular" value="{{ old('otros_examen', $visit->otros_examen) }}">
                 </div>
             </div>
 
@@ -131,13 +213,13 @@
                     <div class="col-md-6">
                         <div class="input-group bg-light rounded-pill overflow-hidden border-0 p-1 d-flex align-items-center">
                             <span class="input-group-text bg-white text-danger fw-bold border-0 rounded-pill ms-1" style="width: 50px; justify-content:center;">OD</span>
-                            <input type="text" name="av_od_lejos" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Derecho Lejos" value="{{ old('av_od_lejos', $visit->av_od_lejos) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                            <input type="text" name="av_od_lejos" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Derecho Lejos" value="{{ old('av_od_lejos', $visit->av_od_lejos) }}">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="input-group bg-light rounded-pill overflow-hidden border-0 p-1 d-flex align-items-center">
                             <span class="input-group-text bg-white text-primary fw-bold border-0 rounded-pill ms-1" style="width: 50px; justify-content:center;">OI</span>
-                            <input type="text" name="av_oi_lejos" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Izquierdo Lejos" value="{{ old('av_oi_lejos', $visit->av_oi_lejos) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                            <input type="text" name="av_oi_lejos" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Izquierdo Lejos" value="{{ old('av_oi_lejos', $visit->av_oi_lejos) }}">
                         </div>
                     </div>
                 </div>
@@ -147,13 +229,13 @@
                     <div class="col-md-6">
                         <div class="input-group bg-light rounded-pill overflow-hidden border-0 p-1 d-flex align-items-center">
                             <span class="input-group-text bg-white text-danger fw-bold border-0 rounded-pill ms-1" style="width: 50px; justify-content:center;">OD</span>
-                            <input type="text" name="av_od_cerca" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Derecho Cerca" value="{{ old('av_od_cerca', $visit->av_od_cerca) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                            <input type="text" name="av_od_cerca" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Derecho Cerca" value="{{ old('av_od_cerca', $visit->av_od_cerca) }}">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="input-group bg-light rounded-pill overflow-hidden border-0 p-1 d-flex align-items-center">
                             <span class="input-group-text bg-white text-primary fw-bold border-0 rounded-pill ms-1" style="width: 50px; justify-content:center;">OI</span>
-                            <input type="text" name="av_oi_cerca" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Izquierdo Cerca" value="{{ old('av_oi_cerca', $visit->av_oi_cerca) }}" {{ !$visit->is_open ? 'disabled' : '' }}>
+                            <input type="text" name="av_oi_cerca" class="form-control bg-transparent border-0 shadow-none" placeholder="Ojo Izquierdo Cerca" value="{{ old('av_oi_cerca', $visit->av_oi_cerca) }}">
                         </div>
                     </div>
                 </div>
@@ -161,20 +243,23 @@
             </div>
         </div>
 
-        @if($visit->is_open)
-            <div class="text-end pt-4 border-top mt-4 d-flex justify-content-end gap-3 align-items-center">
-                <button type="submit" class="btn btn-outline-primary rounded-pill px-5 py-2 fw-bold shadow-sm fs-5">
+        <div class="text-end pt-4 border-top mt-4 d-flex justify-content-end gap-3 align-items-center flex-wrap">
+            @if($visit->is_open)
+                <button type="submit" class="btn btn-outline-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
                     <i class="bi bi-save me-2"></i> Guardar Cambios
                 </button>
-                <button type="submit" name="close_visit" value="1" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm fs-5" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                <button type="submit" name="close_visit" value="1" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm text-white" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
                     <i class="bi bi-lock-fill me-2"></i> Guardar y Cerrar Consulta
                 </button>
-            </div>
-        @else
-            <div class="text-center pt-4 border-top mt-4 text-muted">
-                <i class="bi bi-lock-fill me-1"></i> Esta consulta está cerrada y no se puede modificar.
-            </div>
-        @endif
+            @else
+                <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm text-white" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border:none;">
+                    <i class="bi bi-check-circle-fill me-2"></i> Guardar Modificaciones
+                </button>
+                <button type="submit" name="reopen_visit" value="1" class="btn btn-outline-success rounded-pill px-4 py-2 fw-bold shadow-sm" onclick="return confirm('¿Desea reabrir esta consulta para continuar evolucionando al paciente?');">
+                    <i class="bi bi-unlock-fill me-2"></i> Reabrir Consulta
+                </button>
+            @endif
+        </div>
 
     </form>
     
@@ -319,8 +404,48 @@
     </div>
 </div>
 
+<script>
+function copyPreviousVisitData(e) {
+    e.stopPropagation();
+    const antOft = document.getElementById('prevAntOft')?.innerText?.trim();
+    const tratOft = document.getElementById('prevTratOft')?.innerText?.trim();
+    
+    if (antOft && antOft !== '-') {
+        const inputAnt = document.getElementById('inputAntOft');
+        if (inputAnt) {
+            inputAnt.value = antOft;
+            inputAnt.dispatchEvent(new Event('input'));
+        }
+    }
+
+    if (tratOft && tratOft !== '-') {
+        const inputTrat = document.getElementById('inputTratOft');
+        if (inputTrat) {
+            inputTrat.value = tratOft;
+            inputTrat.dispatchEvent(new Event('input'));
+        }
+    }
+
+    alert('¡Antecedentes y tratamientos oftalmológicos copiados a esta consulta!');
+}
+
+function initAutoExpand() {
+    document.querySelectorAll('textarea.auto-expand').forEach(textarea => {
+        const resize = () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight > 38 ? textarea.scrollHeight + 4 : 38) + 'px';
+        };
+        textarea.addEventListener('input', resize);
+        resize();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initAutoExpand);
+</script>
+
 <style>
 .input-group-text { font-size: 0.9rem; letter-spacing: 0.5px; }
 .form-control::placeholder { color: #adb5bd; }
+textarea.auto-expand { transition: height 0.15s ease; }
 </style>
 @endsection
