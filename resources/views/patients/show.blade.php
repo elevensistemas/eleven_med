@@ -722,35 +722,48 @@ body.theme-dark .sidebar-nav-container {
                     </div>
                 </div>
 
-                <div class="row g-4" id="studiesGrid">
+                <div class="row g-3" id="studiesGrid">
                     @forelse($patient->studies as $study)
-                        <div class="col-md-6 col-xl-4 study-card-item" data-date="{{ $study->created_at->timestamp }}">
-                            <div class="card bg-white border-0 shadow-sm rounded-4 h-100 overflow-hidden" style="border: 1px solid rgba(0,0,0,0.05) !important;">
+                        <div class="col-md-4 col-xl-3 study-card-item" data-date="{{ $study->created_at->timestamp }}">
+                            <div class="card bg-white border-0 shadow-sm rounded-4 h-100 overflow-hidden" style="border: 1px solid rgba(0,0,0,0.06) !important;">
                                 @if(in_array(strtolower($study->file_type), ['jpg', 'jpeg', 'png', 'webp']))
-                                    <div style="height: 180px; background-image: url('{{ route('studies.show', $study) }}'); background-size: cover; background-position: center;" class="border-bottom"></div>
+                                    <div style="height: 125px; background-image: url('{{ route('studies.show', $study) }}'); background-size: cover; background-position: center;" class="border-bottom position-relative">
+                                        <span class="badge bg-dark bg-opacity-75 text-white position-absolute bottom-0 end-0 m-2" style="font-size: 0.68rem;">
+                                            <i class="bi bi-calendar3 me-1"></i>{{ $study->created_at->format('d/m/Y') }}
+                                        </span>
+                                    </div>
                                 @else
-                                    <div style="height: 180px;" class="bg-light d-flex align-items-center justify-content-center border-bottom text-muted">
-                                        <i class="bi bi-file-earmark-pdf-fill" style="font-size: 5rem; color: #dc3545;"></i>
+                                    <div style="height: 125px;" class="bg-light d-flex align-items-center justify-content-center border-bottom text-muted position-relative">
+                                        <i class="bi bi-file-earmark-pdf-fill" style="font-size: 3.5rem; color: #dc3545;"></i>
+                                        <span class="badge bg-dark bg-opacity-75 text-white position-absolute bottom-0 end-0 m-2" style="font-size: 0.68rem;">
+                                            <i class="bi bi-calendar3 me-1"></i>{{ $study->created_at->format('d/m/Y') }}
+                                        </span>
                                     </div>
                                 @endif
                                 
-                                <div class="card-body p-4">
-                                    <h6 class="fw-bold text-dark text-truncate mb-2" title="{{ $study->original_name }}">{{ $study->original_name }}</h6>
-                                    <span class="badge bg-primary bg-opacity-10 text-primary py-1 px-3 rounded-pill border border-primary border-opacity-25 mb-3">{{ $study->study_type ?? 'Documento General' }}</span>
+                                <div class="card-body p-3 d-flex flex-column justify-content-between">
+                                    <div>
+                                        <h6 class="fw-bold text-dark text-truncate mb-1" style="font-size: 0.9rem;" title="{{ $study->original_name }}">{{ $study->original_name }}</h6>
+                                        <span class="badge bg-primary bg-opacity-10 text-primary py-0.5 px-2 rounded-pill border border-primary border-opacity-25 mb-2" style="font-size: 0.72rem;">{{ $study->study_type ?? 'Documento General' }}</span>
+                                        
+                                        @if($study->notes)
+                                            <p class="small text-muted mb-2 fst-italic" style="font-size: 0.78rem; line-height: 1.2;">
+                                                "{{ Str::limit($study->notes, 50) }}"
+                                            </p>
+                                        @endif
+                                    </div>
                                     
-                                    <p class="small text-muted mb-4" style="font-size: 0.85rem;">
-                                        Subido el {{ $study->created_at->format('d/m/Y') }}
-                                        @if($study->notes) <br><br><i>"{{ Str::limit($study->notes, 60) }}"</i> @endif
-                                    </p>
-                                    
-                                    <div class="d-flex justify-content-between pt-3 border-top border-light">
+                                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-light mt-2">
                                         <div class="d-flex align-items-center gap-1">
-                                            <a href="{{ route('studies.show', $study) }}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill px-3 fw-bold"><i class="bi bi-eye"></i> Ver</a>
-                                            <a href="{{ route('studies.download', $study) }}" class="btn btn-sm btn-light text-secondary rounded-pill px-2 fw-bold" title="Descargar"><i class="bi bi-download"></i></a>
+                                            <a href="{{ route('studies.show', $study) }}" target="_blank" class="btn btn-sm btn-light text-primary rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.75rem;" title="Ver estudio"><i class="bi bi-eye"></i></a>
+                                            <a href="{{ route('studies.download', $study) }}" class="btn btn-sm btn-light text-secondary rounded-pill px-2 py-1 fw-bold" style="font-size: 0.75rem;" title="Descargar"><i class="bi bi-download"></i></a>
+                                            <button type="button" class="btn btn-sm btn-light text-dark rounded-pill px-2 py-1 fw-bold" style="font-size: 0.75rem;" onclick="openEditStudyModal({{ $study->id }}, '{{ addslashes($study->original_name) }}', '{{ addslashes($study->study_type ?? '') }}', '{{ $study->created_at->format('Y-m-d') }}', '{{ addslashes($study->notes ?? '') }}')" title="Editar datos del estudio">
+                                                <i class="bi bi-pencil-fill text-warning"></i>
+                                            </button>
                                         </div>
-                                        <form action="{{ route('studies.destroy', $study) }}" method="POST">
+                                        <form action="{{ route('studies.destroy', $study) }}" method="POST" class="m-0">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-light text-danger rounded-pill px-3 fw-bold" onclick="return confirm('¿Borrar este estudio permanentemente?');"><i class="bi bi-trash"></i></button>
+                                            <button type="submit" class="btn btn-sm btn-light text-danger rounded-pill px-2 py-1 fw-bold" style="font-size: 0.75rem;" onclick="return confirm('¿Borrar este estudio permanentemente?');" title="Eliminar estudio"><i class="bi bi-trash"></i></button>
                                         </form>
                                     </div>
                                 </div>
@@ -1328,6 +1341,59 @@ body.theme-dark .sidebar-nav-container {
   </div>
 </div>
 
+<!-- Modal: Editar Estudio Médico -->
+<div class="modal fade" id="editStudyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Editar Datos del Estudio</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="editStudyForm" method="POST" action="">
+            @csrf
+            @method('PUT')
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label text-muted small fw-bold">Denominación / Título del Estudio *</label>
+                    <input type="text" name="original_name" id="modalEditStudyName" class="form-control bg-light border-0 shadow-none" required>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold">Tipo de Estudio</label>
+                        <select name="study_type" id="modalEditStudyType" class="form-control bg-light border-0 shadow-none form-select">
+                            <option value="Documento General">Documento General</option>
+                            <option value="OCT Macular / Papilar">OCT Macular / Papilar</option>
+                            <option value="Campo Visual Computarizado">Campo Visual Computarizado</option>
+                            <option value="Fondo de Ojo / Retinografía">Fondo de Ojo / Retinografía</option>
+                            <option value="Ecografía Ocular">Ecografía Ocular</option>
+                            <option value="Topografía Corneal">Topografía Corneal</option>
+                            <option value="Paquimetría">Paquimetría</option>
+                            <option value="Biometría / IOL Master">Biometría / IOL Master</option>
+                            <option value="Laboratorio Quirúrgico">Laboratorio Quirúrgico</option>
+                            <option value="Informe Quirúrgico">Informe Quirúrgico</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold">Fecha del Estudio *</label>
+                        <input type="date" name="study_date" id="modalEditStudyDate" class="form-control bg-light border-0 shadow-none" required>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted small fw-bold">Observaciones / Conclusiones del Estudio</label>
+                    <textarea name="notes" id="modalEditStudyNotes" rows="3" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Ej: Espesor macular central normal, sin signos de edema..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
 <script>
 // Función para activar programáticamente las solapas (tabs) con scroll automático
 function activateBottomTab(tabId) {
@@ -1406,6 +1472,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initCirugiasSpartan();
 });
+
+function openEditStudyModal(studyId, originalName, studyType, studyDate, notes) {
+    const form = document.getElementById('editStudyForm');
+    form.action = `/studies/${studyId}`;
+    document.getElementById('modalEditStudyName').value = originalName;
+    document.getElementById('modalEditStudyType').value = studyType || 'Documento General';
+    document.getElementById('modalEditStudyDate').value = studyDate;
+    document.getElementById('modalEditStudyNotes').value = notes || '';
+    const modal = new bootstrap.Modal(document.getElementById('editStudyModal'));
+    modal.show();
+}
 
 // Lógica de Resumen Espartano de Cirugías
 function initCirugiasSpartan() {

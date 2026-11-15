@@ -189,7 +189,12 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         $currentStatus = $activeEvent ? $activeEvent->event_type : 'Terminado';
         
         // Sumar minutos por categoría
-        $totals = ['Dilatación' => 0, 'Ingreso (espera)' => 0];
+        $totals = [
+            'Ingreso (espera)' => 0,
+            'Atención Médica' => 0,
+            'Dilatación' => 0,
+            'Estudios Visuales' => 0,
+        ];
         foreach($patient->assignments as $a) {
             if ($a->started_at) {
                 $end = $a->ended_at ?? \Carbon\Carbon::now();
@@ -216,7 +221,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         $totalDiaStr = $totalDiaMins < 60 ? $totalDiaMins . ' min' : floor($totalDiaMins/60) . ' hr ' . ($totalDiaMins%60) . ' min';
     @endphp
 
-    <div class="patient-card active-patient-card"
+    <div class="patient-card active-patient-card mb-3"
          data-llegada="{{ $llegadaTimestamp }}"
          data-espera="{{ $totals['Ingreso (espera)'] }}"
          data-dilatacion="{{ $totals['Dilatación'] }}"
@@ -224,172 +229,239 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
          data-cobertura="{{ strtolower($patient->obra_social ?? 'particular') }}"
          data-nombre="{{ strtolower($patient->last_name . ' ' . $patient->first_name) }}">
         
-        <!-- Header -->
-        <div class="patient-header">
-            <div class="d-flex align-items-center gap-3" style="width: 32%;">
-                @if($patient->photo_path)
-                    <img src="{{ Storage::url($patient->photo_path) }}" alt="Foto" class="rounded-circle object-fit-cover shadow-sm" style="width: 50px; height: 50px; border: 2px solid var(--bs-warning);">
-                @else
-                    <div class="bg-warning bg-opacity-10 p-2 rounded-circle text-warning d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                        <i class="bi bi-person-fill fs-3"></i>
-                    </div>
-                @endif
-                <div>
-                    <!-- Click en el nombre del paciente para ir directo a su Historia Clínica / Consulta -->
-                    <h6 class="mb-1 fw-bold text-dark fs-5 text-capitalize d-flex align-items-center">
-                        <a href="{{ route('patients.show', $patient) }}" class="text-dark text-decoration-none hover-primary fw-bold" title="Abrir Historia Clínica de {{ $patient->first_name }} {{ $patient->last_name }}">
-                            {{ mb_strtolower($patient->last_name) }}, {{ mb_strtolower($patient->first_name) }}
-                            <i class="bi bi-box-arrow-up-right text-primary opacity-50 ms-2" style="font-size: 0.95rem;"></i>
-                        </a>
-                        <button class="btn btn-sm btn-link p-0 ms-2" title="Agregar más pasos a este paciente" data-bs-toggle="modal" data-bs-target="#addMoreAssignmentsModal-{{ $patient->id }}">
-                            <i class="bi bi-person-plus-fill" style="color: #7e448b; font-size: 1.3rem;"></i>
-                        </button>
-                    </h6>
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <span class="badge bg-white text-dark border px-2 py-1 shadow-none" style="font-size: 0.75rem;">
-                            <i class="bi bi-shield-check text-primary me-1"></i>Cobertura: <strong>{{ $patient->obra_social ?? 'Particular' }}</strong>{{ $patient->plan ? ' - ' . $patient->plan : '' }}
-                        </span>
-                        @if($horarioAgenda)
-                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1" style="font-size: 0.75rem;">
-                                <i class="bi bi-calendar-event me-1"></i>Turno: <strong>{{ $horarioAgenda }} hs</strong>
-                            </span>
-                        @endif
-                    </div>
-                </div>
-            </div>
-            
-            <div class="d-flex justify-content-between align-items-center flex-grow-1 px-4">
-                <div class="text-center">
-                    <small class="text-muted d-block text-uppercase" style="font-size:0.7rem;">Llegada</small>
-                    <span class="patient-header-pill">{{ $llegada }}</span>
-                </div>
-                <div class="text-center">
-                    <small class="text-muted d-block text-uppercase" style="font-size:0.7rem;">Estado Central</small>
-                    <span class="badge bg-warning bg-opacity-25 text-dark fw-bold border border-warning px-3 py-1 rounded-pill">{{ $currentStatus }}</span>
-                </div>
-                <div class="text-center">
-                    <small class="text-muted d-block text-uppercase" style="font-size:0.7rem;">Espera Inicial</small>
-                    <span class="patient-header-pill">{{ formatMins($totals['Ingreso (espera)']) }}</span>
-                </div>
-                <div class="text-center">
-                    <small class="text-muted d-block text-uppercase" style="font-size:0.7rem;">Dilatación</small>
-                    <span class="patient-header-pill text-danger">{{ formatMins($totals['Dilatación']) }}</span>
-                </div>
-                <div class="text-center">
-                    <small class="text-muted d-block text-uppercase" style="font-size:0.7rem;">Total Día</small>
-                    @if($firstEvent && $firstEvent->started_at)
-                        <span class="badge bg-dark px-3 py-1 rounded-pill total-day-timer" data-start="{{ $firstEvent->started_at->toIso8601String() }}">Lleva: {{ $totalDiaStr }}</span>
-                    @else
-                        <span class="badge bg-dark px-3 py-1 rounded-pill">0 min</span>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        <!-- Leyendas / Observaciones de la Secretaria -->
-        <div class="w-100 px-4 py-2 bg-warning bg-opacity-10 border-top border-bottom border-warning border-opacity-25 d-flex align-items-center justify-content-between gap-2 flex-wrap" style="font-size: 0.85rem;">
+        <!-- Renglón 1: Cabecera compacta con foto, nombre, cobertura, turno, estado y Alta Rápida -->
+        <div class="patient-header py-2 px-3 d-flex align-items-center justify-content-between gap-2 flex-wrap">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-sticky-fill me-1"></i> Observaciones Internas:</span>
-                @if($notesRecepcion || $notesAgenda)
-                    @if($notesRecepcion)
-                        <span class="text-dark"><strong>Recepción:</strong> <span id="notesRecepcionSpan_{{ $patient->id }}">{{ $notesRecepcion }}</span></span>
-                    @endif
-                    @if($notesRecepcion && $notesAgenda)
-                        <span class="text-muted">|</span>
-                    @endif
-                    @if($notesAgenda)
-                        <span class="text-dark"><strong>Turno:</strong> {{ $notesAgenda }}</span>
-                    @endif
+                <!-- Botón [+] para desplegar línea de tiempo y controles avanzados -->
+                <button class="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center toggle-expand-btn p-0" 
+                        type="button" 
+                        data-bs-toggle="collapse" 
+                        data-bs-target="#expandPatient-{{ $patient->id }}" 
+                        aria-expanded="false" 
+                        style="width: 26px; height: 26px; font-weight: bold; border-color: #cbd5e1;" 
+                        title="Ver detalles del recorrido y cambiar pasos">
+                    <i class="bi bi-plus-lg toggle-icon" id="toggleIcon-{{ $patient->id }}"></i>
+                </button>
+
+                @if($patient->photo_path)
+                    <img src="{{ Storage::url($patient->photo_path) }}" alt="Foto" class="rounded-circle object-fit-cover shadow-sm" style="width: 32px; height: 32px; border: 1.5px solid var(--bs-warning);">
                 @else
-                    <span class="text-muted fst-italic" id="notesRecepcionSpan_{{ $patient->id }}">Sin observaciones registradas por secretaría</span>
+                    <div class="bg-warning bg-opacity-10 rounded-circle text-warning d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.95rem;">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                @endif
+
+                <!-- Nombre y Enlace a Historia Clínica -->
+                <a href="{{ route('patients.show', $patient) }}" class="text-dark text-decoration-none hover-primary fw-bold" style="font-size: 1.05rem;" title="Abrir Historia Clínica de {{ $patient->first_name }} {{ $patient->last_name }}">
+                    {{ mb_convert_case($patient->last_name, MB_CASE_TITLE, "UTF-8") }}, {{ mb_convert_case($patient->first_name, MB_CASE_TITLE, "UTF-8") }}
+                    <i class="bi bi-box-arrow-up-right text-primary opacity-50 ms-1" style="font-size: 0.8rem;"></i>
+                </a>
+
+                <!-- Badges de contexto -->
+                <span class="badge bg-white text-secondary border px-2 py-1 shadow-none" style="font-size: 0.72rem;">
+                    <i class="bi bi-shield-check text-primary me-1"></i>{{ $patient->obra_social ?? 'Particular' }}
+                </span>
+                @if($horarioAgenda)
+                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1" style="font-size: 0.72rem;">
+                        <i class="bi bi-calendar-event me-1"></i>Turno: <strong>{{ $horarioAgenda }} hs</strong>
+                    </span>
+                @endif
+                <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.72rem;">
+                    <i class="bi bi-clock me-1 text-muted"></i>Llegada: <strong>{{ $llegada }} hs</strong>
+                </span>
+
+                <!-- Observaciones de secretaría -->
+                @if($notesRecepcion || $notesAgenda)
+                    <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none badge bg-warning bg-opacity-25 text-dark border border-warning border-opacity-50 px-2 py-1" onclick="openEditConsoleNotesModal({{ $patient->id }}, '{{ addslashes($patient->first_name . ' ' . $patient->last_name) }}', '{{ addslashes($notesRecepcion ?: $notesAgenda) }}')" title="Observación interna: {{ $notesRecepcion ?: $notesAgenda }}">
+                        <i class="bi bi-sticky-fill text-warning me-1"></i>{{ Str::limit($notesRecepcion ?: $notesAgenda, 25) }} <i class="bi bi-pencil-fill ms-1 opacity-50" style="font-size:0.65rem;"></i>
+                    </button>
+                @else
+                    <button type="button" class="btn btn-sm btn-link p-0 text-muted text-decoration-none" onclick="openEditConsoleNotesModal({{ $patient->id }}, '{{ addslashes($patient->first_name . ' ' . $patient->last_name) }}', '')" title="Agregar observación interna">
+                        <span class="badge bg-white text-muted border px-2 py-1" style="font-size: 0.72rem;"><i class="bi bi-plus-circle me-1"></i>Nota</span>
+                    </button>
                 @endif
             </div>
-            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1 shadow-none fw-bold" onclick="openEditConsoleNotesModal({{ $patient->id }}, '{{ addslashes($patient->first_name . ' ' . $patient->last_name) }}', '{{ addslashes($notesRecepcion ?: $notesAgenda) }}')" style="font-size: 0.75rem;">
-                <i class="bi bi-pencil-fill me-1"></i> {{ ($notesRecepcion || $notesAgenda) ? 'Modificar' : '+ Agregar Observación' }}
-            </button>
+
+            <!-- Lado derecho: Estado Central y Botón Alta Rápida -->
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-warning bg-opacity-25 text-dark fw-bold border border-warning px-3 py-1 rounded-pill" style="font-size: 0.82rem;">
+                    {{ $currentStatus }}
+                </span>
+                
+                <!-- Botón de Alta Rápida en 1 solo clic -->
+                <form action="{{ route('console.assignments.transition', $patient) }}" method="POST" class="m-0" onsubmit="return confirm('¿Confirmar el alta de {{ addslashes($patient->first_name . ' ' . $patient->last_name) }}? Se cerrará su atención y se detendrán los cronómetros.');">
+                    @csrf
+                    <input type="hidden" name="next_step" value="FINALIZAR">
+                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="Dar Alta médica y retirar de sala de espera">
+                        <i class="bi bi-check-lg"></i> Dar Alta
+                    </button>
+                </form>
+            </div>
         </div>
 
-        <!-- Body -->
-        <div class="d-flex w-100">
-            <!-- Journey Internal Table -->
-            <div class="flex-grow-1">
-                <table class="table inner-table mb-0">
-                    <thead>
-                        <tr>
-                            <th class="ps-5">Ingreso</th>
-                            <th>Fin</th>
-                            <th>Estado</th>
-                            <th>Transcurrido</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($sortedAssigns as $a)
-                            <tr>
-                                <td class="ps-5 text-secondary">{{ $a->started_at ? $a->started_at->format('H:i') : '--:--' }}</td>
-                                <td class="text-secondary">{{ $a->ended_at ? $a->ended_at->format('H:i') : '' }}</td>
-                                <td>
-                                    <span class="fw-bold text-dark">{{ $a->event_type }}</span>
-                                </td>
-                                <td>
-                                    @if($a->status === 'in_progress')
-                                        @php
-                                            $currMins = $a->started_at ? max(0, $a->started_at->diffInMinutes(now())) : 0;
-                                            $currStr = $currMins < 60 ? $currMins . ' min' : floor($currMins/60) . ' hr ' . ($currMins%60) . ' min';
-                                        @endphp
-                                        <div class="text-dark fw-bold flash-timer" data-start="{{ $a->started_at ? $a->started_at->toIso8601String() : '' }}">
-                                            <span class="live-dot"></span> {{ $currStr }}
-                                        </div>
-                                    @elseif($a->status === 'pending')
-                                        <span class="text-muted fw-bold"><i class="bi bi-hourglass-split"></i> En cola</span>
-                                    @else
-                                        @php
-                                            $diff = ($a->started_at && $a->ended_at) ? $a->started_at->diff($a->ended_at) : null;
-                                            $timeStr = $diff ? ($diff->h > 0 ? $diff->h . ' hr ' . $diff->i . ' min' : $diff->i . ' min') : '--';
-                                        @endphp
-                                        <span class="text-muted">{{ $timeStr }}</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+        <!-- Renglón 2: Barra de cronómetros independientes en tiempo real -->
+        <div class="px-3 py-1 bg-white border-top border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size: 0.8rem;">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <!-- Espera Inicial -->
+                <div class="d-flex align-items-center gap-1 text-muted">
+                    <i class="bi bi-hourglass text-secondary"></i>
+                    <span class="fw-semibold">Espera:</span>
+                    @if($currentStatus === 'Ingreso (espera)' && $activeEvent && $activeEvent->started_at)
+                        <span class="badge bg-secondary bg-opacity-25 text-dark px-2 py-0.5 rounded-pill flash-timer" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                            <span class="live-dot"></span> {{ formatMins($totals['Ingreso (espera)']) }}
+                        </span>
+                    @else
+                        <span class="fw-bold text-dark">{{ formatMins($totals['Ingreso (espera)']) }}</span>
+                    @endif
+                </div>
+
+                <span class="text-muted opacity-25">|</span>
+
+                <!-- Atención Médica -->
+                <div class="d-flex align-items-center gap-1 text-muted">
+                    <i class="bi bi-heart-pulse text-primary"></i>
+                    <span class="fw-semibold">Atención:</span>
+                    @if($currentStatus === 'Atención Médica' && $activeEvent && $activeEvent->started_at)
+                        <span class="badge bg-primary bg-opacity-25 text-primary px-2 py-0.5 rounded-pill flash-timer fw-bold" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                            <span class="live-dot"></span> {{ formatMins($totals['Atención Médica']) }}
+                        </span>
+                    @else
+                        <span class="fw-bold text-dark">{{ formatMins($totals['Atención Médica']) }}</span>
+                    @endif
+                </div>
+
+                <span class="text-muted opacity-25">|</span>
+
+                <!-- Dilatación -->
+                <div class="d-flex align-items-center gap-1 text-muted">
+                    <i class="bi bi-eye text-danger"></i>
+                    <span class="fw-semibold">Dilatación:</span>
+                    @if($currentStatus === 'Dilatación' && $activeEvent && $activeEvent->started_at)
+                        <span class="badge bg-danger bg-opacity-25 text-danger px-2 py-0.5 rounded-pill flash-timer fw-bold" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                            <span class="live-dot"></span> {{ formatMins($totals['Dilatación']) }}
+                        </span>
+                    @else
+                        <span class="fw-bold text-danger">{{ formatMins($totals['Dilatación']) }}</span>
+                    @endif
+                </div>
+
+                <span class="text-muted opacity-25">|</span>
+
+                <!-- Estudios Visuales -->
+                <div class="d-flex align-items-center gap-1 text-muted">
+                    <i class="bi bi-pie-chart text-info"></i>
+                    <span class="fw-semibold">Estudios:</span>
+                    @if($currentStatus === 'Estudios Visuales' && $activeEvent && $activeEvent->started_at)
+                        <span class="badge bg-info bg-opacity-25 text-dark px-2 py-0.5 rounded-pill flash-timer fw-bold" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                            <span class="live-dot"></span> {{ formatMins($totals['Estudios Visuales']) }}
+                        </span>
+                    @else
+                        <span class="fw-bold text-dark">{{ formatMins($totals['Estudios Visuales']) }}</span>
+                    @endif
+                </div>
             </div>
 
-            <!-- Action Transition Right Side -->
-            <div class="transition-form d-flex align-items-center justify-content-center" style="min-width: 320px;">
-                @if($activeEvent)
-                <form action="{{ route('console.assignments.transition', $patient) }}" method="POST" class="d-flex align-items-center gap-3 w-100 m-0">
-                    @csrf
-                    <div class="flex-grow-1">
-                        <small class="text-dark fw-bold d-block mb-1" style="font-size:0.8rem;">Pendiente</small>
-                        <select name="next_step" class="form-select bg-white border border-secondary border-opacity-25 shadow-sm py-2 text-dark" required>
-                            @php
-                                $hasPending = $patient->assignments->where('status', 'pending')->count() > 0;
-                            @endphp
-                            @if($hasPending)
-                                <option value="AUTO" class="fw-bold text-primary">Siguiente paso en la cola</option>
-                            @else
-                                <option value="" disabled {{ !in_array($currentStatus, ['Ingreso (espera)', 'Dilatación']) ? 'selected' : '' }}>Seleccione siguiente paso...</option>
-                            @endif
-                            <option value="Ingreso (espera)" {{ $currentStatus == 'Ingreso (espera)' ? 'disabled' : '' }}>Ingreso (espera)</option>
-                            <option value="Dilatación" {{ $currentStatus == 'Ingreso (espera)' && !$hasPending ? 'selected' : ($currentStatus == 'Dilatación' ? 'disabled' : '') }}>Dilatación</option>
-                            <option value="Estudios Visuales" {{ $currentStatus == 'Estudios Visuales' ? 'disabled' : '' }}>Estudios Visuales</option>
-                            <option value="Atención Médica" {{ $currentStatus == 'Dilatación' && !$hasPending ? 'selected' : ($currentStatus == 'Atención Médica' ? 'disabled' : '') }}>Atención Médica</option>
-                            <option value="FINALIZAR" class="text-danger fw-bold">✓ Alta Final</option>
-                        </select>
-                    </div>
-                    <div>
-                        <button type="submit" class="btn-play shadow mt-3" title="Terminar actual e Iniciar seleccionado">
-                            <i class="bi bi-play-fill fs-3"></i>
-                        </button>
-                    </div>
-                </form>
+            <!-- Total Día -->
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small fw-semibold"><i class="bi bi-clock-history me-1"></i>Total:</span>
+                @if($firstEvent && $firstEvent->started_at)
+                    <span class="badge bg-dark px-2.5 py-1 rounded-pill total-day-timer fw-bold" data-start="{{ $firstEvent->started_at->toIso8601String() }}" style="font-size: 0.75rem;">
+                        Lleva: {{ $totalDiaStr }}
+                    </span>
                 @else
-                    <div class="text-center text-muted">
-                        <i class="bi bi-check-circle-fill fs-3 text-success mb-2 d-block"></i>
-                        <span class="fw-bold">Flujo Finalizado</span>
-                    </div>
+                    <span class="badge bg-dark px-2.5 py-1 rounded-pill" style="font-size: 0.75rem;">0 min</span>
                 @endif
+            </div>
+        </div>
+
+        <!-- Sección Desplegable: Detalle de pasos, tabla de recorrido y cambio de estado manual -->
+        <div class="collapse" id="expandPatient-{{ $patient->id }}">
+            <div class="d-flex w-100 flex-wrap">
+                <!-- Tabla interna de recorrido -->
+                <div class="flex-grow-1" style="min-width: 320px;">
+                    <table class="table inner-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Ingreso</th>
+                                <th>Fin</th>
+                                <th>Estado</th>
+                                <th>Transcurrido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sortedAssigns as $a)
+                                <tr>
+                                    <td class="ps-4 text-secondary">{{ $a->started_at ? $a->started_at->format('H:i') : '--:--' }}</td>
+                                    <td class="text-secondary">{{ $a->ended_at ? $a->ended_at->format('H:i') : '' }}</td>
+                                    <td>
+                                        <span class="fw-bold text-dark">{{ $a->event_type }}</span>
+                                    </td>
+                                    <td>
+                                        @if($a->status === 'in_progress')
+                                            @php
+                                                $currMins = $a->started_at ? max(0, $a->started_at->diffInMinutes(now())) : 0;
+                                                $currStr = $currMins < 60 ? $currMins . ' min' : floor($currMins/60) . ' hr ' . ($currMins%60) . ' min';
+                                            @endphp
+                                            <div class="text-dark fw-bold flash-timer" data-start="{{ $a->started_at ? $a->started_at->toIso8601String() : '' }}">
+                                                <span class="live-dot"></span> {{ $currStr }}
+                                            </div>
+                                        @elseif($a->status === 'pending')
+                                            <span class="text-muted fw-bold"><i class="bi bi-hourglass-split"></i> En cola</span>
+                                        @else
+                                            @php
+                                                $diff = ($a->started_at && $a->ended_at) ? $a->started_at->diff($a->ended_at) : null;
+                                                $timeStr = $diff ? ($diff->h > 0 ? $diff->h . ' hr ' . $diff->i . ' min' : $diff->i . ' min') : '--';
+                                            @endphp
+                                            <span class="text-muted">{{ $timeStr }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Formulario de Transición / Avance de Pasos a la Derecha -->
+                <div class="transition-form d-flex align-items-center justify-content-between p-3 border-start" style="min-width: 320px;">
+                    @if($activeEvent)
+                    <form action="{{ route('console.assignments.transition', $patient) }}" method="POST" class="d-flex align-items-center gap-3 w-100 m-0">
+                        @csrf
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-dark fw-bold" style="font-size:0.75rem;">Siguiente Paso</small>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" title="Añadir pasos a este paciente" data-bs-toggle="modal" data-bs-target="#addMoreAssignmentsModal-{{ $patient->id }}" style="font-size: 0.75rem;">
+                                    <i class="bi bi-plus-circle"></i> Agregar a cola
+                                </button>
+                            </div>
+                            <select name="next_step" class="form-select form-select-sm bg-white border border-secondary border-opacity-25 shadow-sm py-1 text-dark" required>
+                                @php
+                                    $hasPending = $patient->assignments->where('status', 'pending')->count() > 0;
+                                @endphp
+                                @if($hasPending)
+                                    <option value="AUTO" class="fw-bold text-primary">Siguiente paso en la cola</option>
+                                @else
+                                    <option value="" disabled {{ !in_array($currentStatus, ['Ingreso (espera)', 'Dilatación']) ? 'selected' : '' }}>Seleccione siguiente paso...</option>
+                                @endif
+                                <option value="Ingreso (espera)" {{ $currentStatus == 'Ingreso (espera)' ? 'disabled' : '' }}>Ingreso (espera)</option>
+                                <option value="Dilatación" {{ $currentStatus == 'Ingreso (espera)' && !$hasPending ? 'selected' : ($currentStatus == 'Dilatación' ? 'disabled' : '') }}>Dilatación</option>
+                                <option value="Estudios Visuales" {{ $currentStatus == 'Estudios Visuales' ? 'disabled' : '' }}>Estudios Visuales</option>
+                                <option value="Atención Médica" {{ $currentStatus == 'Dilatación' && !$hasPending ? 'selected' : ($currentStatus == 'Atención Médica' ? 'disabled' : '') }}>Atención Médica</option>
+                                <option value="FINALIZAR" class="text-danger fw-bold">✓ Alta Final</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn-play shadow" title="Terminar actual e Iniciar seleccionado">
+                                <i class="bi bi-play-fill fs-4"></i>
+                            </button>
+                        </div>
+                    </form>
+                    @else
+                        <div class="text-center text-muted w-100">
+                            <i class="bi bi-check-circle-fill fs-3 text-success mb-1 d-block"></i>
+                            <span class="fw-bold">Flujo Finalizado</span>
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -658,6 +730,26 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
     updateAllTimers();
     // Actualizar periódicamente cada 5 segundos
     setInterval(updateAllTimers, 5000);
+
+    // Conmutar icono de expandir [+] / [-]
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.collapse').forEach(collapseEl => {
+            collapseEl.addEventListener('show.bs.collapse', function() {
+                const pId = this.id.replace('expandPatient-', '');
+                const icon = document.getElementById('toggleIcon-' + pId);
+                if (icon) {
+                    icon.className = 'bi bi-dash-lg toggle-icon';
+                }
+            });
+            collapseEl.addEventListener('hide.bs.collapse', function() {
+                const pId = this.id.replace('expandPatient-', '');
+                const icon = document.getElementById('toggleIcon-' + pId);
+                if (icon) {
+                    icon.className = 'bi bi-plus-lg toggle-icon';
+                }
+            });
+        });
+    });
 
     // Sistema de Ordenamiento de la Sala de Espera
     function initConsoleSorting() {

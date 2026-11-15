@@ -99,7 +99,15 @@ class HomeController extends Controller
                 $totalBookedToday += $appointmentsCount;
             }
         }
-        $attendedToday = $totalBookedToday;
+        $seenToday = \App\Models\Visit::whereDate('created_at', $now->toDateString())->count();
+        if ($seenToday === 0) {
+            $seenToday = \App\Models\PatientAssignment::whereDate('ended_at', $now->toDateString())->where('status', 'completed')->distinct('patient_id')->count();
+        }
+        $seenLast14Days = \App\Models\Visit::where('created_at', '>=', $now->copy()->subDays(14)->startOfDay())->count();
+        if ($seenLast14Days === 0) {
+            $seenLast14Days = \App\Models\PatientAssignment::where('ended_at', '>=', $now->copy()->subDays(14)->startOfDay())->where('status', 'completed')->distinct('patient_id')->count();
+        }
+        $attendedToday = $seenToday > 0 ? $seenToday : $totalBookedToday;
 
         // 4. CHART: Patients by Obra Social (Doughnut)
         $patientsByObraSocial = \App\Models\Patient::selectRaw('COALESCE(obra_social, "Particular") as os_name, count(*) as count')
@@ -145,6 +153,7 @@ class HomeController extends Controller
 
         return view('home', compact(
             'totalPatients', 'newPatientsThisMonth', 'growth', 'attendedToday',
+            'seenToday', 'seenLast14Days',
             'totalFreeToday', 'totalExtraToday', 'totalBookedToday',
             'patientsByObraSocial', 'annualData'
         ));

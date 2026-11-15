@@ -146,15 +146,18 @@
                                 <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-success mb-4" style="width: 80px; height: 80px;">
                                     <i class="bi bi-calendar2-check-fill fs-1"></i>
                                 </div>
-                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Agenda del Día</p>
+                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Atención y Agenda del Día</p>
                                 <h1 class="fw-bold text-white display-4 mb-0">{{ number_format($totalBookedToday) }}</h1>
-                                <p class="fw-bold text-white small mb-3">Turnos Totales</p>
-                                <div class="d-flex justify-content-center gap-3 w-100">
-                                    <div class="bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25">
+                                <p class="fw-bold text-white small mb-3">Turnos Hoy ({{ $seenToday }} atendidos)</p>
+                                <div class="d-flex justify-content-center gap-2 w-100 flex-wrap">
+                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.75rem;">
                                         <i class="bi bi-check-circle"></i> Libres: {{ $totalFreeToday }}
                                     </div>
-                                    <div class="bg-white bg-opacity-25 text-white px-3 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25">
-                                        <i class="bi bi-exclamation-circle"></i> Sobre-turnos: {{ $totalExtraToday }}
+                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.75rem;">
+                                        <i class="bi bi-lightning-fill"></i> Sobreturns: {{ $totalExtraToday }}
+                                    </div>
+                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.75rem;">
+                                        <i class="bi bi-clock-history"></i> 14d: {{ $seenLast14Days }}
                                     </div>
                                 </div>
                             </div>

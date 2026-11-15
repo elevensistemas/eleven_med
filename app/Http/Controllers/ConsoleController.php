@@ -13,6 +13,14 @@ class ConsoleController extends Controller
 {
     public function index()
     {
+        // Auto-finalizar asignaciones colgadas de días anteriores para que no distorsionen los cronómetros
+        PatientAssignment::whereDate('created_at', '<', Carbon::today())
+            ->whereIn('status', ['in_progress', 'pending'])
+            ->update([
+                'status' => 'completed',
+                'ended_at' => Carbon::now()
+            ]);
+
         $doctors = User::role('médico')->get();
         // All patients for the "Add New" dropdown
         $patients = Patient::orderBy('last_name')->get();

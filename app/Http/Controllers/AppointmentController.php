@@ -625,6 +625,41 @@ class AppointmentController extends Controller
     }
 
     /**
+     * Reprogramar un turno médico existente a una nueva fecha/hora
+     */
+    public function reschedule(Request $request, Appointment $appointment)
+    {
+        $validated = $request->validate([
+            'date' => 'required|date',
+            'time' => 'required',
+            'doctor_id' => 'nullable|exists:users,id',
+            'reason' => 'nullable|string',
+        ]);
+
+        $oldDate = $appointment->date;
+        $oldTime = substr($appointment->time, 0, 5);
+
+        $appointment->date = $validated['date'];
+        $appointment->time = $validated['time'];
+        if (!empty($validated['doctor_id'])) {
+            $appointment->doctor_id = $validated['doctor_id'];
+        }
+        $note = "Reprogramado de: {$oldDate} {$oldTime} hs.";
+        $appointment->notes = trim(($appointment->notes ? $appointment->notes . ' | ' : '') . $note);
+        if (!empty($validated['reason'])) {
+            $appointment->reason = $validated['reason'];
+        }
+        $appointment->status = 'pending';
+        $appointment->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Turno reprogramado exitosamente.',
+            'appointment' => $appointment
+        ]);
+    }
+
+    /**
      * Store a new ScheduleBlock via AJAX
      */
     public function storeBlock(Request $request)

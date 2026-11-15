@@ -163,6 +163,75 @@ class ConfigController extends Controller
     }
 
     /**
+     * Genera y descarga una copia de seguridad íntegra de la Base de Datos (SQL nativo).
+     */
+    public function backupDatabase()
+    {
+        $databaseName = config('database.connections.mysql.database');
+        $tables = \Illuminate\Support\Facades\DB::select('SHOW TABLES');
+        $keyName = 'Tables_in_' . $databaseName;
+
+        $response = new StreamedResponse(function () use ($tables, $keyName, $databaseName) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "-- --------------------------------------------------------\n");
+            fwrite($handle, "-- ELEVEN MED / SISTEMA CORTALEZZI\n");
+            fwrite($handle, "-- Resguardo Completo de Base de Datos\n");
+            fwrite($handle, "-- Base de datos: {$databaseName}\n");
+            fwrite($handle, "-- Fecha y Hora: " . date('d/m/Y H:i:s') . "\n");
+            fwrite($handle, "-- --------------------------------------------------------\n\n");
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n");
+            fwrite($handle, "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n");
+            fwrite($handle, "SET time_zone = \"+00:00\";\n\n");
+
+            foreach ($tables as $tableObj) {
+                $tableName = $tableObj->$keyName ?? array_values((array)$tableObj)[0];
+
+                // Create table schema
+                $createRes = \Illuminate\Support\Facades\DB::select("SHOW CREATE TABLE `{$tableName}`");
+                $createSql = $createRes[0]->{'Create Table'} ?? null;
+
+                if ($createSql) {
+                    fwrite($handle, "-- --------------------------------------------------------\n");
+                    fwrite($handle, "-- Estructura de tabla para `{$tableName}`\n");
+                    fwrite($handle, "-- --------------------------------------------------------\n");
+                    fwrite($handle, "DROP TABLE IF EXISTS `{$tableName}`;\n");
+                    fwrite($handle, $createSql . ";\n\n");
+                }
+
+                // Dump records
+                $count = \Illuminate\Support\Facades\DB::table($tableName)->count();
+                if ($count > 0) {
+                    fwrite($handle, "-- Volcado de datos para `{$tableName}` ({$count} registros)\n");
+                    
+                    \Illuminate\Support\Facades\DB::table($tableName)->chunk(200, function($rows) use ($handle, $tableName) {
+                        foreach ($rows as $row) {
+                            $rowArray = (array)$row;
+                            $columns = array_map(fn($col) => "`{$col}`", array_keys($rowArray));
+                            $values = array_map(function($val) {
+                                if (is_null($val)) return 'NULL';
+                                return "'" . addslashes((string)$val) . "'";
+                            }, array_values($rowArray));
+
+                            $insertSql = "INSERT INTO `{$tableName}` (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $values) . ");\n";
+                            fwrite($handle, $insertSql);
+                        }
+                    });
+                    fwrite($handle, "\n");
+                }
+            }
+
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+            fclose($handle);
+        });
+
+        $filename = 'Backup_ElevenMed_' . date('Y-m-d_His') . '.sql';
+        $response->headers->set('Content-Type', 'application/sql');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+
+        return $response;
+    }
+
+    /**
      * Guarda una nueva obra social
      */
     public function storeObraSocial(Request $request)

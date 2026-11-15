@@ -72,7 +72,13 @@
 .slot-free { border-left: 4px solid #198754; cursor: pointer; }
 .slot-free:hover { background: #f4fbf6; border-color: #198754; }
 .slot-booked { border-left: 4px solid #198754; background: #f4fbf6; }
-.slot-extra { border-left: 4px solid #0d6efd; background: #f0f5ff; }
+.slot-extra { 
+    margin-left: 24px !important; 
+    border-left: 5px solid #f59e0b !important; 
+    background: #fffdf5 !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
+}
 .slot-blocked { border-left: 4px solid #fd7e14; background: #fffaf5; }
 
 /* Dark mode fixes */
@@ -257,8 +263,19 @@ body.theme-dark .cal-day.available:hover {
                     </div>
 
                     <div class="col-md-12">
-                        <label class="form-label text-muted small fw-bold">Motivo / Notas rápidas</label>
-                        <input type="text" name="reason" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Control">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label text-muted small fw-bold mb-0">Motivo / Notas rápidas</label>
+                            <span class="text-muted small" style="font-size: 0.72rem;">Presets rápidos:</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.72rem;" onclick="setAppointmentReasonPreset('Control')">Control</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.72rem;" onclick="setAppointmentReasonPreset('Anteojos / Refracción')">Anteojos</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.72rem;" onclick="setAppointmentReasonPreset('Fondo de Ojo')">Fondo de Ojo</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.72rem;" onclick="setAppointmentReasonPreset('Consulta Quirúrgica (QX)')">Consulta QX</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.72rem;" onclick="setAppointmentReasonPreset('Estudios Visuales')">Estudio</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" style="font-size: 0.72rem;" onclick="setAppointmentReasonPreset('Urgencia')">Urgencia</button>
+                        </div>
+                        <input type="text" name="reason" id="appointmentReasonInput" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Control, Anteojos, Fondo de ojo...">
                     </div>
                 </div>
             </div>
@@ -332,6 +349,51 @@ body.theme-dark .cal-day.available:hover {
             <div class="modal-footer border-top-0 pt-0 pe-4">
                 <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" id="submitBlockBtn" class="btn btn-warning rounded-pill px-4 text-dark fw-bold"><i class="bi bi-lock-fill me-1"></i> Aplicar Bloqueo</button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reprogramar Turno Directo -->
+<div class="modal fade" id="rescheduleAppointmentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+        <div class="modal-header border-bottom-0 pb-0">
+            <div>
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-repeat text-primary me-2"></i>Reprogramar Turno</h5>
+                <small class="text-muted fw-bold" id="reschedulePatientLabel">Paciente: --</small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="rescheduleAppointmentForm" onsubmit="submitRescheduleAppointment(event)">
+            @csrf
+            <input type="hidden" id="rescheduleAppointmentId">
+            <input type="hidden" id="rescheduleDoctorId">
+            <div class="modal-body p-4">
+                <div class="alert alert-info border-0 rounded-3 small py-2 mb-3">
+                    <i class="bi bi-info-circle me-1"></i> Turno actual: <strong id="rescheduleCurrentDetails">--</strong>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold">Nueva Fecha *</label>
+                        <input type="date" id="rescheduleNewDate" class="form-control bg-light border-0 shadow-none" required min="{{ date('Y-m-d') }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold">Nuevo Horario *</label>
+                        <input type="time" id="rescheduleNewTime" class="form-control bg-light border-0 shadow-none" required>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-muted small fw-bold">Motivo de Reprogramación (Opcional)</label>
+                        <input type="text" id="rescheduleReason" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Solicitado por paciente, cambio de guardia...">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="btnSubmitReschedule" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                    Confirmar Reprogramación
+                </button>
             </div>
         </form>
     </div>
@@ -592,9 +654,9 @@ body.theme-dark .cal-day.available:hover {
                 });
 
                 document.getElementById(`selectedDateSubLabel_${doctorId}`).innerHTML = 
-                    `<span class="text-success fw-bold">Libres: ${totalLibres}</span> &nbsp;|&nbsp; ` +
-                    `<span class="text-primary fw-bold">Sobre-turnos: ${totalExtras}</span> &nbsp;|&nbsp; ` +
-                    `<span class="text-dark fw-bold">Total Turnos: ${totalOcupados}</span>`;
+                    `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 me-1"><i class="bi bi-calendar-check me-1"></i>Libres: ${totalLibres}</span> ` +
+                    `<span class="badge bg-warning bg-opacity-25 text-dark border border-warning border-opacity-50 px-2 py-1 me-1"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Sobreturnos: ${totalExtras}</span> ` +
+                    `<span class="badge bg-light text-dark border px-2 py-1"><i class="bi bi-people-fill me-1"></i>Total: ${totalOcupados}</span>`;
 
                 let html = '';
 
@@ -647,7 +709,8 @@ body.theme-dark .cal-day.available:hover {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
                                 <li><button class="dropdown-item py-2 text-success fw-bold" onclick="openDarEntradaModal(${slot.patient_id}, '${escapedName}', ${doctorId}, '${escapedNotes}')"><i class="bi bi-box-arrow-in-right me-2"></i> Dar Entrada (Sala de Espera)</button></li>
-                                <li><a class="dropdown-item py-2 text-primary fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2"></i> Abrir Historia Clínica</a></li>
+                                <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${escapedName}', '${dateStr}', '${slot.time}', ${doctorId})"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
+                                <li><a class="dropdown-item py-2 text-dark fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2 text-primary"></i> Abrir Historia Clínica</a></li>
                                 <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
@@ -655,10 +718,10 @@ body.theme-dark .cal-day.available:hover {
 
                         const isExtra = slot.is_extra || false;
                         const cardClass = isExtra ? 'slot-extra' : 'slot-booked';
-                        const timeColorClass = isExtra ? 'text-primary' : 'text-success';
-                        const statusText = isExtra ? 'Sobreturno' : 'Asignado';
-                        const statusColorClass = isExtra ? 'text-primary' : 'text-success';
-                        const iconClass = isExtra ? 'bi-person-badge-fill' : 'bi-person-check-fill';
+                        const timeColorClass = isExtra ? 'text-warning' : 'text-success';
+                        const statusText = isExtra ? '<i class="bi bi-lightning-charge-fill me-1"></i>SOBRETURNO' : 'Asignado';
+                        const statusColorClass = isExtra ? 'bg-warning bg-opacity-25 text-dark border border-warning' : 'bg-success bg-opacity-10 text-success';
+                        const iconClass = isExtra ? 'bi-lightning-charge-fill text-warning' : 'bi-person-check-fill text-primary';
 
                         html += `
                         <div class="slot-card ${cardClass} flex-column align-items-stretch mb-2 ${isPast ? 'opacity-75' : ''}">
@@ -1130,6 +1193,73 @@ body.theme-dark .cal-day.available:hover {
         document.getElementById('darEntradaNotes').value = initialNotes || '';
         const modal = new bootstrap.Modal(document.getElementById('darEntradaModal'));
         modal.show();
+    }
+
+    function setAppointmentReasonPreset(text) {
+        const input = document.getElementById('appointmentReasonInput');
+        if (input) {
+            input.value = text;
+            input.focus();
+        }
+    }
+
+    function openRescheduleModal(appointmentId, patientName, currentDate, currentTime, doctorId) {
+        document.getElementById('rescheduleAppointmentId').value = appointmentId;
+        document.getElementById('rescheduleDoctorId').value = doctorId;
+        document.getElementById('reschedulePatientLabel').innerText = `Paciente: ${patientName}`;
+        document.getElementById('rescheduleCurrentDetails').innerText = `${currentDate} a las ${currentTime} hs`;
+        document.getElementById('rescheduleNewDate').value = currentDate;
+        document.getElementById('rescheduleNewTime').value = currentTime;
+        document.getElementById('rescheduleReason').value = '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('rescheduleAppointmentModal'));
+        modal.show();
+    }
+
+    function submitRescheduleAppointment(e) {
+        e.preventDefault();
+        const apptId = document.getElementById('rescheduleAppointmentId').value;
+        const doctorId = document.getElementById('rescheduleDoctorId').value;
+        const newDate = document.getElementById('rescheduleNewDate').value;
+        const newTime = document.getElementById('rescheduleNewTime').value;
+        const reason = document.getElementById('rescheduleReason').value;
+        const btn = document.getElementById('btnSubmitReschedule');
+        
+        btn.disabled = true;
+        btn.innerText = 'Reprogramando...';
+        
+        axios.patch(`/api/appointments/${apptId}/reschedule`, {
+            date: newDate,
+            time: newTime,
+            doctor_id: doctorId,
+            reason: reason
+        }, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            const modalEl = document.getElementById('rescheduleAppointmentModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            btn.disabled = false;
+            btn.innerText = 'Confirmar Reprogramación';
+            
+            if (typeof spawnToast === 'function') {
+                spawnToast('Turno Reprogramado', 'El turno ha sido trasladado correctamente.', 'check-circle-fill', 'success text-white');
+            } else {
+                alert('Turno reprogramado exitosamente.');
+            }
+            
+            // Refrescar calendario y slots del doctor
+            if (doctorStates[doctorId]) {
+                loadMonthAvailability(doctorId, doctorStates[doctorId].currentYear, doctorStates[doctorId].currentMonth);
+                loadDaySlots(doctorId, newDate);
+            }
+        })
+        .catch(err => {
+            alert(err.response?.data?.message || 'Error al reprogramar el turno.');
+            btn.disabled = false;
+            btn.innerText = 'Confirmar Reprogramación';
+        });
     }
 </script>
 @endsection

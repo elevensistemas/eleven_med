@@ -85,6 +85,29 @@ class PatientStudyController extends Controller
     }
 
     /**
+     * Update study metadata (date, original name, type, and clinical notes)
+     */
+    public function update(Request $request, PatientStudy $patientStudy)
+    {
+        $validated = $request->validate([
+            'original_name' => 'required|string|max:255',
+            'study_type' => 'nullable|string|max:100',
+            'study_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $patientStudy->original_name = $validated['original_name'];
+        $patientStudy->study_type = $validated['study_type'];
+        if (!empty($validated['study_date'])) {
+            $patientStudy->created_at = \Carbon\Carbon::parse($validated['study_date'] . ' 12:00:00');
+        }
+        $patientStudy->notes = $validated['notes'];
+        $patientStudy->save();
+
+        return back()->with('success', 'Datos del estudio médico actualizados correctamente.')->with('active_tab', 'studies');
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(PatientStudy $patientStudy)

@@ -41,14 +41,24 @@
                         <small class="text-muted d-block" style="line-height: 1.3;">Descarga un extracto consolidado de pacientes, historia clínica y cirugías.</small>
                     </div>
                 </div>
-                <a href="{{ route('config.export.patients') }}" class="btn text-white fw-bold p-2 shadow-sm" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%); border: none;">
+                <a href="{{ route('config.export.patients') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%); border: none;">
                     <i class="bi bi-download me-1"></i> Descargar Base (.CSV)
                 </a>
             </div>
             
-            <div class="text-center py-4 mt-2 opacity-50">
-                <i class="bi bi-tools fs-1 mb-3 d-block"></i>
-                <p class="mb-0 small">Más módulos de backoffice llegarán en próximos updates.</p>
+            <div class="d-flex flex-column p-4 border rounded-4 bg-light mb-3" style="border: 1px solid rgba(0,0,0,0.05) !important;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3" style="width: 50px; height: 50px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+                        <i class="bi bi-database-fill-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">Copia de Seguridad Completa (SQL)</h6>
+                        <small class="text-muted d-block" style="line-height: 1.3;">Descarga un volcado completo de la base de datos (tablas, pacientes, historias clínicas, turnos y notas).</small>
+                    </div>
+                </div>
+                <a href="{{ route('config.backup.database') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
+                    <i class="bi bi-download me-1"></i> Descargar Backup de Base de Datos (.SQL)
+                </a>
             </div>
         </div>
     </div>
