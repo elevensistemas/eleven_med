@@ -148,8 +148,27 @@
             top: 1rem;
             z-index: 100;
         }
-        .topbar .text-dark { color: #ffffff !important; }
-        .topbar .text-muted { color: rgba(255, 255, 255, 0.7) !important; }
+        .topbar .user-dropdown > .dropdown-toggle .text-dark { color: #ffffff !important; }
+        .topbar .user-dropdown > .dropdown-toggle .text-muted { color: rgba(255, 255, 255, 0.78) !important; }
+
+        /* Garantizar contraste nítido y lectura perfecta dentro de todos los menús desplegables de la barra superior */
+        body:not(.theme-dark) .topbar .dropdown-menu {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+        }
+        body:not(.theme-dark) .topbar .dropdown-menu .text-dark {
+            color: #0f172a !important;
+        }
+        body:not(.theme-dark) .topbar .dropdown-menu .text-muted {
+            color: #64748b !important;
+        }
+        body:not(.theme-dark) .topbar .dropdown-menu .dropdown-item {
+            color: #1e293b !important;
+        }
+        body:not(.theme-dark) .topbar .dropdown-menu .dropdown-item:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
         
         .omnibar-search {
             display: flex;
@@ -523,7 +542,7 @@
                                             <small class="text-muted" style="font-size: 0.73rem;">DNI: {{ $rp['dni'] }}</small>
                                         </div>
                                         @if(!empty($rp['viewed_at']))
-                                            <small class="badge bg-light text-dark border font-monospace flex-shrink-0" style="font-size: 0.7rem;">
+                                            <small class="badge rounded-pill font-monospace flex-shrink-0 px-2.5 py-1" style="font-size: 0.72rem; background-color: #eef2ff; color: #1e3a8a; border: 1px solid #c7d2fe;">
                                                 {{ \Carbon\Carbon::parse($rp['viewed_at'])->format('d/m/Y H:i') }}
                                             </small>
                                         @endif
@@ -557,7 +576,7 @@
                                             <span class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $cp['name'] }}</span>
                                             <small class="text-muted" style="font-size: 0.73rem;">DNI: {{ $cp['dni'] }}</small>
                                         </div>
-                                        <small class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 font-monospace flex-shrink-0" style="font-size: 0.7rem;">
+                                        <small class="badge rounded-pill font-monospace flex-shrink-0 px-2.5 py-1" style="font-size: 0.72rem; background-color: #dcfce7; color: #14532d; border: 1px solid #86efac;">
                                             {{ $cp['last_visited_at']->format('d/m/Y H:i') }}
                                         </small>
                                     </a>
@@ -619,7 +638,7 @@
                                             <span class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $att['name'] }}</span>
                                             <small class="text-muted" style="font-size: 0.73rem;">DNI: {{ $att['dni'] }}</small>
                                         </div>
-                                        <small class="badge bg-warning bg-opacity-25 text-dark border border-warning font-monospace flex-shrink-0" style="font-size: 0.7rem;">
+                                        <small class="badge rounded-pill font-monospace flex-shrink-0 px-2.5 py-1" style="font-size: 0.72rem; background-color: #fef3c7; color: #78350f; border: 1px solid #fcd34d;">
                                             {{ $att['date']->format('d/m/Y H:i') }}
                                         </small>
                                     </a>
