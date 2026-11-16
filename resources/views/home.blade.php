@@ -32,10 +32,8 @@
     
     /* Lock the main container to avoid any vertical scroll and look like a native app slide */
     #dashboardSlider { 
-        height: calc(100vh - 160px); 
-        min-height: 500px;
+        min-height: calc(100vh - 160px); 
         position: relative; 
-        overflow: hidden; 
     }
     
     .carousel-inner, .carousel-item { height: 100%; transition: transform 0.8s cubic-bezier(0.25, 0.8, 0.25, 1); }
@@ -130,34 +128,31 @@
                     <div class="row g-4 mb-4">
                         <!-- KPI 1: Histórico -->
                         <div class="col-md-4">
-                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); color: white;">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-primary mb-4" style="width: 80px; height: 80px;">
-                                    <i class="bi bi-person-hearts fs-1"></i>
+                            <div class="modern-card p-4 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); color: white;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-primary mb-2" style="width: 56px; height: 56px;">
+                                    <i class="bi bi-person-hearts fs-3"></i>
                                 </div>
-                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Base de Pacientes Clínicos</p>
-                                <h1 class="fw-bold text-white display-4">{{ number_format($totalPatients) }}</h1>
+                                <p class="text-white-50 small fw-bold text-uppercase mb-1">Base de Pacientes Clínicos</p>
+                                <h2 class="fw-bold text-white display-6 mb-1">{{ number_format($totalPatients) }}</h2>
                                 <small class="text-white-50"><i class="bi bi-clock-history"></i> Histórico totalizado</small>
                             </div>
                         </div>
 
-                        <!-- KPI 2: Jornada Diaria -->
+                        <!-- KPI 2: Jornada Diaria + 14 días -->
                         <div class="col-md-4">
-                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-success mb-4" style="width: 80px; height: 80px;">
-                                    <i class="bi bi-calendar2-check-fill fs-1"></i>
+                            <div class="modern-card p-4 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-success mb-2" style="width: 56px; height: 56px;">
+                                    <i class="bi bi-calendar2-check-fill fs-3"></i>
                                 </div>
-                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Atención y Agenda del Día</p>
-                                <h1 class="fw-bold text-white display-4 mb-0">{{ number_format($totalBookedToday) }}</h1>
-                                <p class="fw-bold text-white small mb-3">Turnos Hoy ({{ $seenToday }} atendidos)</p>
+                                <p class="text-white-50 small fw-bold text-uppercase mb-1">Actividad últimos 14 días</p>
+                                <h2 class="fw-bold text-white display-6 mb-0">{{ number_format($seenLast14Days) }}</h2>
+                                <p class="fw-bold text-white small mb-2">Consultas / Atenciones (Hoy: {{ $totalBookedToday }} turnos)</p>
                                 <div class="d-flex justify-content-center gap-2 w-100 flex-wrap">
-                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.75rem;">
-                                        <i class="bi bi-check-circle"></i> Libres: {{ $totalFreeToday }}
+                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.73rem;">
+                                        <i class="bi bi-check-circle"></i> Libres hoy: {{ $totalFreeToday }}
                                     </div>
-                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.75rem;">
-                                        <i class="bi bi-lightning-fill"></i> Sobreturns: {{ $totalExtraToday }}
-                                    </div>
-                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.75rem;">
-                                        <i class="bi bi-clock-history"></i> 14d: {{ $seenLast14Days }}
+                                    <div class="bg-white bg-opacity-25 text-white px-2.5 py-1 rounded-pill small fw-bold shadow-sm border border-white border-opacity-25" style="font-size: 0.73rem;">
+                                        <i class="bi bi-lightning-fill"></i> Sobreturnos: {{ $totalExtraToday }}
                                     </div>
                                 </div>
                             </div>
@@ -165,15 +160,84 @@
 
                         <!-- KPI 3: Margen de Crecimiento -->
                         <div class="col-md-4">
-                            <div class="modern-card p-5 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); color: white;">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-info mb-4" style="width: 80px; height: 80px;">
-                                    <i class="bi bi-graph-up-arrow fs-1"></i>
+                            <div class="modern-card p-4 d-flex flex-column align-items-center justify-content-center h-100 text-center shadow-lg border-0" style="background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); color: white;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm bg-white text-info mb-2" style="width: 56px; height: 56px;">
+                                    <i class="bi bi-graph-up-arrow fs-3"></i>
                                 </div>
-                                <p class="text-white-50 small fw-bold text-uppercase mb-2">Captación (Últimos 30d)</p>
-                                <h1 class="fw-bold text-white display-4">+{{ number_format($newPatientsThisMonth) }}</h1>
-                                <span class="badge bg-white bg-opacity-25 rounded-pill text-white px-3 py-2 mt-2 f-12 shadow-sm border border-white border-opacity-25">
-                                    {{ $growth >= 0 ? '▲' : '▼' }} {{ number_format($growth, 1) }}% comparado al último mes
+                                <p class="text-white-50 small fw-bold text-uppercase mb-1">Captación (Últimos 30d)</p>
+                                <h2 class="fw-bold text-white display-6 mb-1">+{{ number_format($newPatientsThisMonth) }}</h2>
+                                <span class="badge bg-white bg-opacity-25 rounded-pill text-white px-3 py-1 f-12 shadow-sm border border-white border-opacity-25">
+                                    {{ $growth >= 0 ? '▲' : '▼' }} {{ number_format($growth, 1) }}% vs último mes
                                 </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Persistente de 14 Días: Fichas Revisadas, Consultas y Atendidos (Orden Cronológico Descendente) -->
+                    <div class="row g-3">
+                        <!-- Columna 1: Fichas Vistas / Revisadas (14 días) -->
+                        <div class="col-md-4">
+                            <div class="modern-card p-3 shadow-sm border h-100">
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                                    <h6 class="fw-bold text-primary mb-0" style="font-size: 0.9rem;"><i class="bi bi-clock-history me-1"></i> Fichas Vistas (14 días)</h6>
+                                    <span class="badge bg-primary rounded-pill">{{ isset($recentPatients) ? count($recentPatients) : 0 }}</span>
+                                </div>
+                                <div style="max-height: 210px; overflow-y: auto;">
+                                    @if(isset($recentPatients) && count($recentPatients) > 0)
+                                        @foreach($recentPatients as $rp)
+                                            <a href="{{ route('patients.show', $rp['id']) }}" class="d-flex justify-content-between align-items-center py-1.5 px-2 text-decoration-none rounded border-bottom border-light hover-bg-light">
+                                                <span class="fw-semibold text-dark text-truncate me-2" style="font-size: 0.84rem;">{{ $rp['name'] }}</span>
+                                                <small class="text-muted font-monospace flex-shrink-0" style="font-size: 0.72rem;">{{ !empty($rp['viewed_at']) ? \Carbon\Carbon::parse($rp['viewed_at'])->format('d/m/Y H:i') : '' }}</small>
+                                            </a>
+                                        @endforeach
+                                    @else
+                                        <div class="text-center text-muted small py-4">Sin fichas revisadas en 14 días</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna 2: Consultas Realizadas (14 días) -->
+                        <div class="col-md-4">
+                            <div class="modern-card p-3 shadow-sm border h-100">
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                                    <h6 class="fw-bold text-success mb-0" style="font-size: 0.9rem;"><i class="bi bi-journal-medical me-1"></i> Consultas (14 días)</h6>
+                                    <span class="badge bg-success rounded-pill">{{ isset($consultedPatients) ? count($consultedPatients) : 0 }}</span>
+                                </div>
+                                <div style="max-height: 210px; overflow-y: auto;">
+                                    @if(isset($consultedPatients) && count($consultedPatients) > 0)
+                                        @foreach($consultedPatients as $cp)
+                                            <a href="{{ route('patients.show', $cp['id']) }}" class="d-flex justify-content-between align-items-center py-1.5 px-2 text-decoration-none rounded border-bottom border-light">
+                                                <span class="fw-semibold text-dark text-truncate me-2" style="font-size: 0.84rem;">{{ $cp['name'] }}</span>
+                                                <small class="text-success font-monospace flex-shrink-0" style="font-size: 0.72rem;">{{ $cp['last_visited_at']->format('d/m/Y H:i') }}</small>
+                                            </a>
+                                        @endforeach
+                                    @else
+                                        <div class="text-center text-muted small py-4">Sin consultas en 14 días</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna 3: Pacientes Atendidos en Sala (14 días) -->
+                        <div class="col-md-4">
+                            <div class="modern-card p-3 shadow-sm border h-100">
+                                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                                    <h6 class="fw-bold text-dark mb-0" style="font-size: 0.9rem;"><i class="bi bi-person-check-fill text-warning me-1"></i> Atendidos en Sala (14 días)</h6>
+                                    <span class="badge bg-warning text-dark rounded-pill">{{ isset($attendedPatients14d) ? count($attendedPatients14d) : 0 }}</span>
+                                </div>
+                                <div style="max-height: 210px; overflow-y: auto;">
+                                    @if(isset($attendedPatients14d) && count($attendedPatients14d) > 0)
+                                        @foreach($attendedPatients14d as $att)
+                                            <a href="{{ route('patients.show', $att['id']) }}" class="d-flex justify-content-between align-items-center py-1.5 px-2 text-decoration-none rounded border-bottom border-light">
+                                                <span class="fw-semibold text-dark text-truncate me-2" style="font-size: 0.84rem;">{{ $att['name'] }}</span>
+                                                <small class="text-secondary font-monospace flex-shrink-0" style="font-size: 0.72rem;">{{ $att['date']->format('d/m/Y H:i') }}</small>
+                                            </a>
+                                        @endforeach
+                                    @else
+                                        <div class="text-center text-muted small py-4">Sin ingresos en sala en 14 días</div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>

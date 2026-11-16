@@ -64,6 +64,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/configuracion/obras-sociales/{obraSocial}', [App\Http\Controllers\ConfigController::class, 'destroyObraSocial'])->name('config.obras_sociales.destroy');
     Route::delete('/configuracion/ai-memory/{user}', [App\Http\Controllers\ConfigController::class, 'clearAiMemory'])->name('config.ai_memory.clear');
     Route::get('/configuracion/export-patients', [App\Http\Controllers\ConfigController::class, 'exportPatientsToExcel'])->name('config.export.patients');
+    Route::get('/configuracion/backup-xlsx', [App\Http\Controllers\ConfigController::class, 'exportFullBackupXlsx'])->name('config.backup.xlsx');
     Route::get('/configuracion/backup-database', [App\Http\Controllers\ConfigController::class, 'backupDatabase'])->name('config.backup.database');
     
     // WhatsApp Configuration & Web Gateway
@@ -113,6 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::post('console/assignments', [App\Http\Controllers\ConsoleController::class, 'store'])->name('console.assignments.store');
     Route::post('console/assignments/{patient}/append', [App\Http\Controllers\ConsoleController::class, 'append'])->name('console.assignments.append');
     Route::post('console/transition/{patient}', [App\Http\Controllers\ConsoleController::class, 'transition'])->name('console.assignments.transition');
+    Route::post('console/activity/{patient}', [App\Http\Controllers\ConsoleController::class, 'toggleActivity'])->name('console.assignments.toggleActivity');
     Route::post('console/assignments/{patient}/notes', [App\Http\Controllers\ConsoleController::class, 'updateNotes'])->name('console.assignments.notes');
     Route::post('console/finish-all', [App\Http\Controllers\ConsoleController::class, 'finishAll'])->name('console.finishAll');
 
@@ -127,7 +129,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('api/appointments/{appointment}/no-show', [App\Http\Controllers\AppointmentController::class, 'markNoShow'])->name('agenda.no_show');
     Route::delete('api/appointments/{appointment}', [App\Http\Controllers\AppointmentController::class, 'destroy'])->name('agenda.destroy');
     Route::get('api/patients/{id}/habits', [App\Http\Controllers\PatientController::class, 'getHabits']);
-    // Internal Chat & Real-Time Sync
+    // Internal Chat & Real-Time Sync (Intercomunicador)
+    Route::get('api/messages/poll/incoming', [App\Http\Controllers\MessageController::class, 'pollIncoming']);
     Route::get('api/messages/{user}', [App\Http\Controllers\MessageController::class, 'getHistory']);
     Route::post('api/messages', [App\Http\Controllers\MessageController::class, 'store']);
     Route::post('api/messages/read', [App\Http\Controllers\MessageController::class, 'markRead']);

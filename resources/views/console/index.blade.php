@@ -185,27 +185,32 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         $llegada = ($firstEvent && $firstEvent->started_at) ? $firstEvent->started_at->format('H:i') : '--:--';
         $llegadaTimestamp = ($firstEvent && $firstEvent->started_at) ? $firstEvent->started_at->timestamp : 0;
         
-        $activeEvent = $patient->assignments->where('status', 'in_progress')->first();
+        $inProgressEvents = $patient->assignments->where('status', 'in_progress');
+        $activeEvent = $inProgressEvents->first();
         $currentStatus = $activeEvent ? $activeEvent->event_type : 'Terminado';
-        
-        // Sumar minutos por categoría
-        $totals = [
-            'Ingreso (espera)' => 0,
-            'Atención Médica' => 0,
-            'Dilatación' => 0,
-            'Estudios Visuales' => 0,
-        ];
-        foreach($patient->assignments as $a) {
-            if ($a->started_at) {
-                $end = $a->ended_at ?? \Carbon\Carbon::now();
-                $diff = max(0, $a->started_at->diffInMinutes($end));
-                if(isset($totals[$a->event_type])) { $totals[$a->event_type] += $diff; }
+
+        // Minutos ya cerrados (base) + totales actuales por categoría para soportar múltiples intervalos y paralelismo
+        $categories = ['Ingreso (espera)', 'Atención Médica', 'Dilatación', 'Estudios Visuales'];
+        $totals = array_fill_keys($categories, 0);
+        $completedMins = array_fill_keys($categories, 0);
+        $runningEventByCat = [];
+
+        foreach ($patient->assignments as $a) {
+            if ($a->started_at && isset($totals[$a->event_type])) {
+                if ($a->status === 'in_progress') {
+                    $runningEventByCat[$a->event_type] = $a;
+                    $totals[$a->event_type] += max(0, $a->started_at->diffInMinutes(\Carbon\Carbon::now()));
+                } elseif ($a->ended_at) {
+                    $diff = max(0, $a->started_at->diffInMinutes($a->ended_at));
+                    $completedMins[$a->event_type] += $diff;
+                    $totals[$a->event_type] += $diff;
+                }
             }
         }
 
-        // Datos de turno / agenda hoy
-        $todayAppt = $patient->appointments ? $patient->appointments->where('date', \Carbon\Carbon::today()->toDateString())->first() : null;
-        $horarioAgenda = $todayAppt ? substr($todayAppt->time, 0, 5) : null;
+        // Datos de turno / agenda hoy (la relación appointments ya viene filtrada a Carbon::today() en ConsoleController)
+        $todayAppt = ($patient->appointments && $patient->appointments->count() > 0) ? $patient->appointments->first() : null;
+        $horarioAgenda = ($todayAppt && $todayAppt->time) ? substr($todayAppt->time, 0, 5) : null;
         $agendaMinutes = 99999;
         if ($horarioAgenda) {
             $parts = explode(':', $horarioAgenda);
@@ -229,7 +234,7 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
          data-cobertura="{{ strtolower($patient->obra_social ?? 'particular') }}"
          data-nombre="{{ strtolower($patient->last_name . ' ' . $patient->first_name) }}">
         
-        <!-- Renglón 1: Cabecera compacta con foto, nombre, cobertura, turno, estado y Alta Rápida -->
+        <!-- Renglón 1: Cabecera compacta con foto, nombre, cobertura, Horario de Agenda, llegada, estado(s) en paralelo y Alta Rápida -->
         <div class="patient-header py-2 px-3 d-flex align-items-center justify-content-between gap-2 flex-wrap">
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- Botón [+] para desplegar línea de tiempo y controles avanzados -->
@@ -257,17 +262,25 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                     <i class="bi bi-box-arrow-up-right text-primary opacity-50 ms-1" style="font-size: 0.8rem;"></i>
                 </a>
 
-                <!-- Badges de contexto -->
+                <!-- Cobertura -->
                 <span class="badge bg-white text-secondary border px-2 py-1 shadow-none" style="font-size: 0.72rem;">
                     <i class="bi bi-shield-check text-primary me-1"></i>{{ $patient->obra_social ?? 'Particular' }}
                 </span>
+
+                <!-- Horario de Agenda Asignado (SIEMPRE VISIBLE para comparar puntualidad y ordenar) -->
                 @if($horarioAgenda)
-                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1" style="font-size: 0.72rem;">
-                        <i class="bi bi-calendar-event me-1"></i>Turno: <strong>{{ $horarioAgenda }} hs</strong>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1" style="font-size: 0.75rem;" title="Horario de turno asignado en Agenda">
+                        <i class="bi bi-calendar-event me-1"></i>Agenda: <strong>{{ $horarioAgenda }} hs</strong>
+                    </span>
+                @else
+                    <span class="badge bg-light text-secondary border px-2 py-1" style="font-size: 0.72rem;" title="Ingreso espontáneo sin turno previo en Agenda">
+                        <i class="bi bi-calendar-minus me-1"></i>Agenda: <strong>Sin turno</strong>
                     </span>
                 @endif
+
+                <!-- Hora Real de Llegada -->
                 <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.72rem;">
-                    <i class="bi bi-clock me-1 text-muted"></i>Llegada: <strong>{{ $llegada }} hs</strong>
+                    <i class="bi bi-clock me-1 text-muted"></i>Llegó: <strong>{{ $llegada }} hs</strong>
                 </span>
 
                 <!-- Observaciones de secretaría -->
@@ -282,81 +295,150 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                 @endif
             </div>
 
-            <!-- Lado derecho: Estado Central y Botón Alta Rápida -->
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-warning bg-opacity-25 text-dark fw-bold border border-warning px-3 py-1 rounded-pill" style="font-size: 0.82rem;">
-                    {{ $currentStatus }}
-                </span>
+            <!-- Lado derecho: Estados Activos en Paralelo y Botón Alta Rápida -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                @forelse($inProgressEvents as $ipEv)
+                    @php
+                        $badgeStyle = match($ipEv->event_type) {
+                            'Atención Médica' => 'bg-primary bg-opacity-15 text-primary border-primary',
+                            'Dilatación' => 'bg-danger bg-opacity-15 text-danger border-danger',
+                            'Estudios Visuales' => 'bg-info bg-opacity-20 text-dark border-info',
+                            'Aguardando' => 'bg-secondary bg-opacity-15 text-secondary border-secondary',
+                            default => 'bg-warning bg-opacity-25 text-dark border-warning',
+                        };
+                    @endphp
+                    <span class="badge {{ $badgeStyle }} fw-bold border px-2.5 py-1 rounded-pill" style="font-size: 0.78rem;">
+                        {{ $ipEv->event_type === 'Aguardando' ? 'En Sala (Pausado)' : $ipEv->event_type }}
+                    </span>
+                @empty
+                    <span class="badge bg-secondary bg-opacity-10 text-muted border px-2.5 py-1 rounded-pill" style="font-size: 0.78rem;">Terminado</span>
+                @endforelse
                 
                 <!-- Botón de Alta Rápida en 1 solo clic -->
-                <form action="{{ route('console.assignments.transition', $patient) }}" method="POST" class="m-0" onsubmit="return confirm('¿Confirmar el alta de {{ addslashes($patient->first_name . ' ' . $patient->last_name) }}? Se cerrará su atención y se detendrán los cronómetros.');">
+                <form action="{{ route('console.assignments.transition', $patient) }}" method="POST" class="m-0" onsubmit="return confirm('¿Confirmar el alta de {{ addslashes($patient->first_name . ' ' . $patient->last_name) }}? Se cerrará su atención y se detendrán todos los cronómetros.');">
                     @csrf
                     <input type="hidden" name="next_step" value="FINALIZAR">
-                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="Dar Alta médica y retirar de sala de espera">
+                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-1" style="font-size: 0.8rem;" title="Dar Alta médica y detener todos los cronómetros">
                         <i class="bi bi-check-lg"></i> Dar Alta
                     </button>
                 </form>
             </div>
         </div>
 
-        <!-- Renglón 2: Barra de cronómetros independientes en tiempo real -->
-        <div class="px-3 py-1 bg-white border-top border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size: 0.8rem;">
+        <!-- Renglón 2: Barra de Cronómetros Independientes y Paralelos con Play/Stop Individual -->
+        <div class="px-3 py-1.5 bg-white border-top border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size: 0.8rem;">
             <div class="d-flex align-items-center gap-3 flex-wrap">
-                <!-- Espera Inicial -->
+                <!-- 1. Espera Inicial (Se detiene sola apenas arranca cualquier actividad) -->
                 <div class="d-flex align-items-center gap-1 text-muted">
                     <i class="bi bi-hourglass text-secondary"></i>
                     <span class="fw-semibold">Espera:</span>
-                    @if($currentStatus === 'Ingreso (espera)' && $activeEvent && $activeEvent->started_at)
-                        <span class="badge bg-secondary bg-opacity-25 text-dark px-2 py-0.5 rounded-pill flash-timer" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                    @if(isset($runningEventByCat['Ingreso (espera)']))
+                        <span class="badge bg-secondary bg-opacity-25 text-dark px-2 py-0.5 rounded-pill flash-timer"
+                              data-base-mins="{{ $completedMins['Ingreso (espera)'] }}"
+                              data-start="{{ $runningEventByCat['Ingreso (espera)']->started_at->toIso8601String() }}">
                             <span class="live-dot"></span> {{ formatMins($totals['Ingreso (espera)']) }}
                         </span>
                     @else
-                        <span class="fw-bold text-dark">{{ formatMins($totals['Ingreso (espera)']) }}</span>
+                        <span class="fw-bold text-dark" title="Tiempo de espera inicial finalizado">{{ formatMins($totals['Ingreso (espera)']) }}</span>
                     @endif
                 </div>
 
                 <span class="text-muted opacity-25">|</span>
 
-                <!-- Atención Médica -->
+                <!-- 2. Atención Médica (Paralelo: Play / Stop individual) -->
                 <div class="d-flex align-items-center gap-1 text-muted">
                     <i class="bi bi-heart-pulse text-primary"></i>
-                    <span class="fw-semibold">Atención:</span>
-                    @if($currentStatus === 'Atención Médica' && $activeEvent && $activeEvent->started_at)
-                        <span class="badge bg-primary bg-opacity-25 text-primary px-2 py-0.5 rounded-pill flash-timer fw-bold" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                    <span class="fw-semibold">Consulta:</span>
+                    @if(isset($runningEventByCat['Atención Médica']))
+                        <span class="badge bg-primary bg-opacity-25 text-primary px-2 py-0.5 rounded-pill flash-timer fw-bold"
+                              data-base-mins="{{ $completedMins['Atención Médica'] }}"
+                              data-start="{{ $runningEventByCat['Atención Médica']->started_at->toIso8601String() }}">
                             <span class="live-dot"></span> {{ formatMins($totals['Atención Médica']) }}
                         </span>
+                        <form action="{{ route('console.assignments.toggleActivity', $patient) }}" method="POST" class="d-inline m-0">
+                            @csrf
+                            <input type="hidden" name="event_type" value="Atención Médica">
+                            <input type="hidden" name="action" value="stop">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-1.5 border-0" title="Detener solo cronómetro de Consulta Médica" style="font-size: 0.72rem; line-height: 1.2;">
+                                <i class="bi bi-stop-circle-fill"></i> Parar
+                            </button>
+                        </form>
                     @else
                         <span class="fw-bold text-dark">{{ formatMins($totals['Atención Médica']) }}</span>
+                        <form action="{{ route('console.assignments.toggleActivity', $patient) }}" method="POST" class="d-inline m-0">
+                            @csrf
+                            <input type="hidden" name="event_type" value="Atención Médica">
+                            <input type="hidden" name="action" value="start">
+                            <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-1.5 border-0 fw-bold" title="Iniciar Consulta Médica (en paralelo, sin frenar otros relojes)" style="font-size: 0.72rem; line-height: 1.2;">
+                                <i class="bi bi-play-circle-fill"></i> Iniciar
+                            </button>
+                        </form>
                     @endif
                 </div>
 
                 <span class="text-muted opacity-25">|</span>
 
-                <!-- Dilatación -->
+                <!-- 3. Dilatación (Paralelo: Play / Stop individual) -->
                 <div class="d-flex align-items-center gap-1 text-muted">
                     <i class="bi bi-eye text-danger"></i>
                     <span class="fw-semibold">Dilatación:</span>
-                    @if($currentStatus === 'Dilatación' && $activeEvent && $activeEvent->started_at)
-                        <span class="badge bg-danger bg-opacity-25 text-danger px-2 py-0.5 rounded-pill flash-timer fw-bold" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                    @if(isset($runningEventByCat['Dilatación']))
+                        <span class="badge bg-danger bg-opacity-25 text-danger px-2 py-0.5 rounded-pill flash-timer fw-bold"
+                              data-base-mins="{{ $completedMins['Dilatación'] }}"
+                              data-start="{{ $runningEventByCat['Dilatación']->started_at->toIso8601String() }}">
                             <span class="live-dot"></span> {{ formatMins($totals['Dilatación']) }}
                         </span>
+                        <form action="{{ route('console.assignments.toggleActivity', $patient) }}" method="POST" class="d-inline m-0">
+                            @csrf
+                            <input type="hidden" name="event_type" value="Dilatación">
+                            <input type="hidden" name="action" value="stop">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-1.5 border-0" title="Detener solo cronómetro de Dilatación" style="font-size: 0.72rem; line-height: 1.2;">
+                                <i class="bi bi-stop-circle-fill"></i> Parar
+                            </button>
+                        </form>
                     @else
                         <span class="fw-bold text-danger">{{ formatMins($totals['Dilatación']) }}</span>
+                        <form action="{{ route('console.assignments.toggleActivity', $patient) }}" method="POST" class="d-inline m-0">
+                            @csrf
+                            <input type="hidden" name="event_type" value="Dilatación">
+                            <input type="hidden" name="action" value="start">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-1.5 border-0 fw-bold" title="Iniciar Dilatación (corre en paralelo sin frenarse al hacer estudios)" style="font-size: 0.72rem; line-height: 1.2;">
+                                <i class="bi bi-play-circle-fill"></i> Iniciar
+                            </button>
+                        </form>
                     @endif
                 </div>
 
                 <span class="text-muted opacity-25">|</span>
 
-                <!-- Estudios Visuales -->
+                <!-- 4. Estudios Visuales (Paralelo: Play / Stop individual) -->
                 <div class="d-flex align-items-center gap-1 text-muted">
                     <i class="bi bi-pie-chart text-info"></i>
                     <span class="fw-semibold">Estudios:</span>
-                    @if($currentStatus === 'Estudios Visuales' && $activeEvent && $activeEvent->started_at)
-                        <span class="badge bg-info bg-opacity-25 text-dark px-2 py-0.5 rounded-pill flash-timer fw-bold" data-start="{{ $activeEvent->started_at->toIso8601String() }}">
+                    @if(isset($runningEventByCat['Estudios Visuales']))
+                        <span class="badge bg-info bg-opacity-25 text-dark px-2 py-0.5 rounded-pill flash-timer fw-bold"
+                              data-base-mins="{{ $completedMins['Estudios Visuales'] }}"
+                              data-start="{{ $runningEventByCat['Estudios Visuales']->started_at->toIso8601String() }}">
                             <span class="live-dot"></span> {{ formatMins($totals['Estudios Visuales']) }}
                         </span>
+                        <form action="{{ route('console.assignments.toggleActivity', $patient) }}" method="POST" class="d-inline m-0">
+                            @csrf
+                            <input type="hidden" name="event_type" value="Estudios Visuales">
+                            <input type="hidden" name="action" value="stop">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-1.5 border-0" title="Finalizar / detener solo Estudios Visuales" style="font-size: 0.72rem; line-height: 1.2;">
+                                <i class="bi bi-stop-circle-fill"></i> Parar
+                            </button>
+                        </form>
                     @else
                         <span class="fw-bold text-dark">{{ formatMins($totals['Estudios Visuales']) }}</span>
+                        <form action="{{ route('console.assignments.toggleActivity', $patient) }}" method="POST" class="d-inline m-0">
+                            @csrf
+                            <input type="hidden" name="event_type" value="Estudios Visuales">
+                            <input type="hidden" name="action" value="start">
+                            <button type="submit" class="btn btn-sm btn-outline-info text-dark rounded-pill py-0 px-1.5 border-0 fw-bold" title="Iniciar Estudios Visuales en paralelo (sin frenar Dilatación ni Consulta)" style="font-size: 0.72rem; line-height: 1.2;">
+                                <i class="bi bi-play-circle-fill text-info"></i> Iniciar
+                            </button>
+                        </form>
                     @endif
                 </div>
             </div>
@@ -551,20 +633,21 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         $sortedAssigns = $patient->assignments->sortBy('started_at');
         $firstEvent = $sortedAssigns->first();
         $llegada = ($firstEvent && $firstEvent->started_at) ? $firstEvent->started_at->format('H:i') : '--:--';
-        $lastEvent = $sortedAssigns->last();
-        $salida = $lastEvent && $lastEvent->ended_at ? $lastEvent->ended_at->format('H:i') : '--:--';
+        $maxEndObj = $patient->assignments->whereNotNull('ended_at')->max('ended_at');
+        $salida = $maxEndObj ? \Carbon\Carbon::parse($maxEndObj)->format('H:i') : '--:--';
         
-        // Sumar minutos por categoría
-        $totals = ['Dilatación' => 0, 'Ingreso (espera)' => 0];
-        $totalMinutes = 0;
+        // Sumar minutos por categoría y calcular permanencia real (inicio a alta) sin duplicar paralelos
+        $totals = ['Dilatación' => 0, 'Ingreso (espera)' => 0, 'Atención Médica' => 0, 'Estudios Visuales' => 0];
         foreach($patient->assignments as $a) {
             if ($a->started_at) {
                 $end = $a->ended_at ?? \Carbon\Carbon::now();
                 $diff = max(0, $a->started_at->diffInMinutes($end));
-                $totalMinutes += $diff;
                 if(isset($totals[$a->event_type])) { $totals[$a->event_type] += $diff; }
             }
         }
+        $totalMinutes = ($firstEvent && $firstEvent->started_at && $maxEndObj)
+            ? max(0, $firstEvent->started_at->diffInMinutes(\Carbon\Carbon::parse($maxEndObj)))
+            : array_sum($totals);
     @endphp
     <div class="patient-card history-card" style="margin-bottom: 16px;">
         <div class="patient-header">
@@ -659,14 +742,20 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                         </select>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label text-muted small fw-bold">Médico Referencia (Opcional)</label>
-                        <select name="doctor_ids[]" class="form-select bg-light border-0 shadow-none py-2">
-                            <option value="" selected>Sin especificar aún</option>
-                            @foreach($doctors as $d)
-                                <option value="{{ $d->id }}">{{ $d->name }}</option>
-                            @endforeach
-                        </select>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-7">
+                            <label class="form-label text-muted small fw-bold">Médico Referencia (Opcional)</label>
+                            <select name="doctor_ids[]" class="form-select bg-light border-0 shadow-none py-2">
+                                <option value="" selected>Sin especificar aún</option>
+                                @foreach($doctors as $d)
+                                    <option value="{{ $d->id }}">{{ $d->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label text-muted small fw-bold">Horario Agenda (Opcional)</label>
+                            <input type="time" name="scheduled_time" class="form-control bg-light border-0 shadow-none py-2" title="Si ya tiene turno hoy en Agenda se toma solo; complete aquí si ingresa sin turno previo">
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -685,16 +774,17 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
 </div>
 
 <script>
-    // Motores de Cronometraje en Vivo (Nunca se resetean al navegar)
+    // Motores de Cronometraje en Vivo y en Paralelo (Acumulan tramos previos + tramo activo)
     function updateAllTimers() {
         const now = new Date();
         
-        // Timer de Evento Activo (Fila de tabla)
+        // Timers de Actividades Paralelas y filas activas
         document.querySelectorAll('.flash-timer').forEach(el => {
             const startStr = el.getAttribute('data-start');
+            const baseMins = parseInt(el.getAttribute('data-base-mins') || '0', 10);
             if(startStr) {
                 const start = new Date(startStr);
-                const diffMins = Math.max(0, Math.floor((now - start) / 60000));
+                const diffMins = baseMins + Math.max(0, Math.floor((now - start) / 60000));
                 
                 let timeStr = diffMins + ' min';
                 if (diffMins >= 60) {
@@ -726,10 +816,9 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
         });
     }
 
-    // Inicializar timers INMEDIATAMENTE sin esperar intervalo
+    // Inicializar timers INMEDIATAMENTE y refrescar cada 1 segundo
     updateAllTimers();
-    // Actualizar periódicamente cada 5 segundos
-    setInterval(updateAllTimers, 5000);
+    setInterval(updateAllTimers, 1000);
 
     // Conmutar icono de expandir [+] / [-]
     document.addEventListener('DOMContentLoaded', function() {

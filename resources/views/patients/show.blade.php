@@ -222,11 +222,15 @@ body.theme-dark .sidebar-nav-container {
             <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold mb-2" style="font-size: 0.85rem;" title="Número de Carpeta correlativo institucional"><i class="bi bi-folder2-open me-1"></i> Carpeta #{{ $patient->code ?: sprintf("%06d", $patient->id) }}</span>
         </div>
 
-        <div class="mb-5">
-            <span class="text-uppercase text-primary fw-bold small ms-2 mb-2 d-block" style="letter-spacing: 0.5px;">Antecedentes</span>
-            <div class="antecedentes-box shadow-sm">
-                {{ $patient->medical_notes ?? 'Sin antecedentes registrados.' }}
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center ms-1 mb-1">
+                <span class="text-uppercase text-primary fw-bold" style="letter-spacing: 0.4px; font-size: 0.75rem;"><i class="bi bi-journal-text me-1"></i>Comentarios Médicos</span>
+                <small id="saveMedicalNotesFeedback" class="text-muted fst-italic" style="font-size: 0.68rem;">Solo consultorio</small>
             </div>
+            <textarea id="sidebarMedicalNotesInput" rows="2" class="form-control bg-white border shadow-sm rounded-3 auto-expand mb-1" style="font-size: 0.82rem; min-height: 54px; resize: none; overflow-y: hidden;" placeholder="Comentarios médicos internos (no salen impresos)...">{{ $patient->medical_notes }}</textarea>
+            <button type="button" onclick="saveMedicalNotesQuick({{ $patient->id }})" class="btn btn-sm btn-outline-primary rounded-pill w-100 py-0.5 fw-bold" style="font-size: 0.74rem;">
+                <i class="bi bi-check2 me-1"></i> Guardar Comentario
+            </button>
         </div>
 
         <nav class="nav flex-column gap-1 flex-grow-1 sidebar-nav-container">
@@ -257,15 +261,24 @@ body.theme-dark .sidebar-nav-container {
     <!-- Contenido Principal (Derecha) -->
     <div class="col-md-8 col-lg-9 col-xl-10 p-3 p-xl-4 bg-white">
         <!-- HEADER TOP -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <h5 class="fw-bold text-dark mb-0">{{ $patient->last_name }}, {{ $patient->first_name }}</h5>
                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-folder2-open me-1"></i> Carpeta: #{{ $patient->code ?: sprintf("%06d", $patient->id) }}</span>
                 <span class="badge bg-light text-secondary border px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-card-text me-1"></i> DNI: {{ $patient->dni }}</span>
             </div>
-            <a href="{{ route('agenda.index') }}?preselect_patient_id={{ $patient->id }}&preselect_patient_fname={{ urlencode($patient->first_name) }}&preselect_patient_lname={{ urlencode($patient->last_name) }}&preselect_patient_dni={{ $patient->dni }}" class="btn btn-gradient-warning rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 py-1 text-decoration-none">
-                <i class="bi bi-calendar-plus"></i> Dar turno
-            </a>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <!-- Botón El Famoso Ojito para desplegar/scrollear todas las consultas previas arriba -->
+                <button type="button" class="btn rounded-pill px-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-2 text-white border-0" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); font-size: 0.88rem;" onclick="toggleFichaOjitoTab()" title="Ver y scrollear todas las consultas previas debajo del encabezado">
+                    <i class="bi bi-eye-fill"></i> Consultas Previas ({{ $patient->visits->count() }})
+                </button>
+                <a href="{{ route('patient.visits.create', $patient) }}" class="btn btn-gradient-primary rounded-pill px-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-1 text-decoration-none" style="font-size: 0.88rem;">
+                    <i class="bi bi-plus-lg"></i> Nueva Consulta
+                </a>
+                <a href="{{ route('agenda.index') }}?preselect_patient_id={{ $patient->id }}&preselect_patient_fname={{ urlencode($patient->first_name) }}&preselect_patient_lname={{ urlencode($patient->last_name) }}&preselect_patient_dni={{ $patient->dni }}" class="btn btn-gradient-warning rounded-pill px-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-2 text-decoration-none" style="font-size: 0.88rem;">
+                    <i class="bi bi-calendar-plus"></i> Dar turno
+                </a>
+            </div>
         </div>
 
         @if(session('success'))
@@ -313,7 +326,7 @@ body.theme-dark .sidebar-nav-container {
                 <button class="nav-link" id="otros-tab" data-bs-toggle="tab" data-bs-target="#otros" type="button" role="tab"><i class="bi bi-three-dots me-1"></i> Otros Datos</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="ultimavisita-tab" data-bs-toggle="tab" data-bs-target="#ultimavisita" type="button" role="tab"><i class="bi bi-clock-history me-1"></i> Última Visita</button>
+                <button class="nav-link" id="ultimavisita-tab" data-bs-toggle="tab" data-bs-target="#ultimavisita" type="button" role="tab"><i class="bi bi-eye-fill me-1"></i> Consultas Previas / HC ({{ $patient->visits->count() }})</button>
             </li>
         </ul>
 
@@ -385,29 +398,123 @@ body.theme-dark .sidebar-nav-container {
                 </div>
             </div>
             
-            <!-- Pestaña: Última Visita -->
+            <!-- Pestaña: El Ojito - Todas las Consultas Previas y Cirugías Scrolleables debajo del Encabezado -->
             <div class="tab-pane fade" id="ultimavisita" role="tabpanel">
-                <div class="data-card bg-primary bg-opacity-10 border-primary border-opacity-25 pb-0">
-                    @if($patient->visits->count() > 0)
-                        @php $lastVisit = $patient->visits->first(); @endphp
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center pb-4">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="bg-white p-3 rounded-circle shadow-sm text-primary"><i class="bi bi-clock-history fs-3"></i></div>
-                                <div>
-                                    <h5 class="fw-bold text-primary mb-1">Consulta del {{ $lastVisit->created_at->format('d/m/Y - H:i') }}</h5>
-                                    <p class="mb-1 text-dark"><span class="fw-bold text-muted">Dr. Tratante:</span> {{ $lastVisit->doctor->name ?? 'Staff' }}</p>
-                                    <p class="mb-0 text-dark"><span class="fw-bold text-muted">Motivo:</span> {{ $lastVisit->motivo_consulta ?? 'Control' }}</p>
+                <div class="card border rounded-4 shadow-sm overflow-hidden" style="border: 1.5px solid rgba(30, 60, 114, 0.25) !important; background-color: #f8fafc;">
+                    <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge rounded-pill px-3 py-1 text-white" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                                <i class="bi bi-eye-fill me-1"></i> Visor Completo de Consultas Previas ({{ $patient->visits->count() }})
+                            </span>
+                            <small class="text-muted fw-semibold">Scrollee aquí todas las consultas (PIO, anteojos, antecedentes, medicación y cirugías).</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="text" class="form-control form-control-sm bg-light border rounded-pill px-3 shadow-none" style="width: 190px; font-size: 0.8rem;" placeholder="Buscar en consultas..." oninput="filterFichaTopHistory(this.value)">
+                            <a href="{{ route('patient.visits.create', $patient) }}" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">
+                                <i class="bi bi-plus-lg"></i> Nueva Consulta
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-3" style="max-height: 390px; overflow-y: auto;" id="fichaTopHistoryViewport">
+                        @if($patient->surgeries && $patient->surgeries->count() > 0)
+                            <div class="mb-3 p-2 px-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25">
+                                <div class="fw-bold text-danger small text-uppercase mb-1"><i class="bi bi-bandaid-fill me-1"></i> Cirugías ({{ $patient->surgeries->count() }})</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach($patient->surgeries->sortByDesc('surgery_date') as $surg)
+                                        <span class="badge bg-white text-dark border shadow-sm px-3 py-2 text-wrap text-start" style="font-size: 0.8rem; font-weight: 500;">
+                                            <strong class="{{ $surg->eye === 'OD' ? 'text-danger' : 'text-primary' }}">Ojo {{ $surg->eye }}</strong>
+                                            ({{ $surg->surgery_date ? $surg->surgery_date->format('d/m/Y') : '-' }}):
+                                            <span class="fw-bold">{{ $surg->notes }}</span>
+                                        </span>
+                                    @endforeach
                                 </div>
                             </div>
-                            <button class="btn btn-primary rounded-pill px-4 shadow-sm mt-3 mt-md-0 fw-bold" onclick="activateBottomTab('historial-tab')">Ir al Historial <i class="bi bi-arrow-right ms-1"></i></button>
-                        </div>
-                    @else
-                        <div class="text-center py-4">
-                            <i class="bi bi-info-circle text-primary fs-2 opacity-50 mb-2 d-block"></i>
-                            <h6 class="fw-bold text-primary">No hay última visita</h6>
-                            <p class="text-muted small mb-0">No se ha cargado la evolución clínica de este paciente.</p>
-                        </div>
-                    @endif
+                        @endif
+
+                        @if($patient->visits->count() > 0)
+                            <div class="d-flex flex-column gap-3" id="fichaTopVisitsList">
+                                @foreach($patient->visits->sortByDesc('created_at') as $vIdx => $vItem)
+                                    <div class="card border rounded-3 shadow-sm bg-white ficha-top-visit-card">
+                                        <div class="card-header bg-light border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                <span class="badge {{ $vIdx === 0 ? 'bg-primary' : 'bg-secondary' }} rounded-pill px-3 py-1">
+                                                    <i class="bi bi-calendar-check me-1"></i> {{ $vItem->created_at->format('d/m/Y - H:i') }}
+                                                </span>
+                                                <span class="small fw-bold text-dark"><i class="bi bi-person-badge text-primary me-1"></i> Dr. {{ $vItem->doctor->name ?? 'Staff' }}</span>
+                                                @if($vItem->is_open)
+                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill">Abierta</span>
+                                                @endif
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <a href="{{ route('visits.edit', $vItem) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-0.5 fw-bold" style="font-size: 0.76rem;">
+                                                    <i class="bi bi-pencil-square me-1"></i> {{ $vItem->is_open ? 'Continuar' : 'Modificar' }}
+                                                </a>
+                                                <form action="{{ route('visits.toggleStatus', $vItem) }}" method="POST" class="d-inline m-0">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-{{ $vItem->is_open ? 'danger' : 'secondary' }} rounded-pill px-2 py-0.5" style="font-size: 0.75rem;" title="{{ $vItem->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
+                                                        <i class="bi {{ $vItem->is_open ? 'bi-lock-fill' : 'bi-unlock-fill' }}"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-3 small">
+                                            <div class="row g-2">
+                                                @if($vItem->motivo_consulta)
+                                                    <div class="col-md-6"><div class="p-2 rounded bg-light h-100"><strong class="text-primary d-block">Motivo:</strong><div class="text-dark" style="white-space: pre-line;">{{ $vItem->motivo_consulta }}</div></div></div>
+                                                @endif
+                                                @if($vItem->diagnostico)
+                                                    <div class="col-md-6"><div class="p-2 rounded bg-light h-100"><strong class="text-danger d-block">Diagnóstico:</strong><div class="text-dark fw-bold" style="white-space: pre-line;">{{ $vItem->diagnostico }}</div></div></div>
+                                                @endif
+                                                @if($vItem->av_od_lejos || $vItem->av_oi_lejos || $vItem->av_od_cerca || $vItem->av_oi_cerca)
+                                                    <div class="col-md-6">
+                                                        <div class="p-2 rounded border border-primary border-opacity-25 bg-primary bg-opacity-10 h-100">
+                                                            <strong class="text-primary d-block mb-1"><i class="bi bi-eyeglasses me-1"></i> Agudeza Visual / Anteojos:</strong>
+                                                            <div class="text-dark font-monospace" style="font-size: 0.82rem;">
+                                                                <div><strong>Lejos:</strong> <span class="text-danger fw-bold">OD:</span> {{ $vItem->av_od_lejos ?: '-' }} | <span class="text-primary fw-bold">OI:</span> {{ $vItem->av_oi_lejos ?: '-' }}</div>
+                                                                <div><strong>Cerca:</strong> <span class="text-danger fw-bold">OD:</span> {{ $vItem->av_od_cerca ?: '-' }} | <span class="text-primary fw-bold">OI:</span> {{ $vItem->av_oi_cerca ?: '-' }}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                                @if($vItem->pio || $vItem->bmc || $vItem->obi || $vItem->otros_examen)
+                                                    <div class="col-md-6">
+                                                        <div class="p-2 rounded border bg-white h-100">
+                                                            <strong class="text-secondary d-block mb-1"><i class="bi bi-activity me-1"></i> PIO / BMC / OBI:</strong>
+                                                            <div class="text-dark" style="font-size: 0.83rem;">
+                                                                @if($vItem->pio) <span class="badge bg-warning bg-opacity-25 text-dark border border-warning me-1">PIO: {{ $vItem->pio }}</span> @endif
+                                                                @if($vItem->bmc) <div><strong>BMC:</strong> {{ $vItem->bmc }}</div> @endif
+                                                                @if($vItem->obi) <div><strong>OBI:</strong> {{ $vItem->obi }}</div> @endif
+                                                                @if($vItem->otros_examen) <div><strong>Otros:</strong> {{ $vItem->otros_examen }}</div> @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                                @if($vItem->antecedentes_oftalmologicos || $vItem->tratamiento_oftalmologico || $vItem->antecedentes_generales || $vItem->tratamientos_generales)
+                                                    <div class="col-12">
+                                                        <div class="p-2 rounded bg-light border-start border-4 border-success">
+                                                            <div class="row g-2">
+                                                                @if($vItem->antecedentes_oftalmologicos) <div class="col-md-6"><strong>Ant. Oftalmológicos:</strong> <span style="white-space: pre-line;">{{ $vItem->antecedentes_oftalmologicos }}</span></div> @endif
+                                                                @if($vItem->tratamiento_oftalmologico) <div class="col-md-6"><strong class="text-success">Medicación / Trat. Oftalmológico:</strong> <span class="fw-semibold" style="white-space: pre-line;">{{ $vItem->tratamiento_oftalmologico }}</span></div> @endif
+                                                                @if($vItem->antecedentes_generales) <div class="col-md-6"><strong>Ant. Generales:</strong> <span style="white-space: pre-line;">{{ $vItem->antecedentes_generales }}</span></div> @endif
+                                                                @if($vItem->tratamientos_generales) <div class="col-md-6"><strong>Trat. Generales:</strong> <span style="white-space: pre-line;">{{ $vItem->tratamientos_generales }}</span></div> @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="text-center py-4">
+                                <i class="bi bi-info-circle text-primary fs-2 opacity-50 mb-2 d-block"></i>
+                                <h6 class="fw-bold text-primary">No hay consultas previas</h6>
+                                <p class="text-muted small mb-0">Aún no se ha cargado ninguna evolución clínica para este paciente.</p>
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -877,59 +984,52 @@ body.theme-dark .sidebar-nav-container {
                     </div>
                 @endif
                 
-                <h6 class="fw-bold text-muted text-uppercase mb-3" style="font-size: 0.82rem; letter-spacing: 0.5px;">
-                    <i class="bi bi-plus-circle me-1"></i> Cargar Nuevas Cirugías
+                <h6 class="fw-bold text-muted text-uppercase mb-2" style="font-size: 0.82rem; letter-spacing: 0.5px;">
+                    <i class="bi bi-plus-circle me-1"></i> Cargar Nuevas Cirugías (1 renglón auto-expandible)
                 </h6>
                 <form action="{{ route('patient.surgeries.store', $patient) }}" method="POST">
                     @csrf
-                    <div class="row g-4 mb-3">
-                        <!-- OD Box -->
+                    <div class="row g-3 mb-3">
+                        <!-- OD Box Compacta -->
                         <div class="col-md-6">
-                            <div class="card border-0 bg-primary bg-opacity-10 shadow-sm rounded-4 h-100">
-                                <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
-                                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-eye-fill me-2 bg-primary text-white p-2 rounded-circle shadow-sm"></i> Cirugía OD</h6>
-                                </div>
-                                <div class="card-body p-4 pt-2">
-                                    <div class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(126, 68, 139, 0.1) !important;">
-                                        <div class="mb-3">
-                                            <label class="form-label text-muted small fw-bold">Fecha de Cirugía</label>
-                                            <input type="date" name="od_date" value="{{ date('Y-m-d') }}" class="form-control bg-light border-0 shadow-none rounded-3">
-                                        </div>
-                                        <div class="mb-2">
-                                            <label class="form-label text-muted small fw-bold">Plan / LIO / Notas</label>
-                                            <textarea name="od_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, tipo de cirugía, lente utilizada..."></textarea>
+                            <div class="card border-0 bg-primary bg-opacity-10 shadow-sm rounded-4">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                        <span class="fw-bold text-primary d-flex align-items-center gap-2">
+                                            <span class="badge bg-primary rounded-pill px-2 py-1">OD</span> Cirugía Ojo Derecho
+                                        </span>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <small class="text-muted fw-bold">Fecha:</small>
+                                            <input type="date" name="od_date" value="{{ date('Y-m-d') }}" class="form-control form-control-sm bg-white border shadow-none rounded-3" style="width: 145px;">
                                         </div>
                                     </div>
+                                    <textarea name="od_notes" rows="1" class="form-control bg-white border shadow-none rounded-3 auto-expand" style="min-height: 38px; resize: none; overflow-y: hidden;" placeholder="Procedimiento OD, tipo de cirugía, LIO utilizada... (se expande al escribir)"></textarea>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- OI Box -->
+                        <!-- OI Box Compacta -->
                         <div class="col-md-6">
-                            <div class="card border-0 bg-success bg-opacity-10 shadow-sm rounded-4 h-100">
-                                <div class="card-header bg-transparent border-0 py-3 pt-4 px-4">
-                                    <h6 class="fw-bold text-success mb-0"><i class="bi bi-eye-fill me-2 bg-success text-white p-2 rounded-circle shadow-sm"></i> Cirugía OI</h6>
-                                </div>
-                                <div class="card-body p-4 pt-2">
-                                    <div class="bg-white p-4 rounded-4 shadow-sm border" style="border-color: rgba(25, 135, 84, 0.1) !important;">
-                                        <div class="mb-3">
-                                            <label class="form-label text-muted small fw-bold">Fecha de Cirugía</label>
-                                            <input type="date" name="oi_date" value="{{ date('Y-m-d') }}" class="form-control bg-light border-0 shadow-none rounded-3">
-                                        </div>
-                                        <div class="mb-2">
-                                            <label class="form-label text-muted small fw-bold">Plan / LIO / Notas</label>
-                                            <textarea name="oi_notes" rows="4" class="form-control bg-light border-0 shadow-none rounded-3" placeholder="Procedimiento, tipo de cirugía, lente utilizada..."></textarea>
+                            <div class="card border-0 bg-success bg-opacity-10 shadow-sm rounded-4">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                        <span class="fw-bold text-success d-flex align-items-center gap-2">
+                                            <span class="badge bg-success rounded-pill px-2 py-1">OI</span> Cirugía Ojo Izquierdo
+                                        </span>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <small class="text-muted fw-bold">Fecha:</small>
+                                            <input type="date" name="oi_date" value="{{ date('Y-m-d') }}" class="form-control form-control-sm bg-white border shadow-none rounded-3" style="width: 145px;">
                                         </div>
                                     </div>
+                                    <textarea name="oi_notes" rows="1" class="form-control bg-white border shadow-none rounded-3 auto-expand" style="min-height: 38px; resize: none; overflow-y: hidden;" placeholder="Procedimiento OI, tipo de cirugía, LIO utilizada... (se expande al escribir)"></textarea>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Single Save Button at the bottom -->
-                    <div class="d-flex justify-content-end mt-4">
-                        <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm d-flex align-items-center gap-2 py-2 border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); font-size: 1.05rem;">
-                            <i class="bi bi-save2 me-2"></i> Guardar Cirugías
+                    <div class="d-flex justify-content-end mt-2">
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-2 py-2 border-0" style="background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%); font-size: 0.95rem;">
+                            <i class="bi bi-save2 me-1"></i> Guardar Cirugías
                         </button>
                     </div>
                 </form>
@@ -1170,7 +1270,7 @@ body.theme-dark .sidebar-nav-container {
                             </div>
                             <div class="col-4 border-start ps-4">
                                 @if($patient->medical_notes)
-                                    <h6 class="fw-bold text-dark mb-1">Antecedentes:</h6>
+                                    <h6 class="fw-bold text-dark mb-1">Comentarios Médicos <span class="badge bg-warning bg-opacity-25 text-dark border border-warning" style="font-size:0.62rem;">Solo Consultorio</span></h6>
                                     <p class="text-secondary small mb-0" style="white-space: pre-line; line-height: 1.4;">{{ $patient->medical_notes }}</p>
                                 @endif
                             </div>
@@ -1471,7 +1571,36 @@ document.addEventListener('DOMContentLoaded', function() {
     bindSortLogic('sortCirugiasBtn', 'cirugiasGrid', 'cirugia-item');
 
     initCirugiasSpartan();
+
+    document.querySelectorAll('textarea.auto-expand').forEach(ta => {
+        const resizeTa = () => {
+            ta.style.height = 'auto';
+            ta.style.height = (ta.scrollHeight > 38 ? ta.scrollHeight + 4 : 38) + 'px';
+        };
+        ta.addEventListener('input', resizeTa);
+        resizeTa();
+    });
 });
+
+function toggleFichaOjitoTab() {
+    const tabBtn = document.getElementById('ultimavisita-tab');
+    const infoBtn = document.getElementById('informacion-tab');
+    if (!tabBtn) return;
+    if (tabBtn.classList.contains('active') && infoBtn) {
+        new bootstrap.Tab(infoBtn).show();
+    } else {
+        new bootstrap.Tab(tabBtn).show();
+        document.getElementById('topTabs')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function filterFichaTopHistory(term) {
+    const q = (term || '').toLowerCase().trim();
+    document.querySelectorAll('#fichaTopVisitsList .ficha-top-visit-card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = (!q || text.includes(q)) ? '' : 'none';
+    });
+}
 
 function openEditStudyModal(studyId, originalName, studyType, studyDate, notes) {
     const form = document.getElementById('editStudyForm');

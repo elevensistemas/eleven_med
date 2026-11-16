@@ -80,10 +80,29 @@ class ConsoleController extends Controller
             'event_types.*' => 'required|string|max:100',
             'doctor_ids' => 'nullable|array',
             'doctor_ids.*' => 'nullable|exists:users,id',
+            'scheduled_time' => 'nullable|string|max:10',
             'notes' => 'nullable|string'
         ]);
 
         $patient = Patient::findOrFail($validated['patient_id']);
+
+        // Si se indicó horario de turno y el paciente no tenía turno agendado hoy, registrarlo para que figure en Sala y permita ordenar
+        if (!empty($validated['scheduled_time'])) {
+            $hasTodayAppt = $patient->appointments()->whereDate('date', Carbon::today())->exists();
+            if (!$hasTodayAppt) {
+                $defaultDocId = $validated['doctor_ids'][0] ?? User::role('médico')->value('id') ?? \Illuminate\Support\Facades\Auth::id();
+                \App\Models\Appointment::create([
+                    'patient_id' => $patient->id,
+                    'doctor_id' => $defaultDocId,
+                    'date' => Carbon::today()->toDateString(),
+                    'time' => $validated['scheduled_time'],
+                    'duration_minutes' => 15,
+                    'status' => 'confirmed',
+                    'reason' => $validated['notes'] ?? 'Ingreso directo en Sala',
+                    'created_by' => \Illuminate\Support\Facades\Auth::id(),
+                ]);
+            }
+        }
 
         // Check if patient already has an active assignment today
         $active = $patient->assignments()
@@ -172,11 +191,38 @@ class ConsoleController extends Controller
 
     public function transition(Request $request, Patient $patient)
     {
-        // 1. Terminar proceso activo actual
-        $active = $patient->assignments()
-            ->whereDate('started_at', Carbon::today())
+        $todayInProgress = $patient->assignments()
+            ->whereDate('created_at', Carbon::today())
             ->where('status', 'in_progress')
-            ->first();
+            ->get();
+
+        $active = $todayInProgress->first();
+        $sessionId = $active ? $active->session_id : (string) \Illuminate\Support\Str::uuid();
+        $newDoctorId = $active ? $active->doctor_id : null;
+
+        // Si se seleccionó "Alta" o "Finalizar Clínica", detener TODOS los cronómetros paralelos y salir.
+        if ($request->next_step === 'ALTA' || $request->next_step === 'FINALIZAR') {
+            $patient->assignments()
+                ->whereDate('created_at', Carbon::today())
+                ->where('status', 'in_progress')
+                ->update([
+                    'status' => 'completed',
+                    'ended_at' => Carbon::now()
+                ]);
+
+            $patient->assignments()
+                ->where('status', 'pending')
+                ->whereDate('created_at', Carbon::today())
+                ->delete();
+
+            // Marcar turno de hoy como atendido
+            $patient->appointments()
+                ->whereDate('date', Carbon::today())
+                ->whereIn('status', ['pending', 'confirmed', 'in_progress'])
+                ->update(['status' => 'completed']);
+
+            return back()->with('success', 'Alta médica registrada. Todos los cronómetros del paciente fueron detenidos.');
+        }
 
         if ($request->next_step === 'AUTO') {
             $nextPending = $patient->assignments()
@@ -186,42 +232,40 @@ class ConsoleController extends Controller
                 ->first();
 
             if (!$nextPending) {
-                return back()->with('error', 'No hay un siguiente paso en la cola para este paciente. Seleccione un estado manualmente.');
+                return back()->with('error', 'No hay un siguiente paso en la cola para este paciente. Active una actividad manualmente.');
             }
+            $targetStep = $nextPending->event_type;
+        } else {
+            $targetStep = $request->next_step;
         }
 
-        if ($active && $active->event_type === $request->next_step) {
-            return back()->with('error', 'El paciente ya se encuentra en el estado: ' . $request->next_step);
+        // Si ya está corriendo exactamente esa actividad en paralelo, avisar
+        if ($todayInProgress->where('event_type', $targetStep)->count() > 0) {
+            return back()->with('info', 'El cronómetro de "' . $targetStep . '" ya se encuentra corriendo en paralelo.');
         }
 
-        if ($active) {
-            $active->update([
-                'status' => 'completed',
-                'ended_at' => Carbon::now()
-            ]);
-        }
-
-        // Si se seleccionó "Alta" o "Finalizar Clínica", eliminar pendientes y salir.
-        if ($request->next_step === 'ALTA' || $request->next_step === 'FINALIZAR') {
+        // REGLA CLAVE: Al iniciar cualquier actividad clínica, SOLO se frena la Espera Inicial (y Aguardando pasivo).
+        // Las demás actividades (Dilatación, Atención Médica, Estudios) siguen corriendo en paralelo hasta que se detengan individualmente o se dé el Alta.
+        if ($targetStep !== 'Ingreso (espera)') {
             $patient->assignments()
-                ->where('status', 'pending')
                 ->whereDate('created_at', Carbon::today())
-                ->delete();
-                
-            return back()->with('success', 'Flujo cerrado. Paciente dado de alta de la cola.');
+                ->where('status', 'in_progress')
+                ->whereIn('event_type', ['Ingreso (espera)', 'Aguardando'])
+                ->update([
+                    'status' => 'completed',
+                    'ended_at' => Carbon::now()
+                ]);
         }
-        
-        // 2. Buscar si ya existe un paso pendiente
+
+        // Buscar si existe en cola pendiente ese paso
         $nextPending = $patient->assignments()
             ->whereDate('created_at', Carbon::today())
             ->where('status', 'pending')
+            ->where('event_type', $targetStep)
             ->orderBy('id', 'asc')
             ->first();
 
-        $newDoctorId = $active ? $active->doctor_id : null; 
-        
-        if ($nextPending && ($request->next_step === 'AUTO' || $nextPending->event_type === $request->next_step)) {
-            // Activar el paso pendiente
+        if ($nextPending) {
             $nextPending->update([
                 'status' => 'in_progress',
                 'started_at' => Carbon::now()
@@ -229,16 +273,15 @@ class ConsoleController extends Controller
             $stepType = $nextPending->event_type;
             $newDoctorId = $nextPending->doctor_id ?? $newDoctorId;
         } else {
-            // Crear el nuevo paso manualmente
             $patient->assignments()->create([
-                'session_id' => $active ? $active->session_id : (string) \Illuminate\Support\Str::uuid(),
-                'event_type' => $request->next_step,
+                'session_id' => $sessionId,
+                'event_type' => $targetStep,
                 'doctor_id' => $newDoctorId,
                 'notes' => null,
                 'status' => 'in_progress',
                 'started_at' => Carbon::now()
             ]);
-            $stepType = $request->next_step;
+            $stepType = $targetStep;
         }
 
         try {
@@ -253,7 +296,108 @@ class ConsoleController extends Controller
             }
         } catch (\Exception $e) {}
 
-        return back()->with('success', 'Paciente avanzado a: ' . $stepType);
+        return back()->with('success', 'Cronómetro iniciado en paralelo: ' . $stepType);
+    }
+
+    /**
+     * Inicia o detiene individualmente un cronómetro de actividad en paralelo
+     * (Atención Médica, Dilatación, Estudios Visuales) sin frenar los demás.
+     */
+    public function toggleActivity(Request $request, Patient $patient)
+    {
+        $validated = $request->validate([
+            'event_type' => 'required|string|in:Atención Médica,Dilatación,Estudios Visuales',
+            'action' => 'required|string|in:start,stop',
+        ]);
+
+        $eventType = $validated['event_type'];
+        $action = $validated['action'];
+
+        $todayAssigns = $patient->assignments()
+            ->whereDate('created_at', Carbon::today())
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $activeRow = $todayAssigns->where('status', 'in_progress')->first() ?? $todayAssigns->first();
+        $sessionId = $activeRow?->session_id ?: (string) \Illuminate\Support\Str::uuid();
+        $doctorId = $activeRow?->doctor_id;
+
+        if ($action === 'start') {
+            // Frenar únicamente Espera Inicial o estado pasivo Aguardando
+            $patient->assignments()
+                ->whereDate('created_at', Carbon::today())
+                ->where('status', 'in_progress')
+                ->whereIn('event_type', ['Ingreso (espera)', 'Aguardando'])
+                ->update([
+                    'status' => 'completed',
+                    'ended_at' => Carbon::now()
+                ]);
+
+            // Verificar si esta actividad ya está corriendo
+            $alreadyRunning = $patient->assignments()
+                ->whereDate('created_at', Carbon::today())
+                ->where('session_id', $sessionId)
+                ->where('event_type', $eventType)
+                ->where('status', 'in_progress')
+                ->first();
+
+            if (!$alreadyRunning) {
+                $pendingMatch = $patient->assignments()
+                    ->whereDate('created_at', Carbon::today())
+                    ->where('session_id', $sessionId)
+                    ->where('event_type', $eventType)
+                    ->where('status', 'pending')
+                    ->first();
+
+                if ($pendingMatch) {
+                    $pendingMatch->update([
+                        'status' => 'in_progress',
+                        'started_at' => Carbon::now(),
+                    ]);
+                } else {
+                    $patient->assignments()->create([
+                        'session_id' => $sessionId,
+                        'event_type' => $eventType,
+                        'doctor_id' => $doctorId,
+                        'status' => 'in_progress',
+                        'started_at' => Carbon::now(),
+                    ]);
+                }
+            }
+
+            return back()->with('success', "Cronómetro de {$eventType} iniciado (corre en paralelo).");
+        }
+
+        // Acción: STOP (detener solo esta actividad individual)
+        $patient->assignments()
+            ->whereDate('created_at', Carbon::today())
+            ->where('session_id', $sessionId)
+            ->where('event_type', $eventType)
+            ->where('status', 'in_progress')
+            ->update([
+                'status' => 'completed',
+                'ended_at' => Carbon::now(),
+            ]);
+
+        // Si no quedó ninguna otra actividad en curso, mantener al paciente en Sala ("Aguardando")
+        // sin sumar a Espera Inicial, hasta que se inicie otra actividad o se le dé el Alta.
+        $remainingActive = $patient->assignments()
+            ->whereDate('created_at', Carbon::today())
+            ->where('session_id', $sessionId)
+            ->where('status', 'in_progress')
+            ->count();
+
+        if ($remainingActive === 0) {
+            $patient->assignments()->create([
+                'session_id' => $sessionId,
+                'event_type' => 'Aguardando',
+                'doctor_id' => $doctorId,
+                'status' => 'in_progress',
+                'started_at' => Carbon::now(),
+            ]);
+        }
+
+        return back()->with('success', "Cronómetro de {$eventType} detenido individualmente.");
     }
     
     /**
@@ -298,14 +442,18 @@ class ConsoleController extends Controller
 
     public function finishAll(Request $request)
     {
-        // Close all "in_progress" assignments strictly.
+        // Close all "in_progress" assignments strictly and clear pending queue.
         PatientAssignment::where('status', 'in_progress')
-            ->whereDate('started_at', Carbon::today())
+            ->whereDate('created_at', Carbon::today())
             ->update([
                 'status' => 'completed',
                 'ended_at' => Carbon::now()
             ]);
+
+        PatientAssignment::where('status', 'pending')
+            ->whereDate('created_at', Carbon::today())
+            ->delete();
             
-        return back()->with('success', 'Se ha forzado la finalización de toda la Sala de Espera.');
+        return back()->with('success', 'Se ha finalizado toda la Sala de Espera y detenido todos los cronómetros.');
     }
 }

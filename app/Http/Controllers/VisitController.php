@@ -15,22 +15,24 @@ class VisitController extends Controller
     {
         $openVisit = Visit::where('patient_id', $patient->id)->where('is_open', true)->first();
         if ($openVisit) {
-            return redirect()->route('visits.edit', $openVisit)->with('info', 'Redirigido a la evolución clínica que está abierta.');
+            return redirect()->route('visits.edit', $openVisit)->with('info', 'Existe una evolución abierta para este paciente. Aquí puede continuarla, guardarla o cerrarla.');
         }
 
-        $lastVisit = $patient->visits()->latest()->first();
+        $previousVisits = $patient->visits()->with('doctor')->orderBy('created_at', 'desc')->get();
+        $lastVisit = $previousVisits->first();
+        $surgeries = $patient->surgeries()->with('doctor')->orderBy('surgery_date', 'desc')->get();
         $doctors = User::whereHas('roles', function($q) {
             $q->whereIn('name', ['médico', 'administrador']);
         })->orderBy('name')->get();
 
-        return view('visits.create', compact('patient', 'lastVisit', 'doctors'));
+        return view('visits.create', compact('patient', 'lastVisit', 'previousVisits', 'surgeries', 'doctors'));
     }
 
     public function store(Request $request, Patient $patient)
     {
         $openVisit = Visit::where('patient_id', $patient->id)->where('is_open', true)->first();
         if ($openVisit) {
-            return redirect()->route('visits.edit', $openVisit)->with('warning', 'Ya existe una consulta abierta para este paciente.');
+            return redirect()->route('visits.edit', $openVisit)->with('warning', 'Ya existe una consulta abierta para este paciente. Puede continuarla o cerrarla desde aquí.');
         }
 
         $validated = $request->validate([
@@ -55,7 +57,7 @@ class VisitController extends Controller
         
         $validated['patient_id'] = $patient->id;
         $validated['doctor_id'] = $request->filled('doctor_id') ? $request->input('doctor_id') : Auth::id();
-        $validated['is_open'] = true;
+        $validated['is_open'] = ($request->input('close_visit') == '1') ? false : true;
 
         // Actualizar derivación / recomendación o comentarios médicos si se enviaron en la consulta
         if ($request->has('recommendation')) {
@@ -68,25 +70,35 @@ class VisitController extends Controller
 
         $visit = Visit::create($validated);
 
-        // Log open status
-        VisitLog::create([
-            'visit_id' => $visit->id,
-            'user_id' => Auth::id(),
-            'action' => 'open',
-        ]);
+        try {
+            VisitLog::create([
+                'visit_id' => $visit->id,
+                'user_id' => Auth::id(),
+                'action' => $validated['is_open'] ? 'open' : 'close',
+            ]);
+        } catch (\Throwable $e) {
+            // Evitar que un fallo de auditoría bloquee la atención médica
+        }
 
-        return redirect()->route('patients.show', $patient)->with('success', 'Visita clínica abierta y registrada correctamente.')->with('active_tab', 'last-visit');
+        return redirect()->route('patients.show', $patient)->with('success', $validated['is_open'] ? 'Visita clínica abierta y registrada correctamente.' : 'Consulta registrada y cerrada correctamente.')->with('active_tab', 'historial');
     }
 
     public function edit(Visit $visit)
     {
         $patient = $visit->patient;
-        $previousVisits = $patient->visits()->where('id', '!=', $visit->id)->orderBy('created_at', 'desc')->get();
+        $visitLogs = collect();
+        try {
+            $visitLogs = $visit->logs()->with('user')->get();
+        } catch (\Throwable $e) {
+            $visitLogs = collect();
+        }
+        $previousVisits = $patient->visits()->with('doctor')->where('id', '!=', $visit->id)->orderBy('created_at', 'desc')->get();
+        $surgeries = $patient->surgeries()->with('doctor')->orderBy('surgery_date', 'desc')->get();
         $doctors = User::whereHas('roles', function($q) {
             $q->whereIn('name', ['médico', 'administrador']);
         })->orderBy('name')->get();
 
-        return view('visits.edit', compact('visit', 'patient', 'previousVisits', 'doctors'));
+        return view('visits.edit', compact('visit', 'patient', 'previousVisits', 'surgeries', 'doctors', 'visitLogs'));
     }
 
     public function update(Request $request, Visit $visit)
@@ -131,31 +143,35 @@ class VisitController extends Controller
             $visit->is_open = false;
             $visit->save();
 
-            // Log close status
-            VisitLog::create([
-                'visit_id' => $visit->id,
-                'user_id' => Auth::id(),
-                'action' => 'close',
-            ]);
+            try {
+                VisitLog::create([
+                    'visit_id' => $visit->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'close',
+                ]);
+            } catch (\Throwable $e) {}
 
-            return redirect()->route('patients.show', $patient)->with('success', 'Visita clínica cerrada correctamente.')->with('active_tab', 'last-visit');
+            return redirect()->route('patients.show', $patient)->with('success', 'Visita clínica guardada y cerrada correctamente.')->with('active_tab', 'historial');
         }
 
         if ($request->has('reopen_visit') && $request->input('reopen_visit') == '1') {
+            // Cerrar cualquier otra visita abierta del paciente para evitar bloqueos cruzados
+            Visit::where('patient_id', $patient->id)->where('id', '!=', $visit->id)->where('is_open', true)->update(['is_open' => false]);
             $visit->is_open = true;
             $visit->save();
 
-            // Log open status
-            VisitLog::create([
-                'visit_id' => $visit->id,
-                'user_id' => Auth::id(),
-                'action' => 'open',
-            ]);
+            try {
+                VisitLog::create([
+                    'visit_id' => $visit->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'open',
+                ]);
+            } catch (\Throwable $e) {}
 
             return redirect()->route('visits.edit', $visit)->with('success', 'Consulta reabierta para continuar atendiendo.');
         }
 
-        return redirect()->route('patients.show', $patient)->with('success', 'Evolución clínica actualizada correctamente.')->with('active_tab', 'last-visit');
+        return redirect()->route('patients.show', $patient)->with('success', 'Evolución clínica actualizada correctamente.')->with('active_tab', 'historial');
     }
 
     public function toggleStatus(Visit $visit)
@@ -166,32 +182,31 @@ class VisitController extends Controller
             $visit->is_open = false;
             $visit->save();
 
-            // Log close status
-            VisitLog::create([
-                'visit_id' => $visit->id,
-                'user_id' => Auth::id(),
-                'action' => 'close',
-            ]);
+            try {
+                VisitLog::create([
+                    'visit_id' => $visit->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'close',
+                ]);
+            } catch (\Throwable $e) {}
 
             return redirect()->back()->with('success', 'Consulta cerrada correctamente.');
         } else {
-            // Check if there is another open visit
-            $hasOpen = Visit::where('patient_id', $patient->id)->where('is_open', true)->exists();
-            if ($hasOpen) {
-                return redirect()->back()->with('error', 'No se puede reabrir esta consulta. Ya existe otra consulta abierta para este paciente.');
-            }
+            // Cerrar automáticamente otra consulta previa que hubiera quedado abierta accidentalmente
+            Visit::where('patient_id', $patient->id)->where('id', '!=', $visit->id)->where('is_open', true)->update(['is_open' => false]);
 
             $visit->is_open = true;
             $visit->save();
 
-            // Log open status
-            VisitLog::create([
-                'visit_id' => $visit->id,
-                'user_id' => Auth::id(),
-                'action' => 'open',
-            ]);
+            try {
+                VisitLog::create([
+                    'visit_id' => $visit->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'open',
+                ]);
+            } catch (\Throwable $e) {}
 
-            return redirect()->back()->with('success', 'Consulta reabierta correctamente.');
+            return redirect()->route('visits.edit', $visit)->with('success', 'Consulta reabierta y lista para editar.');
         }
     }
 }

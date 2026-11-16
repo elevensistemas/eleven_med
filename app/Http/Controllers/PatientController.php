@@ -218,28 +218,58 @@ class PatientController extends Controller
     }
 
     /**
-     * Helper para Phase 20 Omnibar
+     * Registra de forma persistente (14 días) la revisión/apertura de la ficha del paciente
+     * para los relojes superiores del sistema.
      */
     private function pushToRecent(Patient $patient)
     {
+        $nowIso = now()->toIso8601String();
+        $cutoff = now()->subDays(14)->timestamp;
+
+        // 1. Persistir en disco por 14 días (sobrevive cierres de navegador y cambios de día)
+        try {
+            $logPath = storage_path('app/recent_patient_views.json');
+            $entries = [];
+            if (file_exists($logPath)) {
+                $decoded = json_decode(file_get_contents($logPath), true);
+                if (is_array($decoded)) {
+                    $entries = $decoded;
+                }
+            }
+
+            // Filtrar entradas vencidas (> 14 días) y el mismo paciente para reinsertar arriba
+            $entries = array_values(array_filter($entries, function ($item) use ($patient, $cutoff) {
+                if (!isset($item['id'], $item['viewed_at'])) return false;
+                if ((int)$item['id'] === (int)$patient->id) return false;
+                $ts = strtotime($item['viewed_at']);
+                return $ts && $ts >= $cutoff;
+            }));
+
+            array_unshift($entries, [
+                'id' => $patient->id,
+                'name' => $patient->last_name . ', ' . $patient->first_name,
+                'dni' => $patient->dni,
+                'viewed_at' => $nowIso,
+                'user_id' => auth()->id(),
+            ]);
+
+            // Conservar hasta 200 fichas revisadas en los últimos 14 días
+            $entries = array_slice($entries, 0, 200);
+            @file_put_contents($logPath, json_encode($entries, JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+            // Silencioso en caso de permisos
+        }
+
+        // 2. Mantener copia en sesión por compatibilidad
         $recent = session()->get('recent_patients', []);
-
-        // Filter out if already exists
-        $recent = array_filter($recent, function($p) use ($patient) {
-            return $p['id'] !== $patient->id;
-        });
-
-        // Prepend current
+        $recent = array_filter($recent, fn($p) => ($p['id'] ?? null) !== $patient->id);
         array_unshift($recent, [
             'id' => $patient->id,
-            'name' => $patient->first_name . ' ' . $patient->last_name,
+            'name' => $patient->last_name . ', ' . $patient->first_name,
             'dni' => $patient->dni,
+            'viewed_at' => $nowIso,
         ]);
-
-        // Keep only top 5
-        $recent = array_slice($recent, 0, 5);
-
-        session()->put('recent_patients', $recent);
+        session()->put('recent_patients', array_slice($recent, 0, 30));
     }
 
     public function edit(Patient $patient)

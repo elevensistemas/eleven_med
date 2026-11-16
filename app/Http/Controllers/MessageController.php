@@ -91,4 +91,33 @@ class MessageController extends Controller
 
         return response()->json(['status' => 'success', 'unread_count' => $unreadCount]);
     }
+
+    /**
+     * Poll incoming unread messages for real-time Intercomunicador auto-popup across computers
+     * (works seamlessly on shared hosting even without WebSockets/Reverb).
+     */
+    public function pollIncoming(Request $request)
+    {
+        $authId = Auth::id();
+        $afterId = (int)$request->query('after_id', 0);
+
+        $unreadQuery = Message::with('sender:id,name')
+            ->where('receiver_id', $authId)
+            ->where('is_read', false)
+            ->orderBy('id', 'asc');
+
+        if ($afterId > 0) {
+            $unreadQuery->where('id', '>', $afterId);
+        }
+
+        $newMessages = $unreadQuery->get();
+        $totalUnread = Message::where('receiver_id', $authId)->where('is_read', false)->count();
+        $maxId = (int)(Message::where('receiver_id', $authId)->max('id') ?? 0);
+
+        return response()->json([
+            'unread_count' => $totalUnread,
+            'max_id' => $maxId,
+            'messages' => $newMessages,
+        ]);
+    }
 }

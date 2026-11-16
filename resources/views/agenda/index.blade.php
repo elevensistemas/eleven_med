@@ -290,13 +290,13 @@ body.theme-dark .cal-day.available:hover {
   </div>
 </div>
 
-<!-- Modal: Bloquear Horario / Agenda / Vacaciones -->
+<!-- Modal: Bloquear Horario / Agenda / Vacaciones (Diseño Amplio y Claro) -->
 <div class="modal fade" id="blockAgendaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 rounded-4 shadow">
-        <div class="modal-header border-bottom-0 pb-0">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow-lg">
+        <div class="modal-header border-bottom pb-3 px-4 pt-4">
             <div>
-                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Bloquear Agenda / Vacaciones</h5>
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Bloquear Turnos / Días / Vacaciones</h5>
                 <small class="text-muted fw-bold" id="blockDoctorNameLabel">Médico: --</small>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -306,49 +306,69 @@ body.theme-dark .cal-day.available:hover {
             <input type="hidden" name="doctor_id" id="blockDoctorId">
             
             <div class="modal-body p-4">
-                <div class="row g-3">
+                <div class="row g-4">
                     <div class="col-md-12">
-                        <label class="form-label text-muted small fw-bold">Tipo de Bloqueo *</label>
-                        <select name="block_type" id="blockTypeSelect" class="form-control bg-light border-0 shadow-none form-select" required>
+                        <label class="form-label text-dark small fw-bold mb-2">Tipo de Bloqueo *</label>
+                        <select name="block_type" id="blockTypeSelect" class="form-select form-select-lg bg-white border rounded-3 shadow-none fs-6 fw-semibold" required>
                             <option value="vacation">🌴 Vacaciones / Rango de días (Desde - Hasta)</option>
-                            <option value="day">⛔ Día completo (Anular un día)</option>
+                            <option value="day">⛔ Día completo (Anular un día entero)</option>
                             <option value="range">⏰ Franja horaria (ej: Anular Mañana o Tarde)</option>
-                            <option value="slot">🚫 Turno único (Un horario específico)</option>
+                            <option value="slot">🚫 Turno único (Un horario puntual)</option>
                         </select>
                     </div>
 
                     <!-- Fecha Desde -->
                     <div class="col-md-6" id="blockStartDateCol">
-                        <label class="form-label text-muted small fw-bold" id="blockStartDateLabel">Fecha Desde *</label>
-                        <input type="date" name="date" class="form-control bg-light border-0 shadow-none" id="blockDate" required>
+                        <div class="p-3 rounded-4 bg-light border h-100">
+                            <label class="form-label text-dark small fw-bold mb-2" id="blockStartDateLabel"><i class="bi bi-calendar-event text-primary me-1"></i> Fecha Desde *</label>
+                            <input type="date" name="date" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" id="blockDate" required>
+                        </div>
                     </div>
 
                     <!-- Fecha Hasta (Vacaciones o Rango de Días) -->
                     <div class="col-md-6" id="blockEndDateCol">
-                        <label class="form-label text-muted small fw-bold">Fecha Hasta (inclusive) *</label>
-                        <input type="date" name="end_date" class="form-control bg-light border-0 shadow-none" id="blockEndDate">
+                        <div class="p-3 rounded-4 bg-light border h-100">
+                            <label class="form-label text-dark small fw-bold mb-2"><i class="bi bi-calendar-check text-primary me-1"></i> Fecha Hasta (inclusive) *</label>
+                            <input type="date" name="end_date" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" id="blockEndDate">
+                        </div>
                     </div>
 
-                    <!-- Horas (Franja horaria o turno único) -->
-                    <div class="col-md-6 time-fields d-none">
-                        <label class="form-label text-muted small fw-bold">Hora de Inicio *</label>
-                        <input type="time" name="start_time" class="form-control bg-light border-0 shadow-none" id="blockStartTime">
-                    </div>
-
-                    <div class="col-md-6 time-fields d-none">
-                        <label class="form-label text-muted small fw-bold">Hora de Fin *</label>
-                        <input type="time" name="end_time" class="form-control bg-light border-0 shadow-none" id="blockEndTime">
+                    <!-- Atajos rápidos para franjas horarias -->
+                    <div class="col-12 time-fields d-none">
+                        <div class="p-3 rounded-4 bg-warning bg-opacity-10 border border-warning border-opacity-50">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                <span class="fw-bold text-dark small"><i class="bi bi-alarm me-1"></i> Seleccione el horario o use un atajo rápido:</span>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-white bg-white border rounded-pill px-3 fw-bold shadow-sm" onclick="document.getElementById('blockStartTime').value='08:00'; document.getElementById('blockEndTime').value='13:00';">
+                                        🌅 Mañana (08:00 a 13:00)
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-white bg-white border rounded-pill px-3 fw-bold shadow-sm" onclick="document.getElementById('blockStartTime').value='14:00'; document.getElementById('blockEndTime').value='20:00';">
+                                        🌇 Tarde (14:00 a 20:00)
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-dark small fw-bold mb-1">Hora de Inicio *</label>
+                                    <input type="time" name="start_time" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" id="blockStartTime">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-dark small fw-bold mb-1">Hora de Fin *</label>
+                                    <input type="time" name="end_time" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" id="blockEndTime">
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-md-12">
-                        <label class="form-label text-muted small fw-bold">Motivo del Bloqueo *</label>
-                        <input type="text" name="reason" id="blockReasonInput" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Vacaciones de verano, Quirófano, Congreso, Licencia..." required>
+                        <label class="form-label text-dark small fw-bold mb-2">Motivo del Bloqueo *</label>
+                        <input type="text" name="reason" id="blockReasonInput" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" placeholder="Ej: Vacaciones, Quirófano, Congreso, Licencia..." required>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0 pe-4">
-                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" id="submitBlockBtn" class="btn btn-warning rounded-pill px-4 text-dark fw-bold"><i class="bi bi-lock-fill me-1"></i> Aplicar Bloqueo</button>
+            <div class="modal-footer border-top pt-3 pb-4 px-4">
+                <button type="button" class="btn btn-light border rounded-pill px-4 py-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="submitBlockBtn" class="btn btn-warning rounded-pill px-5 py-2 text-dark fw-bold shadow-sm"><i class="bi bi-lock-fill me-1"></i> Aplicar Bloqueo</button>
             </div>
         </form>
     </div>

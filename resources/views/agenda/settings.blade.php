@@ -158,17 +158,17 @@
 </div>
 
 <div class="row g-4">
-    <!-- PANEL SECUNDARIO: BLOQUEOS DE EXCEPCION Y VACACIONES -->
+    <!-- PANEL SECUNDARIO: BLOQUEOS DE EXCEPCION Y VACACIONES (ESPACIADO AMPLIO Y CLARO) -->
     <div class="col-lg-5">
         <div class="modern-card p-4 h-100 shadow-sm border-0 rounded-4">
-            <h5 class="fw-bold text-dark mb-4"><i class="bi bi-shield-lock text-primary me-2"></i> 2. Bloqueos de Agenda / Vacaciones</h5>
-            <p class="text-muted small mb-4">Bloquea temporalmente a un profesional por vacaciones, congresos médicos, días de cirugía o licencias.</p>
+            <h5 class="fw-bold text-dark mb-2"><i class="bi bi-shield-lock text-primary me-2"></i> 2. Bloqueos de Turnos / Vacaciones</h5>
+            <p class="text-muted small mb-4">Bloquee días completos, vacaciones o franjas horarias con campos amplios y separados.</p>
             
             <form action="{{ route('agenda.blocks.store') }}" method="POST">
                 @csrf
-                <div class="mb-3">
-                    <label class="form-label text-muted small fw-bold">Médico Afectado *</label>
-                    <select name="doctor_id" class="form-control bg-light border-0 shadow-none form-select" required>
+                <div class="mb-4">
+                    <label class="form-label text-dark small fw-bold mb-2">Médico Afectado *</label>
+                    <select name="doctor_id" class="form-select border rounded-3 py-2.5 px-3 shadow-none bg-white fw-semibold" required>
                         <option value="">-- Seleccionar Médico --</option>
                         @foreach($doctors as $doc)
                             <option value="{{ $doc->id }}">{{ $doc->name }}</option>
@@ -176,23 +176,62 @@
                     </select>
                 </div>
 
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label text-muted small fw-bold">Fecha / Hora Inicio *</label>
-                        <input type="datetime-local" name="start_datetime" class="form-control bg-light border-0 shadow-none" required>
+                <!-- Modo de Bloqueo: Día(s) completo(s) vs Franja Horaria -->
+                <div class="mb-4">
+                    <label class="form-label text-dark small fw-bold mb-2">Modalidad de Bloqueo *</label>
+                    <div class="d-flex gap-2">
+                        <input type="radio" class="btn-check" name="block_mode" id="settingsBlockAllDay" value="all_day" checked onchange="toggleSettingsBlockTimeRow()">
+                        <label class="btn btn-outline-primary rounded-3 flex-fill py-2 fw-bold" for="settingsBlockAllDay">
+                            <i class="bi bi-calendar-range me-1"></i> Día(s) Completo(s) / Vacaciones
+                        </label>
+
+                        <input type="radio" class="btn-check" name="block_mode" id="settingsBlockTimeRange" value="time_range" onchange="toggleSettingsBlockTimeRow()">
+                        <label class="btn btn-outline-primary rounded-3 flex-fill py-2 fw-bold" for="settingsBlockTimeRange">
+                            <i class="bi bi-clock me-1"></i> Franja Horaria
+                        </label>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted small fw-bold">Fecha / Hora Fin *</label>
-                        <input type="datetime-local" name="end_datetime" class="form-control bg-light border-0 shadow-none" required>
+                </div>
+
+                <!-- Fechas amplias y bien separadas -->
+                <div class="p-3 rounded-4 bg-light border mb-4">
+                    <div class="mb-3">
+                        <label class="form-label text-dark small fw-bold mb-1"><i class="bi bi-calendar-event text-primary me-1"></i> Fecha Desde *</label>
+                        <input type="date" name="start_date" id="settingsBlockStartDate" value="{{ date('Y-m-d') }}" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" required onchange="if(!document.getElementById('settingsBlockEndDate').value || document.getElementById('settingsBlockEndDate').value < this.value) document.getElementById('settingsBlockEndDate').value = this.value;">
+                    </div>
+                    <div>
+                        <label class="form-label text-dark small fw-bold mb-1"><i class="bi bi-calendar-check text-primary me-1"></i> Fecha Hasta (inclusive) *</label>
+                        <input type="date" name="end_date" id="settingsBlockEndDate" value="{{ date('Y-m-d') }}" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6" required>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Si es un solo día, deje la misma fecha en ambos campos.</small>
+                    </div>
+                </div>
+
+                <!-- Horarios amplios y separados (solo visibles si elige Franja Horaria) -->
+                <div class="p-3 rounded-4 bg-warning bg-opacity-10 border border-warning border-opacity-50 mb-4 d-none" id="settingsBlockTimeRow">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                        <span class="small fw-bold text-dark"><i class="bi bi-alarm me-1"></i> Horario a bloquear:</span>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-white bg-white border rounded-pill px-2.5 py-0.5 fw-semibold" style="font-size: 0.74rem;" onclick="document.getElementById('settingsBlockStartTime').value='08:00'; document.getElementById('settingsBlockEndTime').value='13:00';">Mañana (08-13)</button>
+                            <button type="button" class="btn btn-sm btn-white bg-white border rounded-pill px-2.5 py-0.5 fw-semibold" style="font-size: 0.74rem;" onclick="document.getElementById('settingsBlockStartTime').value='14:00'; document.getElementById('settingsBlockEndTime').value='20:00';">Tarde (14-20)</button>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-sm-6">
+                            <label class="form-label text-dark small fw-bold mb-1">Hora Inicio</label>
+                            <input type="time" name="start_time" id="settingsBlockStartTime" value="08:00" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label text-dark small fw-bold mb-1">Hora Fin</label>
+                            <input type="time" name="end_time" id="settingsBlockEndTime" value="13:00" class="form-control form-control-lg bg-white border rounded-3 shadow-none fs-6">
+                        </div>
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">Motivo del Bloqueo *</label>
-                    <input type="text" name="reason" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Vacaciones, Quirófano, Congreso..." required>
+                    <label class="form-label text-dark small fw-bold mb-2">Motivo del Bloqueo *</label>
+                    <input type="text" name="reason" class="form-control bg-white border rounded-3 py-2.5 px-3 shadow-none" placeholder="Ej: Vacaciones, Quirófano, Congreso, Trámite..." required>
                 </div>
 
-                <button type="submit" class="btn btn-outline-dark w-100 py-2 rounded-pill fw-bold shadow-sm">
+                <button type="submit" class="btn btn-warning text-dark w-100 py-2.5 rounded-pill fw-bold shadow-sm fs-6">
                     <i class="bi bi-lock-fill me-2"></i> Registrar Bloqueo
                 </button>
             </form>
@@ -250,6 +289,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
+    function toggleSettingsBlockTimeRow() {
+        const isTimeRange = document.getElementById('settingsBlockTimeRange')?.checked;
+        const row = document.getElementById('settingsBlockTimeRow');
+        if (row) {
+            if (isTimeRange) row.classList.remove('d-none');
+            else row.classList.add('d-none');
+        }
+    }
+
     function toggleDayRow(dayNum) {
         const active = document.getElementById(`dayActive_${dayNum}`).checked;
         const card = document.getElementById(`cardDay_${dayNum}`);

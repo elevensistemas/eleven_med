@@ -239,7 +239,7 @@ class ChatItController extends Controller
                 "type" => "function",
                 "function" => [
                     "name" => "get_clinic_statistics",
-                    "description" => "Obtiene todas las estadísticas avanzadas de la clínica: cantidad de pacientes por obra social, totales, etc. Úsala cuando pidan reportes numéricos o gráficos.",
+                    "description" => "Obtiene analítica integral de toda la clínica y el archivo: pacientes, edades y rangos etarios, coberturas/obras sociales, derivantes, consultas, cirugías (OD/OI y tipos), tiempos promedio de espera/consulta/dilatación/estudios, turnos, ausentismo y horarios pico de atención. Úsala siempre que el médico pida análisis, métricas, mejoras de atención o gráficos.",
                     "parameters" => [
                         "type" => "object",
                         "properties" => (object)[]
@@ -316,33 +316,66 @@ class ChatItController extends Controller
 
                         $functionResponseData = [];
                         if ($targetPatientBase) {
-                            $patientResultEager = Patient::with(['visits' => function($q) { $q->latest()->take(10); }, 'appointments' => function($q) { $q->where('date', '>=', date('Y-m-d')); }, 'surgeries' => function($q) { $q->latest(); }, 'studies' => function($q) { $q->latest(); }])->find($targetPatientBase->id);
+                            $patientResultEager = Patient::with([
+                                'visits' => function($q) { $q->with('doctor')->latest()->take(20); },
+                                'appointments' => function($q) { $q->with('doctor')->orderBy('date', 'desc')->take(20); },
+                                'surgeries' => function($q) { $q->with('doctor')->orderBy('surgery_date', 'desc'); },
+                                'studies' => function($q) { $q->latest(); },
+                                'assignments' => function($q) { $q->latest()->take(25); },
+                            ])->find($targetPatientBase->id);
+
+                            $edadStr = $patientResultEager->date_of_birth
+                                ? \Carbon\Carbon::parse($patientResultEager->date_of_birth)->age . ' años (Nac: ' . \Carbon\Carbon::parse($patientResultEager->date_of_birth)->format('d/m/Y') . ')'
+                                : 'Sin fecha de nacimiento';
 
                             $history = $patientResultEager->visits->map(function($v) {
-                                return "Fecha: " . $v->created_at->format('d/m/Y') . " -> Diagnostico: " . ($v->diagnostico ?? 'S/D') . ". Motivo: " . ($v->motivo_consulta ?? 'S/D');
+                                $doc = $v->doctor->name ?? 'Staff';
+                                return "Fecha: " . $v->created_at->format('d/m/Y H:i')
+                                    . " (Dr. {$doc}) -> Motivo: " . ($v->motivo_consulta ?: '-')
+                                    . " | Diagnóstico: " . ($v->diagnostico ?: '-')
+                                    . " | PIO: " . ($v->pio ?: '-')
+                                    . " | BMC: " . ($v->bmc ?: '-')
+                                    . " | OBI: " . ($v->obi ?: '-')
+                                    . " | AV/Anteojos Lejos OD: " . ($v->av_od_lejos ?: '-') . " / OI: " . ($v->av_oi_lejos ?: '-')
+                                    . " | AV/Anteojos Cerca OD: " . ($v->av_od_cerca ?: '-') . " / OI: " . ($v->av_oi_cerca ?: '-')
+                                    . " | Ant. Oftalm.: " . ($v->antecedentes_oftalmologicos ?: '-')
+                                    . " | Medicación/Trat.: " . ($v->tratamiento_oftalmologico ?: '-')
+                                    . " | Ant. Grales: " . ($v->antecedentes_generales ?: '-');
                             })->implode(' || ');
                             
-                            $futurosTurnos = $patientResultEager->appointments->map(function($a) {
-                                return "Turno pendiente el: {$a->date} a las {$a->time}";
+                            $turnosInfo = $patientResultEager->appointments->map(function($a) {
+                                return "{$a->date} " . substr($a->time, 0, 5) . " hs (Estado: {$a->status}, Motivo: " . ($a->reason ?: '-') . ")";
                             })->implode(' || ');
 
                             $cirugias = $patientResultEager->surgeries->map(function($s) {
-                                return "Cirugía ojo {$s->eye} el {$s->surgery_date->format('d/m/Y')}. Notas: " . ($s->notes ?? 'N/A');
+                                $f = $s->surgery_date ? $s->surgery_date->format('d/m/Y') : '-';
+                                return "Cirugía Ojo {$s->eye} el {$f}. Detalle/LIO: " . ($s->notes ?? 'N/A');
                             })->implode(' || ');
 
+                            $tiemposPaciente = $patientResultEager->assignments->filter(fn($as) => $as->started_at && $as->ended_at)->map(function($as) {
+                                return $as->created_at->format('d/m/Y') . " {$as->event_type}: " . $as->started_at->diffInMinutes($as->ended_at) . " min";
+                            })->implode(' | ');
+
                             $estudios = $patientResultEager->studies->map(function($s) {
-                                $path = \Illuminate\Support\Facades\Storage::url($s->file_path);
-                                return "Estudio: " . ($s->study_type ?? 'Estudio Médico') . " del " . $s->created_at->format('d/m/Y') . ". Para mostrar la imagen incrustada en tu respuesta usa este código markdown exacto: ![" . ($s->study_type ?? 'Imagen') . "](" . $path . ")";
+                                $path = route('studies.show', $s);
+                                return "Estudio: " . ($s->study_type ?? 'Estudio Médico') . " (" . ($s->original_name ?? '') . ") del " . $s->created_at->format('d/m/Y') . ($s->notes ? " Notas: {$s->notes}." : ".") . " Código imagen: ![" . ($s->study_type ?? 'Imagen') . "](" . $path . ")";
                             })->implode(' || ');
 
                             $functionResponseData = [
                                 "estado" => "éxito",
+                                "carpeta_nro" => $patientResultEager->code ?: sprintf('%06d', $patientResultEager->id),
                                 "paciente_encontrado_dni" => $patientResultEager->dni,
                                 "paciente_encontrado_nombre" => mb_strtoupper($patientResultEager->last_name . ', ' . $patientResultEager->first_name),
-                                "ultimo_historial_clinico" => empty($history) ? "Paciente nuevo, sin historia." : $history,
-                                "proximos_turnos_agendados" => empty($futurosTurnos) ? "No tiene turnos futuros." : $futurosTurnos,
+                                "edad_y_nacimiento" => $edadStr,
+                                "cobertura_obra_social" => ($patientResultEager->obra_social ?: 'Particular') . ($patientResultEager->plan ? ' Plan ' . $patientResultEager->plan : '') . ' (Nro Afiliado: ' . ($patientResultEager->affiliate_number ?: 'S/D') . ')',
+                                "derivado_recomendado_por" => $patientResultEager->recommendation ?: 'No especificado',
+                                "telefono_contacto" => $patientResultEager->phone ?: 'S/D',
+                                "comentarios_medicos_internos" => $patientResultEager->medical_notes ?: 'Ninguno',
+                                "historial_consultas_completo" => empty($history) ? "Paciente nuevo, sin consultas." : $history,
+                                "historial_y_proximos_turnos" => empty($turnosInfo) ? "Sin turnos registrados." : $turnosInfo,
+                                "tiempos_registrados_sala_consulta" => empty($tiemposPaciente) ? "Sin registros de tiempos." : $tiemposPaciente,
                                 "historial_quirurgico" => empty($cirugias) ? "No tiene cirugías registradas." : $cirugias,
-                                "estudios_medicos" => empty($estudios) ? "No tiene estudios cargados en el sistema. Avisar al doctor." : $estudios
+                                "estudios_medicos" => empty($estudios) ? "No tiene estudios cargados en el sistema." : $estudios
                             ];
                         } elseif ($patientResult->count() > 1) {
                             $functionResponseData = ["estado" => "fallo", "error" => "Detecté múltiples pacientes parecidos a '{$searchQuery}'. Pídele al doctor el nombre más exacto posible."];
@@ -373,7 +406,7 @@ class ChatItController extends Controller
                                 $finalReply = "Recuperé la historia de la base de datos, pero la IA entró en un ciclo de búsqueda. Aquí tienes los datos en crudo:\n\n" . json_encode($functionResponseData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
                             } elseif (empty(trim($finalReply))) {
                                 // Forced fallback with the raw data so the user at least sees it!
-                                $finalReply = "Aquí están los datos recuperados:\n\n" . $functionResponseData['ultimo_historial_clinico'] . "\n\n" . ($functionResponseData['estudios_medicos'] ?? '');
+                                $finalReply = "Aquí están los datos recuperados:\n\n" . ($functionResponseData['historial_consultas_completo'] ?? '') . "\n\n" . ($functionResponseData['estudios_medicos'] ?? '');
                             }
                             
                             return response()->json(['success' => true, 'reply' => $finalReply]);
@@ -492,23 +525,116 @@ class ChatItController extends Controller
                             return response()->json(['error' => 'Error BD Agenda: ' . $res2->body()], 500);
                         }
                     } elseif ($funcName === 'get_clinic_statistics') {
-                        $counts = \App\Models\Patient::select('obra_social', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
-                            ->whereNotNull('obra_social')
-                            ->where('obra_social', '!=', '')
-                            ->groupBy('obra_social')
+                        // 1. Coberturas / Obras Sociales (incluyendo Particulares)
+                        $counts = \App\Models\Patient::selectRaw('COALESCE(NULLIF(obra_social, ""), "Particular") as os_label, count(*) as total')
+                            ->groupBy('os_label')
+                            ->orderByDesc('total')
                             ->get();
-                        
-                        $formatted = [];
+                        $porObraSocial = [];
                         foreach ($counts as $row) {
-                            $formatted[$row->obra_social] = $row->total;
+                            $porObraSocial[$row->os_label] = (int)$row->total;
                         }
-                        
+
+                        // 2. Edades y Rangos Etarios
+                        $allDobs = \App\Models\Patient::whereNotNull('date_of_birth')->pluck('date_of_birth');
+                        $ageBuckets = ['0-17_pediatricos' => 0, '18-39_adultos_jovenes' => 0, '40-64_adultos' => 0, '65+_adultos_mayores' => 0];
+                        $sumAges = 0;
+                        $validAges = 0;
+                        foreach ($allDobs as $dob) {
+                            $a = \Carbon\Carbon::parse($dob)->age;
+                            if ($a >= 0 && $a <= 120) {
+                                $sumAges += $a;
+                                $validAges++;
+                                if ($a < 18) $ageBuckets['0-17_pediatricos']++;
+                                elseif ($a < 40) $ageBuckets['18-39_adultos_jovenes']++;
+                                elseif ($a < 65) $ageBuckets['40-64_adultos']++;
+                                else $ageBuckets['65+_adultos_mayores']++;
+                            }
+                        }
+                        $edadPromedio = $validAges > 0 ? round($sumAges / $validAges, 1) : null;
+
+                        // 3. Principales Derivantes / Recomendadores
+                        $derivantes = \App\Models\Patient::whereNotNull('recommendation')
+                            ->where('recommendation', '!=', '')
+                            ->selectRaw('recommendation, count(*) as total')
+                            ->groupBy('recommendation')
+                            ->orderByDesc('total')
+                            ->limit(10)
+                            ->pluck('total', 'recommendation')
+                            ->toArray();
+
+                        // 4. Cirugías (Totales, por Ojo OD/OI, y procedimientos recientes)
+                        $totalCirugias = \App\Models\PatientSurgery::count();
+                        $cirugiasPorOjo = \App\Models\PatientSurgery::selectRaw('COALESCE(eye, "S/E") as ojo, count(*) as total')
+                            ->groupBy('ojo')
+                            ->pluck('total', 'ojo')
+                            ->toArray();
+
+                        // 5. Consultas Clínicas
+                        $totalConsultas = \App\Models\Visit::count();
+                        $consultasUltimos14d = \App\Models\Visit::where('created_at', '>=', \Carbon\Carbon::now()->subDays(14))->count();
+                        $consultasUltimos30d = \App\Models\Visit::where('created_at', '>=', \Carbon\Carbon::now()->subDays(30))->count();
+
+                        // 6. Tiempos Promedio de Sala de Espera, Consulta, Dilatación y Estudios (filtrando registros del mismo día <= 360 min)
+                        $completedAssigns = \App\Models\PatientAssignment::where('status', 'completed')
+                            ->whereNotNull('started_at')
+                            ->whereNotNull('ended_at')
+                            ->get(['event_type', 'started_at', 'ended_at', 'session_id']);
+
+                        $timeSums = [];
+                        $timeCounts = [];
+                        foreach ($completedAssigns as $as) {
+                            $m = max(0, \Carbon\Carbon::parse($as->started_at)->diffInMinutes(\Carbon\Carbon::parse($as->ended_at)));
+                            if ($m <= 360) {
+                                $et = $as->event_type;
+                                $timeSums[$et] = ($timeSums[$et] ?? 0) + $m;
+                                $timeCounts[$et] = ($timeCounts[$et] ?? 0) + 1;
+                            }
+                        }
+                        $tiemposPromedioMinutos = [];
+                        foreach ($timeSums as $et => $s) {
+                            $tiemposPromedioMinutos[$et] = round($s / max(1, $timeCounts[$et]), 1) . ' min (sobre ' . $timeCounts[$et] . ' registros)';
+                        }
+
+                        // 7. Turnos, Ausentismo y Horarios Pico
+                        $totalTurnos = \App\Models\Appointment::count();
+                        $turnosPorEstado = \App\Models\Appointment::selectRaw('status, count(*) as total')
+                            ->groupBy('status')
+                            ->pluck('total', 'status')
+                            ->toArray();
+                        $horariosPico = \App\Models\Appointment::selectRaw('SUBSTRING(time, 1, 2) as hora, count(*) as total')
+                            ->groupBy('hora')
+                            ->orderByDesc('total')
+                            ->limit(6)
+                            ->get()
+                            ->mapWithKeys(fn($r) => [$r->hora . ':00 hs' => (int)$r->total])
+                            ->toArray();
+
                         $total = \App\Models\Patient::count();
                         
                         $functionResponseData = [
                             "estado" => "éxito",
                             "total_pacientes_registrados" => $total,
-                            "datos_pacientes_por_obra_social" => $formatted
+                            "edad_promedio_pacientes" => $edadPromedio ? ($edadPromedio . " años") : "S/D",
+                            "distribucion_por_edades" => $ageBuckets,
+                            "datos_pacientes_por_obra_social_cobertura" => $porObraSocial,
+                            "principales_derivantes_recomendadores" => $derivantes,
+                            "consultas_clinicas" => [
+                                "total_historico" => $totalConsultas,
+                                "ultimos_14_dias" => $consultasUltimos14d,
+                                "ultimos_30_dias" => $consultasUltimos30d,
+                                "diagnosticos_frecuentes" => $topDiagnosticos,
+                            ],
+                            "cirugias" => [
+                                "total_cirugias" => $totalCirugias,
+                                "por_ojo_OD_OI" => $cirugiasPorOjo,
+                            ],
+                            "tiempos_promedio_atencion_y_espera" => $tiemposPromedioMinutos,
+                            "agenda_y_turnos" => [
+                                "total_turnos_registrados" => $totalTurnos,
+                                "desglose_por_estado" => $turnosPorEstado,
+                                "franjas_horarias_mas_demandadas" => $horariosPico,
+                            ],
                         ];
 
                         $secondPayload = $payload;

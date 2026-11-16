@@ -31,33 +31,56 @@
         <div class="modern-card p-4">
             <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-database-fill-down me-2 text-primary"></i>Gestión de Base de Datos</h5>
             
-            <div class="d-flex flex-column p-4 border rounded-4 bg-light mb-3" style="border: 1px solid rgba(0,0,0,0.05) !important;">
+            <!-- 1. BACKUP COMPLETO MULTIPLATAFORMA MAC & WINDOWS (.XLSX) -->
+            <div class="d-flex flex-column p-4 border rounded-4 bg-light mb-3" style="border: 1.5px solid rgba(30, 60, 114, 0.2) !important;">
                 <div class="d-flex align-items-center mb-3">
-                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3" style="width: 50px; height: 50px; background: linear-gradient(135deg, #20c997 0%, #198754 100%);">
-                        <i class="bi bi-file-earmark-excel-fill fs-4"></i>
+                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3 flex-shrink-0" style="width: 50px; height: 50px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                        <i class="bi bi-file-earmark-spreadsheet-fill fs-4"></i>
                     </div>
                     <div>
-                        <h6 class="fw-bold text-dark mb-1">Exportar Pacientes a Excel</h6>
-                        <small class="text-muted d-block" style="line-height: 1.3;">Descarga un extracto consolidado de pacientes, historia clínica y cirugías.</small>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <h6 class="fw-bold text-dark mb-0">Backup Completo Legible (.XLSX - Mac & Windows)</h6>
+                            <span class="badge bg-primary rounded-pill">Recomendado</span>
+                        </div>
+                        <small class="text-muted d-block" style="line-height: 1.35;">
+                            Abre directo con doble clic en <strong>Mac (Numbers / Excel)</strong> y <strong>Windows (Excel)</strong>. Incluye 5 pestañas completas: Pacientes + N° Cobertura + Derivante, Consultas (PIO, Anteojos OD/OI, BMC, OBI, Medicación), Cirugías (con Ojo OD/OI), Turnos y Tiempos.
+                        </small>
                     </div>
                 </div>
-                <a href="{{ route('config.export.patients') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%); border: none;">
-                    <i class="bi bi-download me-1"></i> Descargar Base (.CSV)
+                <a href="{{ route('config.backup.xlsx') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border: none;">
+                    <i class="bi bi-download me-1"></i> Descargar Backup Completo Multi-Hoja (.XLSX)
+                </a>
+            </div>
+
+            <!-- 2. PLANILLA PLANA CONSOLIDADA (.CSV) -->
+            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-3" style="border: 1px solid rgba(0,0,0,0.06) !important;">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3 flex-shrink-0" style="width: 44px; height: 44px; background: linear-gradient(135deg, #20c997 0%, #198754 100%);">
+                        <i class="bi bi-file-earmark-excel-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">Exportar Planilla Consolidada (.CSV - Mac & Windows)</h6>
+                        <small class="text-muted d-block" style="line-height: 1.3;">Una sola tabla unificada con todos los pacientes, N° de cobertura, PIO, aumentos de anteojos, cirugías con ojo OD/OI y estudios.</small>
+                    </div>
+                </div>
+                <a href="{{ route('config.export.patients') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill btn-sm" style="background: linear-gradient(135deg, #20c997 0%, #198754 100%); border: none;">
+                    <i class="bi bi-download me-1"></i> Descargar Planilla Consolidada (.CSV)
                 </a>
             </div>
             
-            <div class="d-flex flex-column p-4 border rounded-4 bg-light mb-3" style="border: 1px solid rgba(0,0,0,0.05) !important;">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3" style="width: 50px; height: 50px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-                        <i class="bi bi-database-fill-check fs-4"></i>
+            <!-- 3. RESGUARDO TÉCNICO DE SERVIDOR (.SQL) -->
+            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-1" style="border: 1px solid rgba(0,0,0,0.06) !important;">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3 flex-shrink-0" style="width: 44px; height: 44px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+                        <i class="bi bi-database-fill-check fs-5"></i>
                     </div>
                     <div>
-                        <h6 class="fw-bold text-dark mb-1">Copia de Seguridad Completa (SQL)</h6>
-                        <small class="text-muted d-block" style="line-height: 1.3;">Descarga un volcado completo de la base de datos (tablas, pacientes, historias clínicas, turnos y notas).</small>
+                        <h6 class="fw-bold text-dark mb-1">Resguardo Técnico de Base de Datos (.SQL - Informática)</h6>
+                        <small class="text-muted d-block" style="line-height: 1.3;">Archivo técnico de restauración para servidores MySQL (uso de soporte informático).</small>
                     </div>
                 </div>
-                <a href="{{ route('config.backup.database') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
-                    <i class="bi bi-download me-1"></i> Descargar Backup de Base de Datos (.SQL)
+                <a href="{{ route('config.backup.database') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill btn-sm" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
+                    <i class="bi bi-hdd-stack me-1"></i> Descargar Resguardo Técnico (.SQL)
                 </a>
             </div>
         </div>

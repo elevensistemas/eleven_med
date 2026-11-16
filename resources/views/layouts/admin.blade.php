@@ -501,52 +501,65 @@
                     <i class="bi bi-clock"></i> <span id="omnibar-time">--</span>
                 </div>
 
-                <!-- Dropdown: Últimos Buscados -->
+                <!-- Reloj 1: Fichas Vistas / Revisadas (Últimos 14 días) -->
                 <div class="dropdown" data-id="recent">
-                    <i class="bi bi-clock-history omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Últimos pacientes buscados"></i>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 300px;">
-                        <li class="dropdown-header fw-bold text-primary">Vistos Recientemente</li>
+                    <div class="omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Fichas vistas / revisadas (Últimos 14 días)">
+                        <i class="bi bi-clock-history"></i>
+                        @if(isset($recentPatients) && count($recentPatients) > 0)
+                            <span class="omnibar-badge" style="background:#0dcaf0; color:#0b1121;">{{ count($recentPatients) }}</span>
+                        @endif
+                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 340px; max-height: 400px; overflow-y: auto;">
+                        <li class="dropdown-header fw-bold text-primary border-bottom mb-2 pb-2 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-folder2-open me-1"></i> Fichas Vistas (14 días)</span>
+                            <span class="badge bg-primary rounded-pill">{{ isset($recentPatients) ? count($recentPatients) : 0 }}</span>
+                        </li>
                         @if(isset($recentPatients) && count($recentPatients) > 0)
                             @foreach($recentPatients as $rp)
                                 <li>
-                                    <a class="dropdown-item py-2 d-flex align-items-center gap-2 rounded" href="{{ route('patients.show', $rp['id']) }}">
-                                        <i class="bi bi-person-circle text-muted"></i>
-                                        <div class="d-flex flex-column">
-                                            <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ mb_strtoupper($rp['name']) }}</span>
-                                            <small class="text-muted" style="font-size: 0.75rem;">DNI: {{ $rp['dni'] }}</small>
+                                    <a class="dropdown-item py-2 d-flex justify-content-between align-items-center gap-2 rounded border-bottom border-light" href="{{ route('patients.show', $rp['id']) }}">
+                                        <div class="d-flex flex-column text-truncate">
+                                            <span class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $rp['name'] }}</span>
+                                            <small class="text-muted" style="font-size: 0.73rem;">DNI: {{ $rp['dni'] }}</small>
                                         </div>
+                                        @if(!empty($rp['viewed_at']))
+                                            <small class="badge bg-light text-dark border font-monospace flex-shrink-0" style="font-size: 0.7rem;">
+                                                {{ \Carbon\Carbon::parse($rp['viewed_at'])->format('d/m/Y H:i') }}
+                                            </small>
+                                        @endif
                                     </a>
                                 </li>
                             @endforeach
                         @else
-                            <li><span class="dropdown-item text-muted small py-3 text-center">No hay historial reciente</span></li>
+                            <li><span class="dropdown-item text-muted small py-3 text-center">Sin fichas vistas en los últimos 14 días</span></li>
                         @endif
                     </ul>
                 </div>
 
-                <!-- Dropdown: Pacientes Consultados (Últimos 14 días) -->
+                <!-- Reloj 2: Consultas Realizadas (Últimos 14 días) -->
                 <div class="dropdown" data-id="consulted">
-                    <i class="bi bi-clock omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Pacientes consultados (Últimos 14 días)"></i>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 320px;">
-                        <li class="dropdown-header fw-bold text-success border-bottom mb-2 pb-2">
-                            <i class="bi bi-calendar-event me-1"></i> Consultados (Últimos 14 días)
+                    <div class="omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Consultas realizadas (Últimos 14 días)">
+                        <i class="bi bi-clock"></i>
+                        @if(isset($consultedPatients) && count($consultedPatients) > 0)
+                            <span class="omnibar-badge" style="background:#198754;">{{ count($consultedPatients) }}</span>
+                        @endif
+                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 350px; max-height: 400px; overflow-y: auto;">
+                        <li class="dropdown-header fw-bold text-success border-bottom mb-2 pb-2 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-journal-medical me-1"></i> Consultas (Últimos 14 días)</span>
+                            <span class="badge bg-success rounded-pill">{{ isset($consultedPatients) ? count($consultedPatients) : 0 }}</span>
                         </li>
                         @if(isset($consultedPatients) && count($consultedPatients) > 0)
                             @foreach($consultedPatients as $cp)
                                 <li>
-                                    <a class="dropdown-item py-2 d-flex align-items-center gap-2 rounded" href="{{ route('patients.show', $cp['id']) }}">
-                                        <div class="bg-success bg-opacity-10 text-success rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">
-                                            <i class="bi bi-person-check-fill"></i>
+                                    <a class="dropdown-item py-2 d-flex justify-content-between align-items-center gap-2 rounded border-bottom border-light" href="{{ route('patients.show', $cp['id']) }}">
+                                        <div class="d-flex flex-column text-truncate">
+                                            <span class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $cp['name'] }}</span>
+                                            <small class="text-muted" style="font-size: 0.73rem;">DNI: {{ $cp['dni'] }}</small>
                                         </div>
-                                        <div class="d-flex flex-column flex-grow-1">
-                                            <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ mb_strtoupper($cp['name']) }}</span>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <small class="text-muted" style="font-size: 0.75rem;">DNI: {{ $cp['dni'] }}</small>
-                                                <small class="badge bg-success bg-opacity-10 text-success font-monospace" style="font-size: 0.7rem;" title="{{ $cp['last_visited_at']->format('d/m/Y H:i') }}">
-                                                    {{ $cp['last_visited_at']->diffForHumans() }}
-                                                </small>
-                                            </div>
-                                        </div>
+                                        <small class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 font-monospace flex-shrink-0" style="font-size: 0.7rem;">
+                                            {{ $cp['last_visited_at']->format('d/m/Y H:i') }}
+                                        </small>
                                     </a>
                                 </li>
                             @endforeach
@@ -556,33 +569,64 @@
                     </ul>
                 </div>
 
-                <!-- Dropdown: Pacientes en Espera -->
+                <!-- Reloj 3: Pacientes en Sala y Atendidos (Últimos 14 días) -->
                 <div class="dropdown" data-id="waiting">
-                    <i class="bi bi-clock-fill omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Pacientes en Espera">
+                    @php
+                        $totalReloj3 = (isset($waitingAssignments) ? $waitingAssignments->count() : 0) + (isset($attendedPatients14d) ? count($attendedPatients14d) : 0);
+                    @endphp
+                    <div class="omnibar-icon" data-bs-toggle="dropdown" aria-expanded="false" title="Pacientes en Sala y Atendidos (Últimos 14 días)">
+                        <i class="bi bi-clock-fill"></i>
                         @if(isset($waitingAssignments) && $waitingAssignments->count() > 0)
                             <span class="omnibar-badge">{{ $waitingAssignments->count() }}</span>
+                        @elseif(isset($attendedPatients14d) && count($attendedPatients14d) > 0)
+                            <span class="omnibar-badge" style="background:#fd7e14;">{{ count($attendedPatients14d) }}</span>
                         @endif
-                    </i>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 350px;">
-                        <li class="dropdown-header fw-bold text-danger border-bottom mb-2 pb-2">
-                            <i class="bi bi-exclamation-circle-fill me-1"></i> Pacientes Aguardando
+                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3 p-2" style="width: 360px; max-height: 420px; overflow-y: auto;">
+                        <li class="dropdown-header fw-bold text-danger border-bottom mb-2 pb-2 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-people-fill me-1"></i> En Sala Hoy ({{ isset($waitingAssignments) ? $waitingAssignments->count() : 0 }})</span>
+                            <a href="{{ route('console.index') }}" class="badge bg-primary text-white text-decoration-none">Ir a Sala</a>
                         </li>
                         @if(isset($waitingAssignments) && $waitingAssignments->count() > 0)
                             @foreach($waitingAssignments as $waiting)
+                                @if($waiting->patient)
                                 <li>
-                                    <div class="dropdown-item py-2 d-flex flex-column gap-1 pointer-event-none rounded">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $waiting->patient->last_name }}</span>
-                                            <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill">{{ \Carbon\Carbon::parse($waiting->start_time)->diffForHumans(null, true) }}</span>
+                                    <a href="{{ route('patients.show', $waiting->patient->id) }}" class="dropdown-item py-2 d-flex justify-content-between align-items-center rounded bg-warning bg-opacity-10 mb-1">
+                                        <div>
+                                            <span class="fw-bold text-dark d-block" style="font-size: 0.88rem;">{{ $waiting->patient->last_name }}, {{ $waiting->patient->first_name }}</span>
+                                            <small class="text-muted" style="font-size: 0.73rem;">{{ $waiting->event_type }}</small>
                                         </div>
-                                        <small class="text-muted" style="font-size: 0.75rem;">Espera por: <b>{{ $waiting->doctor->name }}</b></small>
-                                    </div>
+                                        <span class="badge bg-danger rounded-pill font-monospace" style="font-size: 0.7rem;">
+                                            {{ $waiting->started_at ? $waiting->started_at->format('H:i') . ' hs' : 'En sala' }}
+                                        </span>
+                                    </a>
+                                </li>
+                                @endif
+                            @endforeach
+                        @else
+                            <li><span class="dropdown-item text-muted small py-2 text-center">Sala de espera vacía en este momento</span></li>
+                        @endif
+
+                        <li class="dropdown-header fw-bold text-dark border-top border-bottom my-2 py-2 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-person-check-fill text-warning me-1"></i> Atendidos (Últimos 14 días)</span>
+                            <span class="badge bg-warning text-dark rounded-pill">{{ isset($attendedPatients14d) ? count($attendedPatients14d) : 0 }}</span>
+                        </li>
+                        @if(isset($attendedPatients14d) && count($attendedPatients14d) > 0)
+                            @foreach($attendedPatients14d as $att)
+                                <li>
+                                    <a class="dropdown-item py-2 d-flex justify-content-between align-items-center gap-2 rounded border-bottom border-light" href="{{ route('patients.show', $att['id']) }}">
+                                        <div class="d-flex flex-column text-truncate">
+                                            <span class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">{{ $att['name'] }}</span>
+                                            <small class="text-muted" style="font-size: 0.73rem;">DNI: {{ $att['dni'] }}</small>
+                                        </div>
+                                        <small class="badge bg-warning bg-opacity-25 text-dark border border-warning font-monospace flex-shrink-0" style="font-size: 0.7rem;">
+                                            {{ $att['date']->format('d/m/Y H:i') }}
+                                        </small>
+                                    </a>
                                 </li>
                             @endforeach
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a href="{{ route('console.index') }}" class="dropdown-item text-center fw-bold text-primary small py-2">Ir a la Consola</a></li>
                         @else
-                            <li><span class="dropdown-item text-muted small py-3 text-center">Sala de espera vacía</span></li>
+                            <li><span class="dropdown-item text-muted small py-2 text-center">Sin ingresos registrados en 14 días</span></li>
                         @endif
                     </ul>
                 </div>
@@ -1318,43 +1362,64 @@
             }
         });
 
+        // Función central del Intercomunicador: al recibir un mensaje nuevo en esta máquina,
+        // abre automáticamente la ventana de chat con el remitente mostrando todo el historial y listo para responder.
+        function handleIncomingIntercomMessage(msg) {
+            if (!msg || !msg.id) return;
+            if (document.getElementById('msg-wrapper-' + msg.id)) return; // Evitar duplicados si Echo y Poll coinciden
+
+            let audio = new Audio('{{ asset("sounds/icq.mp3") }}');
+            audio.play().catch(() => {});
+
+            let senderId = msg.sender_id;
+            let senderName = (msg.sender && msg.sender.name) ? msg.sender.name : 'Colega';
+
+            let widget = document.getElementById('floatingChatWidget');
+            let isChatOpen = !widget.classList.contains('d-none');
+            let isChatWithUser = !document.getElementById('activeChatArea').classList.contains('d-none')
+                                 && String(document.getElementById('chatTargetUser').value) === String(senderId);
+
+            if (isChatOpen && isChatWithUser) {
+                appendMessageUI(msg, false);
+                let container = document.getElementById('chatMessages');
+                container.scrollTop = container.scrollHeight;
+
+                axios.post(`{{ url('api/messages/read') }}`, { sender_id: senderId }, {
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+                }).then(markRes => {
+                    let badge = document.getElementById('globalChatBadge');
+                    if (markRes.data.unread_count > 0) {
+                        badge.innerText = markRes.data.unread_count;
+                        badge.classList.remove('d-none');
+                    } else {
+                        badge.innerText = '0';
+                        badge.classList.add('d-none');
+                    }
+                });
+            } else {
+                // Abrir automáticamente la pantalla de mensajes del Intercomunicador al destinatario con el historial completo
+                widget.classList.remove('d-none');
+                widget.classList.add('d-flex');
+                document.getElementById('floatingAIWidget').classList.add('d-none');
+                document.getElementById('floatingAIWidget').classList.remove('d-flex');
+
+                openChatArea(senderId, senderName);
+                setTimeout(() => {
+                    const inputEl = document.getElementById('chatInputMessage');
+                    if (inputEl) inputEl.focus();
+                }, 250);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             renderNotifications();
             if(window.Echo) {
-                // 1. Direct Messages Listener
+                // 1. Direct Messages Listener (WebSockets cuando esté disponible)
                 window.Echo.private(`chat.${authId}`)
                     .listen('MessageSent', (e) => {
-                        // Play ICQ Sound
-                        let audio = new Audio('{{ asset("sounds/icq.mp3") }}');
-                        audio.play().catch(err => console.log('Audio autoplay prevented'));
-
-                        let widget = document.getElementById('floatingChatWidget');
-                        let isChatOpen = !widget.classList.contains('d-none');
-                        let isChatWithUser = !document.getElementById('activeChatArea').classList.contains('d-none') && document.getElementById('chatTargetUser').value == e.message.sender_id;
-
-                        if (isChatOpen && isChatWithUser) {
-                            appendMessageUI(e.message, false);
-                            let container = document.getElementById('chatMessages');
-                            container.scrollTop = container.scrollHeight;
-                            
-                            // Auto mark as read since chat is open
-                            axios.post(`{{ url('api/messages/read') }}`, { sender_id: e.message.sender_id }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') } })
-                                .then(markRes => {
-                                    let badge = document.getElementById('globalChatBadge');
-                                    if(markRes.data.unread_count > 0) {
-                                        badge.innerText = markRes.data.unread_count;
-                                        badge.classList.remove('d-none');
-                                    } else {
-                                        badge.innerText = '0';
-                                        badge.classList.add('d-none');
-                                    }
-                                });
-                        } else {
-                            // Show Badge & Toast
-                            let b = document.getElementById('globalChatBadge');
-                            b.innerText = parseInt(b.innerText || 0) + 1;
-                            b.classList.remove('d-none');
-                            spawnToast('Nuevo Mensaje', `<b>${e.message.sender.name}</b>: ${e.message.content}`, 'chat-dots-fill', 'primary');
+                        if (e && e.message) {
+                            sessionStorage.setItem('intercom_last_msg_id_' + authId, String(e.message.id));
+                            handleIncomingIntercomMessage(e.message);
                         }
                     })
                     .listen('MessageRead', (e) => {
@@ -1421,7 +1486,41 @@
                     });
             }
 
-            // 4. Time-Based Alerts Polling
+            // 4. Intercomunicador Real-Time Polling (Garantiza apertura inmediata entre dos máquinas incluso en Hosting compartido)
+            function pollIntercomMessages() {
+                const storageKey = 'intercom_last_msg_id_' + authId;
+                const savedLastId = sessionStorage.getItem(storageKey);
+                const afterParam = savedLastId !== null ? parseInt(savedLastId, 10) : 0;
+
+                axios.get(`{{ url('api/messages/poll/incoming') }}?after_id=${afterParam}`)
+                    .then(res => {
+                        const data = res.data || {};
+                        const msgs = data.messages || [];
+
+                        if (savedLastId === null) {
+                            // Primera carga de sesión: registrar max_id actual y si había mensaje sin leer, abrir el chat
+                            sessionStorage.setItem(storageKey, String(data.max_id || 0));
+                            if (msgs.length > 0) {
+                                handleIncomingIntercomMessage(msgs[msgs.length - 1]);
+                            }
+                            return;
+                        }
+
+                        if (msgs.length > 0) {
+                            msgs.forEach(m => {
+                                if (m.id > afterParam) {
+                                    sessionStorage.setItem(storageKey, String(m.id));
+                                    handleIncomingIntercomMessage(m);
+                                }
+                            });
+                        }
+                    }).catch(() => {});
+            }
+
+            pollIntercomMessages();
+            setInterval(pollIntercomMessages, 5000);
+
+            // 5. Time-Based Alerts Polling
             let notifiedDilationIds = [];
             setInterval(() => {
                 axios.get(`{{ url('api/notifications/poll') }}?exclude=${notifiedDilationIds.join(',')}`)

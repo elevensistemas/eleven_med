@@ -30,104 +30,17 @@
 
 <div class="modern-card p-4">
 
-    <!-- Bloque Superior: Consulta Anterior en Detalle (Desplegable y Copiable) -->
-    @if(isset($lastVisit) && $lastVisit)
-        <div class="card border rounded-4 shadow-sm mb-4" style="background: linear-gradient(135deg, rgba(30, 60, 114, 0.04) 0%, rgba(42, 82, 152, 0.07) 100%); border: 1.5px solid rgba(42, 82, 152, 0.25) !important;">
-            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3 px-4 flex-wrap gap-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#prevVisitCollapse">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="badge rounded-pill px-3 py-2 text-white shadow-sm" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
-                        <i class="bi bi-clock-history me-1"></i> Consulta Anterior: {{ $lastVisit->created_at->format('d/m/Y - H:i') }}
-                    </span>
-                    <span class="text-dark small fw-bold"><i class="bi bi-person me-1 text-primary"></i> Dr. {{ $lastVisit->doctor->name ?? 'Staff' }}</span>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-white bg-white border rounded-pill px-3 py-1 shadow-sm text-primary fw-bold" onclick="copyPreviousVisitData(event)">
-                        <i class="bi bi-clipboard-plus me-1 text-success"></i> Copiar antecedentes a esta consulta
-                    </button>
-                    <button type="button" class="btn btn-sm btn-light rounded-circle p-1" style="width: 30px; height: 30px;">
-                        <i class="bi bi-chevron-down" id="prevVisitIcon"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="collapse show" id="prevVisitCollapse">
-                <div class="card-body pt-0 px-4 pb-4 border-top border-secondary border-opacity-10 mt-2">
-                    <div class="row g-3 small mt-1">
-                        <div class="col-md-6">
-                            <div class="p-3 bg-white rounded-3 border shadow-sm">
-                                <strong class="text-primary d-block mb-1"><i class="bi bi-chat-square-text me-1"></i> Motivo Previo:</strong>
-                                <div class="text-dark" id="prevMotivo">{{ $lastVisit->motivo_consulta ?: 'Sin registrar' }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-white rounded-3 border shadow-sm">
-                                <strong class="text-danger d-block mb-1"><i class="bi bi-check2-circle me-1"></i> Diagnóstico Previo:</strong>
-                                <div class="text-dark fw-bold" id="prevDiag">{{ $lastVisit->diagnostico ?: 'Sin registrar' }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-white rounded-3 border shadow-sm">
-                                <strong class="text-secondary d-block mb-1"><i class="bi bi-eye me-1"></i> Ant. Oftalmológicos:</strong>
-                                <div class="text-dark" id="prevAntOft">{{ $lastVisit->antecedentes_oftalmologicos ?: '-' }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-white rounded-3 border shadow-sm">
-                                <strong class="text-success d-block mb-1"><i class="bi bi-capsule me-1"></i> Tratamiento Oftalmológico:</strong>
-                                <div class="text-dark fw-bold text-success" id="prevTratOft">{{ $lastVisit->tratamiento_oftalmologico ?: '-' }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-white rounded-3 border shadow-sm">
-                                <strong class="text-secondary d-block mb-1"><i class="bi bi-activity me-1"></i> Examen Físico:</strong>
-                                <div class="text-dark">
-                                    <span class="me-2"><strong>PIO:</strong> {{ $lastVisit->pio ?: '-' }}</span> | 
-                                    <span class="mx-2"><strong>BMC:</strong> {{ $lastVisit->bmc ?: '-' }}</span> | 
-                                    <span class="ms-2"><strong>OBI:</strong> {{ $lastVisit->obi ?: '-' }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-white rounded-3 border shadow-sm">
-                                <strong class="text-secondary d-block mb-1"><i class="bi bi-eyeglasses me-1"></i> Agudeza Visual:</strong>
-                                <div class="text-dark">
-                                    <span class="me-2"><strong>Lejos:</strong> OD {{ $lastVisit->av_od_lejos ?: '-' }} / OI {{ $lastVisit->av_oi_lejos ?: '-' }}</span> | 
-                                    <span class="ms-2"><strong>Cerca:</strong> OD {{ $lastVisit->av_od_cerca ?: '-' }} / OI {{ $lastVisit->av_oi_cerca ?: '-' }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @else
-        <div class="alert alert-light border rounded-4 shadow-sm mb-4 d-flex align-items-center gap-2 text-muted small py-2 px-3">
-            <i class="bi bi-info-circle text-primary fs-5"></i>
-            <span>Esta es la <strong>primera consulta registrada</strong> del paciente. Puedes completar los antecedentes que se guardarán para futuras consultas.</span>
-        </div>
-    @endif
+    {{-- Encabezado General del Paciente + Visor Scrolleable "El Ojito" con TODA la Historia Clínica Previa --}}
+    @include('patients.partials.consultation_header', [
+        'patient' => $patient,
+        'previousVisits' => $previousVisits ?? collect(),
+        'surgeries' => $surgeries ?? collect(),
+        'formId' => 'formNewVisit',
+        'defaultOpenOjito' => true,
+    ])
 
     <form id="formNewVisit" action="{{ route('patient.visits.store', $patient) }}" method="POST">
         @csrf
-        
-        <!-- Información de Ficha: Derivación y Comentarios Médicos -->
-        <div class="card border rounded-4 shadow-sm p-3 mb-4" style="background: linear-gradient(135deg, rgba(94, 106, 210, 0.04) 0%, rgba(126, 68, 139, 0.04) 100%); border: 1.5px solid rgba(94, 106, 210, 0.15) !important;">
-            <div class="row g-3">
-                <div class="col-md-6 border-end pe-md-3">
-                    <label class="form-label text-dark small fw-bold d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-person-lines-fill text-primary me-1"></i> Derivado / Recomendado por</span>
-                        <small class="text-muted fw-normal" style="font-size:0.75rem;">Ficha del Paciente</small>
-                    </label>
-                    <input type="text" name="recommendation" value="{{ old('recommendation', $patient->recommendation) }}" class="form-control bg-white border shadow-none rounded-3" placeholder="Ej: Dr. Pérez, Óptica San Martín, Familiar...">
-                </div>
-                <div class="col-md-6 ps-md-3">
-                    <label class="form-label text-dark small fw-bold d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-journal-text text-warning me-1"></i> COMENTARIOS MÉDICOS</span>
-                        <span class="badge bg-warning bg-opacity-25 text-dark border border-warning" style="font-size:0.65rem;">Solo Consultorio (No se imprime)</span>
-                    </label>
-                    <textarea name="medical_notes" rows="1" class="form-control bg-white border shadow-none rounded-3 auto-expand" style="min-height: 38px; resize: none; overflow-y: hidden; font-size:0.85rem;" placeholder="Notas y comentarios médicos permanentes del paciente...">{{ old('medical_notes', $patient->medical_notes) }}</textarea>
-                </div>
-            </div>
-        </div>
 
         <!-- Bloque 1: Visita Actual -->
         <h5 class="fw-bold text-primary mb-3 border-bottom pb-2 d-flex align-items-center justify-content-between">
@@ -228,9 +141,12 @@
             </div>
         </div>
 
-        <div class="text-end pt-4 border-top mt-4 d-flex justify-content-end gap-3 align-items-center">
-            <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm fs-5" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
-                <i class="bi bi-save me-2"></i> Guardar Historia Clínica
+        <div class="text-end pt-4 border-top mt-4 d-flex justify-content-end gap-3 align-items-center flex-wrap">
+            <button type="submit" class="btn btn-outline-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
+                <i class="bi bi-save me-2"></i> Guardar (Dejar Consulta Abierta)
+            </button>
+            <button type="submit" name="close_visit" value="1" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm fs-5 text-white" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                <i class="bi bi-check2-circle me-2"></i> Guardar y Cerrar Consulta
             </button>
         </div>
 

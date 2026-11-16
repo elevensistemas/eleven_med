@@ -90,69 +90,114 @@ class ConfigController extends Controller
     }
 
     /**
-     * Exporta la base de pacientes a Excel (CSV nativo).
+     * Exporta la base consolidada de pacientes a CSV compatible con Excel (Windows y Mac) con TODOS los datos clínicos.
      */
     public function exportPatientsToExcel()
     {
         $headers = [
             'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
             'Content-type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename=Listado_Pacientes_' . date('Ymd_His') . '.csv',
+            'Content-Disposition' => 'attachment; filename=Pacientes_Historia_Completa_' . date('Ymd_His') . '.csv',
             'Expires'             => '0',
             'Pragma'              => 'public'
         ];
 
-        $patients = Patient::with(['visits', 'surgeries'])->get();
+        $patients = Patient::with(['visits.doctor', 'surgeries.doctor', 'studies'])->orderBy('last_name')->get();
 
         $callback = function() use ($patients) {
             $file = fopen('php://output', 'w');
             
-            // BOM to force Excel to read UTF-8 correctly
+            // BOM UTF-8 para lectura directa en Excel (Windows y Mac)
             fputs($file, "\xEF\xBB\xBF");
             
             fputcsv($file, [
+                'Nro Carpeta',
                 'ID',
                 'DNI',
                 'Apellido',
                 'Nombre',
-                'Nacimiento (Edad)',
-                'Obra Social o Plan',
+                'Fecha Nacimiento',
+                'Edad',
+                'Obra Social / Cobertura',
+                'Plan',
+                'Nro Afiliado / Cobertura',
+                'Derivado / Recomendado por',
                 'Telefono',
-                'Resumen Visitas Clinicas',
-                'Resumen Cirugias',
-                'Antecedentes'
+                'Email',
+                'Direccion',
+                'Profesion',
+                'Condicion IVA',
+                'Consultas Completas (Fecha, Medico, Motivo, Diagnostico, PIO, BMC, OBI, Anteojos/AV OD-OI Lejos/Cerca, Antecedentes y Medicacion)',
+                'Cirugias (Fecha, Ojo OD/OI, Procedimiento/LIO y Cirujano)',
+                'Estudios Cargados',
+                'Comentarios Medicos Internos'
             ], ';');
 
             foreach ($patients as $pt) {
-                // Formatear Visitas
-                $visitsText = collect($pt->visits)->map(function ($visit) {
-                    $date = $visit->created_at->format('d/m/Y');
-                    return "[{$date}] Motivo: " . ($visit->motivo_consulta ?? '-') 
-                        . " | Diag: " . ($visit->medical_history ?? 'Sin registro evolutivo');
+                $carpeta = $pt->code ?: sprintf('%06d', $pt->id);
+
+                // Formatear todas las consultas con absolutamente todas las áreas
+                $visitsText = collect($pt->visits)->sortByDesc('created_at')->map(function ($visit) {
+                    $date = $visit->created_at ? $visit->created_at->format('d/m/Y H:i') : '-';
+                    $doc = $visit->doctor->name ?? 'Staff';
+                    $parts = ["[{$date} - Dr. {$doc}]"];
+                    if ($visit->motivo_consulta) $parts[] = "Motivo: {$visit->motivo_consulta}";
+                    if ($visit->diagnostico) $parts[] = "Diagnóstico: {$visit->diagnostico}";
+                    if ($visit->pio) $parts[] = "PIO: {$visit->pio}";
+                    if ($visit->bmc) $parts[] = "BMC: {$visit->bmc}";
+                    if ($visit->obi) $parts[] = "OBI: {$visit->obi}";
+                    if ($visit->otros_examen) $parts[] = "Otros: {$visit->otros_examen}";
+                    if ($visit->av_od_lejos || $visit->av_oi_lejos) {
+                        $parts[] = "AV/Anteojos Lejos -> OD: " . ($visit->av_od_lejos ?: '-') . " | OI: " . ($visit->av_oi_lejos ?: '-');
+                    }
+                    if ($visit->av_od_cerca || $visit->av_oi_cerca) {
+                        $parts[] = "AV/Anteojos Cerca -> OD: " . ($visit->av_od_cerca ?: '-') . " | OI: " . ($visit->av_oi_cerca ?: '-');
+                    }
+                    if ($visit->antecedentes_oftalmologicos) $parts[] = "Ant. Oftalmológicos: {$visit->antecedentes_oftalmologicos}";
+                    if ($visit->tratamiento_oftalmologico) $parts[] = "Medicación/Trat. Oftalm.: {$visit->tratamiento_oftalmologico}";
+                    if ($visit->antecedentes_generales) $parts[] = "Ant. Generales: {$visit->antecedentes_generales}";
+                    if ($visit->tratamientos_generales) $parts[] = "Trat. Generales: {$visit->tratamientos_generales}";
+                    return implode(' | ', $parts);
                 })->implode("\n\n");
 
-                // Formatear Cirugias
-                $surgeriesText = collect($pt->surgeries)->map(function ($surg) {
-                    $date = \Carbon\Carbon::parse($surg->surgery_date)->format('d/m/Y');
-                    return "[{$date}] Ojo: {$surg->eye_operated} | Cirugia: {$surg->surgery_type}" 
-                        . ($surg->notes ? " | Obs: {$surg->notes}" : '');
+                // Formatear Cirugías incluyendo OJO (OD / OI), fecha, procedimiento/notas y cirujano
+                $surgeriesText = collect($pt->surgeries)->sortByDesc('surgery_date')->map(function ($surg) {
+                    $date = $surg->surgery_date ? \Carbon\Carbon::parse($surg->surgery_date)->format('d/m/Y') : '-';
+                    $ojo = $surg->eye ?: 'S/E';
+                    $doc = $surg->doctor ? " (Cirujano: {$surg->doctor->name})" : '';
+                    return "[{$date}] OJO: {$ojo} | QX / Detalle: " . ($surg->notes ?: '-') . $doc;
                 })->implode("\n\n");
 
-                // Calcular Edad y fecha segura
+                // Formatear Estudios
+                $studiesText = collect($pt->studies)->sortByDesc('created_at')->map(function ($st) {
+                    $date = $st->created_at ? $st->created_at->format('d/m/Y') : '-';
+                    return "[{$date}] " . ($st->study_type ?: 'Estudio') . ": " . ($st->original_name ?: '') . ($st->notes ? " ({$st->notes})" : '');
+                })->implode(" | ");
+
                 $age = $pt->date_of_birth ? \Carbon\Carbon::parse($pt->date_of_birth)->age . ' años' : 'S/D';
                 $dob = $pt->date_of_birth ? \Carbon\Carbon::parse($pt->date_of_birth)->format('d/m/Y') : 'S/D';
 
                 fputcsv($file, [
+                    $carpeta,
                     $pt->id,
                     $pt->dni,
                     $pt->last_name,
                     $pt->first_name,
-                    "{$dob} ({$age})",
-                    trim($pt->obra_social . ' ' . $pt->plan),
-                    $pt->phone,
-                    $visitsText,
-                    $surgeriesText,
-                    $pt->medical_notes
+                    $dob,
+                    $age,
+                    $pt->obra_social ?: 'Particular',
+                    $pt->plan ?: '-',
+                    $pt->affiliate_number ?: '-',
+                    $pt->recommendation ?: '-',
+                    $pt->phone ?: '-',
+                    $pt->email ?: '-',
+                    $pt->address ?: '-',
+                    $pt->profession ?: '-',
+                    $pt->iva_condition ?: '-',
+                    $visitsText ?: 'Sin consultas',
+                    $surgeriesText ?: 'Sin cirugías',
+                    $studiesText ?: 'Sin estudios',
+                    $pt->medical_notes ?: ''
                 ], ';');
             }
             
@@ -160,6 +205,270 @@ class ConfigController extends Controller
         };
 
         return new StreamedResponse($callback, 200, $headers);
+    }
+
+    /**
+     * Genera un Backup Clínico Completo en formato Excel Nativo Multi-Hoja (.xlsx)
+     * 100% compatible con doble clic en macOS (Apple Numbers / Excel) y Windows (Excel).
+     */
+    public function exportFullBackupXlsx()
+    {
+        $patients = Patient::orderBy('last_name')->get();
+        $visits = \App\Models\Visit::with(['patient', 'doctor'])->orderBy('created_at', 'desc')->get();
+        $surgeries = \App\Models\PatientSurgery::with(['patient', 'doctor'])->orderBy('surgery_date', 'desc')->get();
+        $appointments = \App\Models\Appointment::with(['patient', 'doctor'])->orderBy('date', 'desc')->orderBy('time', 'desc')->get();
+        $assignments = \App\Models\PatientAssignment::with(['patient', 'doctor'])->orderBy('created_at', 'desc')->get();
+
+        // Hoja 1: Pacientes y Coberturas
+        $sheet1 = [[
+            'Nro Carpeta', 'ID', 'DNI', 'Apellido', 'Nombre', 'Fecha Nacimiento', 'Edad',
+            'Obra Social / Cobertura', 'Plan', 'Nro Cobertura / Afiliado', 'Derivado / Recomendado por',
+            'Teléfono', 'Email', 'Dirección', 'Profesión', 'Condición IVA', 'Nro Siniestro',
+            'Comentarios Médicos (Internos)', 'Fecha Alta Ficha'
+        ]];
+        foreach ($patients as $p) {
+            $sheet1[] = [
+                $p->code ?: sprintf('%06d', $p->id),
+                (string)$p->id,
+                (string)($p->dni ?? ''),
+                (string)($p->last_name ?? ''),
+                (string)($p->first_name ?? ''),
+                $p->date_of_birth ? \Carbon\Carbon::parse($p->date_of_birth)->format('d/m/Y') : '',
+                $p->date_of_birth ? (string)\Carbon\Carbon::parse($p->date_of_birth)->age : '',
+                (string)($p->obra_social ?: 'Particular'),
+                (string)($p->plan ?? ''),
+                (string)($p->affiliate_number ?? ''),
+                (string)($p->recommendation ?? ''),
+                (string)($p->phone ?? ''),
+                (string)($p->email ?? ''),
+                (string)($p->address ?? ''),
+                (string)($p->profession ?? ''),
+                (string)($p->iva_condition ?? ''),
+                (string)($p->nro_siniestro ?? ''),
+                (string)($p->medical_notes ?? ''),
+                $p->created_at ? $p->created_at->format('d/m/Y H:i') : '',
+            ];
+        }
+
+        // Hoja 2: Consultas Completas (con PIO, Anteojos/AV, BMC, OBI, Antecedentes y Tratamientos)
+        $sheet2 = [[
+            'ID Consulta', 'Fecha y Hora', 'Nro Carpeta', 'DNI', 'Paciente', 'Obra Social', 'Nro Cobertura',
+            'Médico Actuante', 'Estado', 'Motivo de Consulta', 'Diagnóstico',
+            'PIO (Presión Intraocular)', 'BMC (Biomicroscopía)', 'OBI (Oftalmoscopía)', 'Otros Hallazgos / Estudios',
+            'Anteojos / AV OD Lejos', 'Anteojos / AV OI Lejos', 'Anteojos / AV OD Cerca', 'Anteojos / AV OI Cerca',
+            'Antecedentes Oftalmológicos', 'Medicación / Tratamiento Oftalmológico',
+            'Antecedentes Generales', 'Tratamientos Generales'
+        ]];
+        foreach ($visits as $v) {
+            $p = $v->patient;
+            $sheet2[] = [
+                (string)$v->id,
+                $v->created_at ? $v->created_at->format('d/m/Y H:i') : '',
+                $p ? ($p->code ?: sprintf('%06d', $p->id)) : '',
+                (string)($p->dni ?? ''),
+                $p ? ($p->last_name . ', ' . $p->first_name) : 'Paciente Eliminado',
+                (string)($p->obra_social ?? 'Particular'),
+                (string)($p->affiliate_number ?? ''),
+                (string)($v->doctor->name ?? 'Staff'),
+                $v->is_open ? 'Abierta' : 'Cerrada',
+                (string)($v->motivo_consulta ?? ''),
+                (string)($v->diagnostico ?? ''),
+                (string)($v->pio ?? ''),
+                (string)($v->bmc ?? ''),
+                (string)($v->obi ?? ''),
+                (string)($v->otros_examen ?? ''),
+                (string)($v->av_od_lejos ?? ''),
+                (string)($v->av_oi_lejos ?? ''),
+                (string)($v->av_od_cerca ?? ''),
+                (string)($v->av_oi_cerca ?? ''),
+                (string)($v->antecedentes_oftalmologicos ?? ''),
+                (string)($v->tratamiento_oftalmologico ?? ''),
+                (string)($v->antecedentes_generales ?? ''),
+                (string)($v->tratamientos_generales ?? ''),
+            ];
+        }
+
+        // Hoja 3: Cirugías (con Ojo OD / OI explícito)
+        $sheet3 = [[
+            'ID Cirugía', 'Fecha Cirugía', 'Ojo Operado (OD / OI)', 'Procedimiento / LIO / Notas Quirúrgicas',
+            'Cirujano', 'Nro Carpeta', 'DNI', 'Paciente', 'Obra Social', 'Nro Cobertura'
+        ]];
+        foreach ($surgeries as $s) {
+            $p = $s->patient;
+            $sheet3[] = [
+                (string)$s->id,
+                $s->surgery_date ? \Carbon\Carbon::parse($s->surgery_date)->format('d/m/Y') : '',
+                (string)($s->eye ?: 'S/E'),
+                (string)($s->notes ?? ''),
+                (string)($s->doctor->name ?? 'Staff'),
+                $p ? ($p->code ?: sprintf('%06d', $p->id)) : '',
+                (string)($p->dni ?? ''),
+                $p ? ($p->last_name . ', ' . $p->first_name) : 'Paciente Eliminado',
+                (string)($p->obra_social ?? 'Particular'),
+                (string)($p->affiliate_number ?? ''),
+            ];
+        }
+
+        // Hoja 4: Turnos y Agenda
+        $sheet4 = [[
+            'ID Turno', 'Fecha', 'Hora', 'Paciente', 'DNI', 'Obra Social', 'Nro Cobertura',
+            'Médico', 'Motivo', 'Notas Secretaría', 'Estado'
+        ]];
+        foreach ($appointments as $a) {
+            $p = $a->patient;
+            $sheet4[] = [
+                (string)$a->id,
+                $a->date ? \Carbon\Carbon::parse($a->date)->format('d/m/Y') : '',
+                $a->time ? substr($a->time, 0, 5) : '',
+                $p ? ($p->last_name . ', ' . $p->first_name) : 'Paciente Eliminado',
+                (string)($p->dni ?? ''),
+                (string)($p->obra_social ?? 'Particular'),
+                (string)($p->affiliate_number ?? ''),
+                (string)($a->doctor->name ?? ''),
+                (string)($a->reason ?? ''),
+                (string)($a->notes ?? ''),
+                (string)($a->status ?? ''),
+            ];
+        }
+
+        // Hoja 5: Tiempos de Sala de Espera y Atención
+        $sheet5 = [[
+            'Fecha', 'Paciente', 'DNI', 'Etapa / Actividad', 'Hora Inicio', 'Hora Fin',
+            'Minutos Transcurridos', 'Médico', 'Observaciones'
+        ]];
+        foreach ($assignments as $as) {
+            $p = $as->patient;
+            $mins = ($as->started_at && $as->ended_at) ? max(0, $as->started_at->diffInMinutes($as->ended_at)) : '';
+            $sheet5[] = [
+                $as->created_at ? $as->created_at->format('d/m/Y') : '',
+                $p ? ($p->last_name . ', ' . $p->first_name) : 'Paciente Eliminado',
+                (string)($p->dni ?? ''),
+                (string)($as->event_type ?? ''),
+                $as->started_at ? $as->started_at->format('H:i') : '',
+                $as->ended_at ? $as->ended_at->format('H:i') : '',
+                (string)$mins,
+                (string)($as->doctor->name ?? ''),
+                (string)($as->notes ?? ''),
+            ];
+        }
+
+        $sheets = [
+            'Pacientes_Fichas'      => $sheet1,
+            'Consultas_Completas'   => $sheet2,
+            'Cirugias_OD_OI'        => $sheet3,
+            'Turnos_Agenda'         => $sheet4,
+            'Tiempos_Sala_Espera'   => $sheet5,
+        ];
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'elevenmed_xlsx_');
+        $zip = new \ZipArchive();
+        if ($zip->open($tmpFile, \ZipArchive::OVERWRITE | \ZipArchive::CREATE) !== true) {
+            return $this->exportPatientsToExcel();
+        }
+
+        // 1. [Content_Types].xml
+        $sheetOverrides = '';
+        $idx = 1;
+        foreach ($sheets as $name => $_) {
+            $sheetOverrides .= '<Override PartName="/xl/worksheets/sheet' . $idx . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+            $idx++;
+        }
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats.package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            . $sheetOverrides
+            . '</Types>');
+
+        // 2. _rels/.rels
+        $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            . '</Relationships>');
+
+        // 3. xl/workbook.xml & xl/_rels/workbook.xml.rels
+        $workbookSheets = '';
+        $workbookRels = '';
+        $idx = 1;
+        foreach ($sheets as $sheetTitle => $_) {
+            $safeTitle = htmlspecialchars(mb_substr($sheetTitle, 0, 31), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $workbookSheets .= '<sheet name="' . $safeTitle . '" sheetId="' . $idx . '" r:id="rId' . $idx . '"/>';
+            $workbookRels .= '<Relationship Id="rId' . $idx . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' . $idx . '.xml"/>';
+            $idx++;
+        }
+        $workbookRels .= '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+
+        $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheets>' . $workbookSheets . '</sheets>'
+            . '</workbook>');
+
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . $workbookRels
+            . '</Relationships>');
+
+        // 4. xl/styles.xml (Header bold + clean font for Excel & Apple Numbers)
+        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<fonts count="2">'
+            . '<font><sz val="11"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'
+            . '</fonts>'
+            . '<fills count="3">'
+            . '<fill><patternFill patternType="none"/></fill>'
+            . '<fill><patternFill patternType="gray125"/></fill>'
+            . '<fill><patternFill patternType="solid"><fgColor rgb="FF1E3C72"/></patternFill></fill>'
+            . '</fills>'
+            . '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            . '<cellXfs count="2">'
+            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            . '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+            . '</cellXfs>'
+            . '</styleSheet>');
+
+        // 5. Worksheets
+        $colName = function (int $colIdx): string {
+            $str = '';
+            while ($colIdx >= 0) {
+                $str = chr(65 + ($colIdx % 26)) . $str;
+                $colIdx = intdiv($colIdx, 26) - 1;
+            }
+            return $str;
+        };
+
+        $idx = 1;
+        foreach ($sheets as $_ => $rows) {
+            $xmlRows = '';
+            foreach ($rows as $rIdx => $row) {
+                $rowNum = $rIdx + 1;
+                $styleAttr = ($rIdx === 0) ? ' s="1"' : '';
+                $xmlCells = '';
+                foreach ($row as $cIdx => $cellVal) {
+                    $ref = $colName($cIdx) . $rowNum;
+                    // Strip invalid XML control chars
+                    $cleanVal = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', (string)$cellVal);
+                    $escaped = htmlspecialchars($cleanVal, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                    $xmlCells .= '<c r="' . $ref . '" t="inlineStr"' . $styleAttr . '><is><t xml:space="preserve">' . $escaped . '</t></is></c>';
+                }
+                $xmlRows .= '<row r="' . $rowNum . '">' . $xmlCells . '</row>';
+            }
+            $zip->addFromString('xl/worksheets/sheet' . $idx . '.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                . '<sheetData>' . $xmlRows . '</sheetData>'
+                . '</worksheet>');
+            $idx++;
+        }
+
+        $zip->close();
+
+        $filename = 'Backup_Completo_ElevenMed_' . date('Y-m-d_His') . '.xlsx';
+        return response()->download($tmpFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     /**

@@ -26,10 +26,44 @@ class AgendaSettingsController extends Controller
     }
 
     /**
-     * Store a new ScheduleBlock for a doctor.
+     * Store a new ScheduleBlock for a doctor (supports separate clean dates & times or datetime-local).
      */
     public function storeBlock(Request $request)
     {
+        if ($request->filled('start_date')) {
+            $request->validate([
+                'doctor_id' => 'required|exists:users,id',
+                'start_date' => 'required|date',
+                'end_date' => 'nullable|date|after_or_equal:start_date',
+                'block_mode' => 'nullable|string|in:all_day,time_range',
+                'start_time' => 'nullable|string',
+                'end_time' => 'nullable|string',
+                'reason' => 'required|string|max:255',
+            ]);
+
+            $startDate = $request->input('start_date');
+            $endDate = $request->filled('end_date') ? $request->input('end_date') : $startDate;
+
+            if ($request->input('block_mode') === 'time_range') {
+                $sTime = $request->filled('start_time') ? substr($request->input('start_time'), 0, 5) . ':00' : '08:00:00';
+                $eTime = $request->filled('end_time') ? substr($request->input('end_time'), 0, 5) . ':00' : '20:00:00';
+                $startDt = $startDate . ' ' . $sTime;
+                $endDt = $endDate . ' ' . $eTime;
+            } else {
+                $startDt = $startDate . ' 00:00:00';
+                $endDt = $endDate . ' 23:59:59';
+            }
+
+            ScheduleBlock::create([
+                'doctor_id' => $request->doctor_id,
+                'start_datetime' => $startDt,
+                'end_datetime' => $endDt,
+                'reason' => $request->reason,
+            ]);
+
+            return redirect()->route('agenda.settings')->with('success', 'El bloqueo de agenda fue registrado exitosamente.');
+        }
+
         $request->validate([
             'doctor_id' => 'required|exists:users,id',
             'start_datetime' => 'required|date',
