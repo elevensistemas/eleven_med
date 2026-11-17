@@ -153,25 +153,45 @@
                             </div>
                         </div>
 
-                        <!-- Panel: Servicio Offline -->
+                        <!-- Panel: Servicio Offline / Descarga de Conector .BAT para PC del Consultorio -->
                         <div id="panelOffline" class="{{ $serviceStatus === 'offline' ? '' : 'd-none' }}">
-                            <div class="alert alert-warning border-0 rounded-4 p-4 shadow-sm mb-4">
+                            <div class="alert alert-warning border-0 rounded-4 p-4 shadow-sm mb-3">
                                 <div class="d-flex align-items-start gap-3">
-                                    <i class="bi bi-exclamation-triangle-fill fs-3 text-warning"></i>
-                                    <div>
-                                        <h6 class="fw-bold mb-1">Servicio de WhatsApp no detectado</h6>
-                                        <p class="small text-muted mb-2">
-                                            El microservicio encargado de la conexión con WhatsApp no está corriendo o la URL configurada no responde.
+                                    <i class="bi bi-pc-display-horizontal fs-2 text-primary"></i>
+                                    <div class="w-100">
+                                        <h6 class="fw-bold text-dark mb-1">Vincular desde la PC del Consultorio</h6>
+                                        <p class="small text-muted mb-3">
+                                            Para enlazar el WhatsApp del consultorio sin cargos ni intermediarios, ejecute el conector en la computadora de recepción:
                                         </p>
-                                        <div class="small bg-white p-2 rounded-3 border text-dark mb-3">
-                                            <strong>En desarrollo local:</strong> Ejecuta <code>arrancar_servidores.bat</code> o en la terminal: <code>cd whatsapp-service && node server.js</code>.
+                                        <div class="small bg-white p-3 rounded-3 border text-dark mb-3">
+                                            <ol class="ps-3 mb-0" style="line-height: 1.7;">
+                                                <li>Descargue el paquete haciendo clic en el botón de abajo y descomprímalo en la PC del consultorio.</li>
+                                                <li>Haga doble clic en <code>Vincular_WhatsApp_Consultorio.bat</code>.</li>
+                                                <li>Se abrirá automáticamente el <strong>Código QR</strong> en pantalla (y también aparecerá aquí mismo en vivo) para escanearlo con el celular.</li>
+                                            </ol>
                                         </div>
-                                        <button type="button" id="btnRetryService" class="btn btn-warning btn-sm fw-bold px-3 rounded-3">
-                                            <i class="bi bi-arrow-clockwise me-1"></i> Reintentar Conexión
-                                        </button>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <a href="{{ route('whatsapp.downloadConnector') }}" class="btn btn-primary btn-sm fw-bold px-3 py-2 rounded-3 shadow-sm">
+                                                <i class="bi bi-download me-1"></i> Descargar Conector para PC (.ZIP con .BAT)
+                                            </a>
+                                            <button type="button" id="btnRetryService" class="btn btn-warning btn-sm fw-bold px-3 py-2 rounded-3">
+                                                <i class="bi bi-arrow-clockwise me-1"></i> Verificar Conexión
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Acceso directo permanente al instalador .BAT -->
+                        <div class="p-3 rounded-4 bg-light border d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                            <div class="small">
+                                <strong class="text-dark"><i class="bi bi-filetype-exe text-primary me-1"></i> Conector para PC del Consultorio:</strong>
+                                <span class="text-muted d-block" style="font-size: 0.75rem;">Incluye <code>Vincular_WhatsApp_Consultorio.bat</code> + auto-inicio con Windows.</span>
+                            </div>
+                            <a href="{{ route('whatsapp.downloadConnector') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold">
+                                <i class="bi bi-download me-1"></i> Descargar .ZIP
+                            </a>
                         </div>
 
                         <!-- Configuración Avanzada / URL del Microservicio (Opcional) -->
@@ -434,6 +454,26 @@ document.addEventListener('DOMContentLoaded', function () {
             location.reload();
         });
     }
+
+    // Si ya llegó con estado qr_ready o está en espera del .bat, sincronizar automáticamente
+    @if($serviceStatus === 'qr_ready')
+        fetchQrCode();
+    @elseif($serviceStatus === 'offline')
+        setInterval(async () => {
+            try {
+                const res = await fetch("{{ route('whatsapp.status') }}");
+                const st = await res.json();
+                if (st.status && st.status !== 'offline') {
+                    if (st.status === 'connected') {
+                        showConnected(st.phone || 'Línea Conectada');
+                    } else {
+                        showDisconnected();
+                        fetchQrCode();
+                    }
+                }
+            } catch (_) {}
+        }, 3500);
+    @endif
 
     // Desvincular línea
     if (btnDisconnect) {

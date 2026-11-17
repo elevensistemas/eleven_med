@@ -44,6 +44,9 @@ Route::get('/run-seeders', function (\Illuminate\Http\Request $request) {
     }
 })->withoutMiddleware('web');
 
+// Outbound Cloud Bridge for Clinic PC WhatsApp Connector (.BAT -> Hostinger without port forwarding)
+Route::post('/api/whatsapp-bridge/sync', [App\Http\Controllers\WhatsappConfigController::class, 'bridgeSync'])->withoutMiddleware('web');
+
 // Fallback direct access to patient studies to prevent Apache 403 Forbidden on shared hostings
 Route::get('/storage/patients/{patient}/studies/{filename}', function ($patient, $filename) {
     $study = \App\Models\PatientStudy::where('patient_id', $patient)
@@ -74,6 +77,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/configuracion/whatsapp/qr', [App\Http\Controllers\WhatsappConfigController::class, 'qr'])->name('whatsapp.qr');
     Route::post('/configuracion/whatsapp/disconnect', [App\Http\Controllers\WhatsappConfigController::class, 'disconnect'])->name('whatsapp.disconnect');
     Route::post('/configuracion/whatsapp/test-send', [App\Http\Controllers\WhatsappConfigController::class, 'testSend'])->name('whatsapp.testSend');
+    Route::get('/configuracion/whatsapp/download-connector', [App\Http\Controllers\WhatsappConfigController::class, 'downloadConnector'])->name('whatsapp.downloadConnector');
     
     Route::resource('patients', App\Http\Controllers\PatientController::class);
     Route::post('patients/{patient}/quick-update', [App\Http\Controllers\PatientController::class, 'quickUpdate'])->name('patients.quickUpdate');
