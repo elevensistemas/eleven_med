@@ -1,0 +1,72 @@
+========================================================================
+   INSTRUCTIVO PASO A PASO - VINCULAR WHATSAPP EN PC DEL CONSULTORIO
+   Consultorio Dr. Juan Manuel Cortalezzi | Sistema Eleven Med
+========================================================================
+
+PASO 1: INSTALAR NODE.JS EN LA PC DEL CONSULTORIO (SOLO LA PRIMERA VEZ)
+------------------------------------------------------------------------
+1. En la PC con Windows del consultorio, abra el navegador (Chrome o Edge)
+   y entre a la pagina oficial:
+   https://nodejs.org/es
+
+2. Haga clic en el boton verde: "Descargar Node.js (LTS)"
+   (se descargara un instalador .msi).
+
+3. Abra el archivo descargado y presione:
+   Next -> Aceptar terminos -> Next -> Next -> Next -> Install -> Finish.
+   (No hace falta tildar ninguna casilla opcional).
+
+
+PASO 2: COPIAR LA CARPETA EN LA PC DEL CONSULTORIO
+------------------------------------------------------------------------
+1. Copie el archivo "Conector_WhatsApp_Consultorio.zip" en la PC del
+   consultorio (por ejemplo en el Escritorio o en Documentos).
+
+2. Haga clic derecho sobre el .ZIP -> "Extraer todo..." -> "Extraer".
+   Quedara una carpeta llamada "Conector_WhatsApp_Consultorio" con estos
+   archivos adentro:
+   - Vincular_WhatsApp_Consultorio.bat
+   - Instalar_Inicio_Automatico_Windows.bat
+   - server.js
+   - package.json
+   - .env
+
+
+PASO 3: EJECUTAR EL .BAT Y ESCANEAR EL CODIGO QR
+------------------------------------------------------------------------
+1. Entre a la carpeta extraida y haga DOBLE CLIC en:
+   Vincular_WhatsApp_Consultorio.bat
+
+   * Si Windows muestra un cartel azul ("Windows protegio su PC"),
+     haga clic en "Mas informacion" y luego en "Ejecutar de todas formas".
+   * Si el Firewall de Windows pregunta por Node.js, haga clic en
+     "Permitir acceso".
+
+2. La primera vez vera en la ventana negra que descarga los componentes
+   automaticamente (demora entre 30 y 60 segundos).
+
+3. Apenas termina, se abre SOLA una pestana en el navegador mostrando el
+   CODIGO QR grande en pantalla.
+
+4. Tome el celular con el WhatsApp del consultorio:
+   - Abra WhatsApp
+   - Toque Menu (3 puntitos) o Configuracion -> "Dispositivos vinculados"
+   - Toque "Vincular un dispositivo"
+   - Apunte la camara al Codigo QR de la pantalla.
+
+5. Verá de inmediato el cartel verde "¡Linea Vinculada y Activa!" tanto en
+   esa ventana como dentro de https://elevenmed.elevensistemas.com
+   (menu lateral -> "Vincular WhatsApp").
+
+6. IMPORTANTE: No cierre la ventanita negra del conector; simplemente
+   minimicela en la barra de tareas mientras usen la PC.
+
+
+PASO 4 (RECOMENDADO): INICIO AUTOMATICO AL PRENDER LA PC
+------------------------------------------------------------------------
+Para no tener que abrir el .BAT a mano cada manana:
+1. Haga doble clic una sola vez en:
+   Instalar_Inicio_Automatico_Windows.bat
+
+Listo: cada vez que enciendan la PC del consultorio, el conector de
+WhatsApp arrancara solo, minimizado y ya vinculado con Eleven Med.
