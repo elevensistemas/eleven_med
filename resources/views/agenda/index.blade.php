@@ -378,8 +378,8 @@ body.theme-dark .cal-day.available:hover {
 <!-- Modal: Reprogramar Turno Directo -->
 <div class="modal fade" id="rescheduleAppointmentModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 rounded-4 shadow">
-        <div class="modal-header border-bottom-0 pb-0">
+    <div class="modal-content border-0 rounded-4 shadow-lg">
+        <div class="modal-header border-bottom pb-2">
             <div>
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-repeat text-primary me-2"></i>Reprogramar Turno</h5>
                 <small class="text-muted fw-bold" id="reschedulePatientLabel">Paciente: --</small>
@@ -389,30 +389,45 @@ body.theme-dark .cal-day.available:hover {
         <form id="rescheduleAppointmentForm" onsubmit="submitRescheduleAppointment(event)">
             @csrf
             <input type="hidden" id="rescheduleAppointmentId">
-            <input type="hidden" id="rescheduleDoctorId">
+            <input type="hidden" id="rescheduleOriginalDate">
+            <input type="hidden" id="rescheduleOriginalDoctorId">
             <div class="modal-body p-4">
                 <div class="alert alert-info border-0 rounded-3 small py-2 mb-3">
                     <i class="bi bi-info-circle me-1"></i> Turno actual: <strong id="rescheduleCurrentDetails">--</strong>
                 </div>
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label text-muted small fw-bold">Nueva Fecha *</label>
-                        <input type="date" id="rescheduleNewDate" class="form-control bg-light border-0 shadow-none" required min="{{ date('Y-m-d') }}">
+                    <div class="col-md-12">
+                        <label class="form-label text-dark small fw-bold mb-1">Profesional</label>
+                        <select id="rescheduleDoctorId" class="form-select bg-white border rounded-3 shadow-none" onchange="loadRescheduleFreeSlots()">
+                            @foreach($doctors as $doc)
+                                <option value="{{ $doc->id }}">{{ $doc->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted small fw-bold">Nuevo Horario *</label>
-                        <input type="time" id="rescheduleNewTime" class="form-control bg-light border-0 shadow-none" required>
+                        <label class="form-label text-dark small fw-bold mb-1">Nueva Fecha *</label>
+                        <input type="date" id="rescheduleNewDate" class="form-control bg-white border rounded-3 shadow-none" required onchange="loadRescheduleFreeSlots()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-dark small fw-bold mb-1">Nuevo Horario *</label>
+                        <input type="time" id="rescheduleNewTime" class="form-control bg-white border rounded-3 shadow-none" required>
+                    </div>
+                    <div class="col-md-12" id="rescheduleFreeSlotsWrap">
+                        <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">Horarios libres ese día (clic para seleccionar):</label>
+                        <div id="rescheduleFreeSlotsContainer" class="d-flex flex-wrap gap-1 p-2 rounded-3 bg-light border" style="max-height: 110px; overflow-y: auto;">
+                            <span class="text-muted small">Seleccione una fecha para ver horarios libres...</span>
+                        </div>
                     </div>
                     <div class="col-md-12">
-                        <label class="form-label text-muted small fw-bold">Motivo de Reprogramación (Opcional)</label>
-                        <input type="text" id="rescheduleReason" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Solicitado por paciente, cambio de guardia...">
+                        <label class="form-label text-dark small fw-bold mb-1">Motivo / Nota (Opcional)</label>
+                        <input type="text" id="rescheduleReason" class="form-control bg-white border rounded-3 shadow-none" placeholder="Ej: Solicitado por paciente, reprogramación...">
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0 pe-4">
-                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+            <div class="modal-footer border-top pt-3 pe-4">
+                <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" id="btnSubmitReschedule" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
-                    Confirmar Reprogramación
+                    <i class="bi bi-check2-circle me-1"></i> Confirmar Reprogramación
                 </button>
             </div>
         </form>
@@ -791,7 +806,8 @@ body.theme-dark .cal-day.available:hover {
                                     <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
-                                    <li><a class="dropdown-item py-2 text-primary fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2"></i> Abrir HC</a></li>
+                                    <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${(slot.patient_name || '').replace(/'/g, "\\'")}', '${dateStr}', '${slot.time}', ${doctorId})"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
+                                    <li><a class="dropdown-item py-2 text-dark fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2 text-primary"></i> Abrir HC</a></li>
                                     <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
                                 </ul>
                             </div>
@@ -1225,30 +1241,67 @@ body.theme-dark .cal-day.available:hover {
 
     function openRescheduleModal(appointmentId, patientName, currentDate, currentTime, doctorId) {
         document.getElementById('rescheduleAppointmentId').value = appointmentId;
+        document.getElementById('rescheduleOriginalDate').value = currentDate;
+        document.getElementById('rescheduleOriginalDoctorId').value = doctorId;
         document.getElementById('rescheduleDoctorId').value = doctorId;
         document.getElementById('reschedulePatientLabel').innerText = `Paciente: ${patientName}`;
-        document.getElementById('rescheduleCurrentDetails').innerText = `${currentDate} a las ${currentTime} hs`;
+
+        const [cy, cm, cd] = (currentDate || '').split('-');
+        const niceDate = (cy && cm && cd) ? `${cd}/${cm}/${cy}` : currentDate;
+        document.getElementById('rescheduleCurrentDetails').innerText = `${niceDate} a las ${currentTime} hs`;
         document.getElementById('rescheduleNewDate').value = currentDate;
         document.getElementById('rescheduleNewTime').value = currentTime;
         document.getElementById('rescheduleReason').value = '';
         
-        const modal = new bootstrap.Modal(document.getElementById('rescheduleAppointmentModal'));
+        loadRescheduleFreeSlots();
+
+        const modalEl = document.getElementById('rescheduleAppointmentModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
+    }
+
+    function loadRescheduleFreeSlots() {
+        const docId = document.getElementById('rescheduleDoctorId').value;
+        const dateVal = document.getElementById('rescheduleNewDate').value;
+        const box = document.getElementById('rescheduleFreeSlotsContainer');
+        if (!box || !docId || !dateVal) return;
+
+        box.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> Consultando horarios...</span>';
+        axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${docId}&date=${dateVal}`)
+            .then(res => {
+                const slots = (res.data && res.data.slots) ? res.data.slots : [];
+                const freeSlots = slots.filter(s => s.status === 'free');
+                if (freeSlots.length === 0) {
+                    box.innerHTML = '<span class="text-muted small">Sin turnos libres regulares ese día (puede escribir un horario manual arriba como sobreturno).</span>';
+                    return;
+                }
+                box.innerHTML = freeSlots.map(s => `
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 fw-bold" style="font-size: 0.74rem;"
+                            onclick="document.getElementById('rescheduleNewTime').value='${s.time}'">
+                        ${s.time}
+                    </button>
+                `).join('');
+            })
+            .catch(() => {
+                box.innerHTML = '<span class="text-muted small">Puede ingresar cualquier horario manualmente arriba.</span>';
+            });
     }
 
     function submitRescheduleAppointment(e) {
         e.preventDefault();
         const apptId = document.getElementById('rescheduleAppointmentId').value;
-        const doctorId = document.getElementById('rescheduleDoctorId').value;
+        const origDoctorId = parseInt(document.getElementById('rescheduleOriginalDoctorId').value, 10);
+        const origDate = document.getElementById('rescheduleOriginalDate').value;
+        const doctorId = parseInt(document.getElementById('rescheduleDoctorId').value, 10);
         const newDate = document.getElementById('rescheduleNewDate').value;
         const newTime = document.getElementById('rescheduleNewTime').value;
         const reason = document.getElementById('rescheduleReason').value;
         const btn = document.getElementById('btnSubmitReschedule');
         
         btn.disabled = true;
-        btn.innerText = 'Reprogramando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Reprogramando...';
         
-        axios.patch(`/api/appointments/${apptId}/reschedule`, {
+        axios.post(`{{ url('api/appointments') }}/${apptId}/reschedule`, {
             date: newDate,
             time: newTime,
             doctor_id: doctorId,
@@ -1261,24 +1314,42 @@ body.theme-dark .cal-day.available:hover {
             const modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) modal.hide();
             btn.disabled = false;
-            btn.innerText = 'Confirmar Reprogramación';
+            btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Confirmar Reprogramación';
             
             if (typeof spawnToast === 'function') {
-                spawnToast('Turno Reprogramado', 'El turno ha sido trasladado correctamente.', 'check-circle-fill', 'success text-white');
+                spawnToast('Turno Reprogramado', 'El turno fue trasladado correctamente.', 'check-circle-fill', 'success text-white');
             } else {
                 alert('Turno reprogramado exitosamente.');
             }
             
-            // Refrescar calendario y slots del doctor
-            if (doctorStates[doctorId]) {
-                loadMonthAvailability(doctorId, doctorStates[doctorId].currentYear, doctorStates[doctorId].currentMonth);
-                loadDaySlots(doctorId, newDate);
+            // Refrescar mini-calendario y grilla horaria sin riesgo de errores JS
+            try {
+                if (origDoctorId && origDoctorId !== doctorId && doctorStates[origDoctorId]) {
+                    renderCalendar(origDoctorId);
+                    if (origDate) loadDaySlots(origDoctorId, origDate);
+                }
+                if (doctorStates[doctorId]) {
+                    const [ny, nm, nd] = newDate.split('-');
+                    if (ny && nm && nd) {
+                        doctorStates[doctorId].currentDate = new Date(parseInt(ny, 10), parseInt(nm, 10) - 1, parseInt(nd, 10));
+                    }
+                    renderCalendar(doctorId);
+                    loadDaySlots(doctorId, newDate);
+                }
+                if (typeof loadNearestSlots === 'function') {
+                    loadNearestSlots();
+                }
+            } catch (uiErr) {
+                console.warn('Refresh UI post-reschedule:', uiErr);
             }
         })
         .catch(err => {
-            alert(err.response?.data?.message || 'Error al reprogramar el turno.');
+            const msg = err.response?.data?.message
+                || (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(' ') : null)
+                || 'Error al reprogramar el turno. Verifique la fecha y el horario.';
+            alert(msg);
             btn.disabled = false;
-            btn.innerText = 'Confirmar Reprogramación';
+            btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Confirmar Reprogramación';
         });
     }
 </script>

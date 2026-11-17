@@ -482,9 +482,9 @@ class AppointmentController extends Controller
                             'status' => $app->status === 'no_show' ? 'no_show' : 'booked',
                             'patient_id' => $app->patient_id,
                             'patient_name' => $patientName,
-                            'patient_dni' => $p->document_number ?? '',
+                            'patient_dni' => $p->dni ?? '',
                             'patient_phone' => $p->phone ?? '',
-                            'patient_os' => $p->health_insurance ?? '',
+                            'patient_os' => $p->obra_social ?? '',
                             'patient_affiliate' => $p->affiliate_number ?? '',
                             'reason' => $app->reason ?? '',
                             'notes' => $app->notes ?? '',
@@ -518,9 +518,9 @@ class AppointmentController extends Controller
                         'status' => $app->status === 'no_show' ? 'no_show' : 'booked',
                         'patient_id' => $app->patient_id,
                         'patient_name' => $patientName,
-                        'patient_dni' => $p->document_number ?? '',
+                        'patient_dni' => $p->dni ?? '',
                         'patient_phone' => $p->phone ?? '',
-                        'patient_os' => $p->health_insurance ?? '',
+                        'patient_os' => $p->obra_social ?? '',
                         'patient_affiliate' => $p->affiliate_number ?? '',
                         'reason' => $app->reason ?? '',
                         'notes' => $app->notes ?? '',
@@ -631,20 +631,31 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'date' => 'required|date',
-            'time' => 'required',
+            'time' => 'required|string',
             'doctor_id' => 'nullable|exists:users,id',
-            'reason' => 'nullable|string',
+            'reason' => 'nullable|string|max:500',
         ]);
 
-        $oldDate = $appointment->date;
-        $oldTime = substr($appointment->time, 0, 5);
+        $oldDateFormatted = Carbon::parse($appointment->date)->format('d/m/Y');
+        $oldTime = substr((string)$appointment->time, 0, 5);
+
+        $targetDoctorId = !empty($validated['doctor_id']) ? (int)$validated['doctor_id'] : (int)$appointment->doctor_id;
+        $normalizedTime = Carbon::parse($validated['time'])->format('H:i:s');
+
+        // Detectar si en el nuevo horario ya existe otro turno activo para marcar sobreturno automáticamente
+        $conflictExists = Appointment::where('doctor_id', $targetDoctorId)
+            ->whereDate('date', $validated['date'])
+            ->where('time', $normalizedTime)
+            ->where('id', '!=', $appointment->id)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->exists();
 
         $appointment->date = $validated['date'];
-        $appointment->time = $validated['time'];
-        if (!empty($validated['doctor_id'])) {
-            $appointment->doctor_id = $validated['doctor_id'];
-        }
-        $note = "Reprogramado de: {$oldDate} {$oldTime} hs.";
+        $appointment->time = $normalizedTime;
+        $appointment->doctor_id = $targetDoctorId;
+        $appointment->is_overbooked = $conflictExists;
+
+        $note = "Reprogramado del {$oldDateFormatted} {$oldTime} hs.";
         $appointment->notes = trim(($appointment->notes ? $appointment->notes . ' | ' : '') . $note);
         if (!empty($validated['reason'])) {
             $appointment->reason = $validated['reason'];

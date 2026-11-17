@@ -125,7 +125,7 @@ Route::middleware('auth')->group(function () {
     Route::get('api/appointments/slots', [App\Http\Controllers\AppointmentController::class, 'getDaySlots'])->name('api.agenda.slots');
     Route::get('api/appointments/nearest', [App\Http\Controllers\AppointmentController::class, 'getNearestSlots'])->name('api.agenda.nearest');
     Route::post('api/appointments', [App\Http\Controllers\AppointmentController::class, 'store'])->name('agenda.store');
-    Route::patch('api/appointments/{appointment}/reschedule', [App\Http\Controllers\AppointmentController::class, 'reschedule'])->name('agenda.reschedule');
+    Route::match(['post', 'patch'], 'api/appointments/{appointment}/reschedule', [App\Http\Controllers\AppointmentController::class, 'reschedule'])->name('agenda.reschedule');
     Route::patch('api/appointments/{appointment}/no-show', [App\Http\Controllers\AppointmentController::class, 'markNoShow'])->name('agenda.no_show');
     Route::delete('api/appointments/{appointment}', [App\Http\Controllers\AppointmentController::class, 'destroy'])->name('agenda.destroy');
     Route::get('api/patients/{id}/habits', [App\Http\Controllers\PatientController::class, 'getHabits']);
