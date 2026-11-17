@@ -464,8 +464,11 @@
             <a href="{{ route('users.index') }}" class="nav-link {{ request()->is('users*') ? 'active' : '' }}" data-id="users">
                 <i class="bi bi-people"></i> Usuarios & Roles
             </a>
-            <a href="{{ route('patients.index') }}" class="nav-link {{ request()->is('patients*') ? 'active' : '' }}" data-id="patients">
+            <a href="{{ route('patients.index') }}" class="nav-link {{ request()->routeIs('patients.*') && !request()->routeIs('patients.duplicates*') ? 'active' : '' }}" data-id="patients">
                 <i class="bi bi-person-vcard"></i> Pacientes
+            </a>
+            <a href="{{ route('patients.duplicates') }}" class="nav-link {{ request()->routeIs('patients.duplicates*') ? 'active' : '' }}" style="padding-left: 2.5rem; font-size: 0.9em;" data-id="patients_duplicates">
+                <i class="bi bi-intersect text-primary"></i> Fichas Duplicadas
             </a>
             @php
                 $queueCount = \App\Models\Patient::whereHas('assignments', function ($q) {

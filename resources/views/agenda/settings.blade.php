@@ -241,7 +241,28 @@
     <!-- LISTADO DE BLOQUEOS EXISTENTES -->
     <div class="col-lg-7">
         <div class="modern-card p-4 h-100 shadow-sm border-0 rounded-4">
-            <h5 class="fw-bold text-dark mb-4"><i class="bi bi-list-check text-primary me-2"></i> Bloqueos Activos y Futuros</h5>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-list-check text-primary me-2"></i> Bloqueos Activos y Futuros</h5>
+                    <small class="text-muted">Al anular un bloqueo se rehabilitan todos los horarios habituales del médico.</small>
+                </div>
+                @php
+                    $blockedDoctorIds = $blocks->pluck('doctor_id')->unique()->filter();
+                @endphp
+                @if($blockedDoctorIds->count() > 0)
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach($doctors->whereIn('id', $blockedDoctorIds) as $bDoc)
+                            <form action="{{ route('agenda.blocks.destroy_doctor', $bDoc) }}" method="POST" class="m-0">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold shadow-sm" onclick="return confirm('¿Anular TODOS los bloqueos activos de {{ $bDoc->name }} y rehabilitar toda su agenda habitual?');">
+                                    <i class="bi bi-unlock-fill me-1"></i> Liberar todo ({{ $bDoc->name }})
+                                </button>
+                            </form>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
             
             <div class="table-responsive">
                 <table class="table align-middle">
@@ -265,8 +286,8 @@
                                     <form action="{{ route('agenda.blocks.destroy', $block) }}" method="POST">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-light text-danger rounded-pill px-3 shadow-none" onclick="return confirm('¿Quitar bloqueo y liberar agenda?');">
-                                            <i class="bi bi-trash"></i>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold shadow-none" onclick="return confirm('¿Anular este bloqueo y rehabilitar la agenda?');">
+                                            <i class="bi bi-unlock-fill me-1"></i> Desbloquear
                                         </button>
                                     </form>
                                 </td>

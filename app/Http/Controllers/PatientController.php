@@ -15,13 +15,214 @@ class PatientController extends Controller
     {
         $search = $request->get('search');
         
-        $patients = Patient::with('latestVisit.doctor')->withCount(['appointments as ausencias_count' => function ($query) {
-            $query->where('status', 'no_show');
-        }])->when($search, function ($query, $search) {
-            return $this->applyPatientSearch($query, $search);
-        })->latest()->paginate(15);
+        $patients = Patient::with(['latestVisit.doctor', 'appointments:id,patient_id,notes'])
+            ->withMin('visits as first_visit_at', 'created_at')
+            ->withCount(['appointments as ausencias_count' => function ($query) {
+                $query->where('status', 'no_show');
+            }])
+            ->when($search, function ($query, $search) {
+                return $this->applyPatientSearch($query, $search);
+            })
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        foreach ($patients as $p) {
+            $reprog = 0;
+            foreach ($p->appointments as $ap) {
+                if (!empty($ap->notes)) {
+                    $reprog += substr_count($ap->notes, 'Reprogramado');
+                }
+            }
+            $p->reprogramaciones_count = $reprog;
+        }
         
         return view('patients.index', compact('patients', 'search'));
+    }
+
+    /**
+     * Comando / Herramienta para detectar fichas duplicadas por Teléfono, DNI, Apellido o Email.
+     */
+    public function duplicates(Request $request)
+    {
+        $criterion = $request->get('by', 'all'); // all | phone | dni | last_name | email
+        $filterTerm = trim((string)$request->get('q', ''));
+
+        $allPatients = Patient::withCount(['visits', 'surgeries', 'studies', 'appointments'])
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $groups = [];
+
+        $matchesFilter = function ($collection) use ($filterTerm) {
+            if ($filterTerm === '') return true;
+            $needle = mb_strtolower($filterTerm, 'UTF-8');
+            $needleDigits = preg_replace('/[^0-9]/', '', $filterTerm);
+            foreach ($collection as $pt) {
+                $hay = mb_strtolower(
+                    ($pt->last_name ?? '') . ' ' . ($pt->first_name ?? '') . ' ' . ($pt->dni ?? '') . ' ' . ($pt->email ?? '') . ' ' . ($pt->phone ?? ''),
+                    'UTF-8'
+                );
+                if (str_contains($hay, $needle)) return true;
+                if ($needleDigits !== '' && strlen($needleDigits) >= 4) {
+                    $pDigits = preg_replace('/[^0-9]/', '', ($pt->phone ?? '') . ($pt->dni ?? ''));
+                    if (str_contains($pDigits, $needleDigits)) return true;
+                }
+            }
+            return false;
+        };
+
+        // 1. Duplicados por DNI normalizado (solo dígitos)
+        if ($criterion === 'all' || $criterion === 'dni') {
+            $byDni = $allPatients->filter(function ($p) {
+                $d = preg_replace('/[^0-9]/', '', (string)$p->dni);
+                return strlen($d) >= 5;
+            })->groupBy(function ($p) {
+                return preg_replace('/[^0-9]/', '', (string)$p->dni);
+            })->filter(fn($g) => $g->count() > 1);
+
+            foreach ($byDni as $dniKey => $items) {
+                if (!$matchesFilter($items)) continue;
+                $groups[] = [
+                    'type' => 'dni',
+                    'badge' => 'DNI Coincidente',
+                    'color' => 'danger',
+                    'icon' => 'bi-card-text',
+                    'key_label' => 'DNI: ' . $dniKey,
+                    'patients' => $items->values(),
+                ];
+            }
+        }
+
+        // 2. Duplicados por Teléfono normalizado (últimos 8 dígitos para ignorar +54 / 0 / 15)
+        if ($criterion === 'all' || $criterion === 'phone') {
+            $byPhone = $allPatients->filter(function ($p) {
+                $digits = preg_replace('/[^0-9]/', '', (string)$p->phone);
+                return strlen($digits) >= 7;
+            })->groupBy(function ($p) {
+                $digits = preg_replace('/[^0-9]/', '', (string)$p->phone);
+                return strlen($digits) > 8 ? substr($digits, -8) : $digits;
+            })->filter(fn($g) => $g->count() > 1);
+
+            foreach ($byPhone as $phoneKey => $items) {
+                if (!$matchesFilter($items)) continue;
+                $samplePhone = $items->first()->phone ?: $phoneKey;
+                $groups[] = [
+                    'type' => 'phone',
+                    'badge' => 'Teléfono Coincidente',
+                    'color' => 'primary',
+                    'icon' => 'bi-telephone-fill',
+                    'key_label' => 'Tel: ' . $samplePhone,
+                    'patients' => $items->values(),
+                ];
+            }
+        }
+
+        // 3. Duplicados por Email
+        if ($criterion === 'all' || $criterion === 'email') {
+            $byEmail = $allPatients->filter(function ($p) {
+                return !empty($p->email) && str_contains($p->email, '@');
+            })->groupBy(function ($p) {
+                return mb_strtolower(trim($p->email), 'UTF-8');
+            })->filter(fn($g) => $g->count() > 1);
+
+            foreach ($byEmail as $mailKey => $items) {
+                if (!$matchesFilter($items)) continue;
+                $groups[] = [
+                    'type' => 'email',
+                    'badge' => 'Email Coincidente',
+                    'color' => 'info',
+                    'icon' => 'bi-envelope-fill',
+                    'key_label' => 'Email: ' . $mailKey,
+                    'patients' => $items->values(),
+                ];
+            }
+        }
+
+        // 4. Duplicados por Apellido (y Nombre / Homónimos)
+        if ($criterion === 'all' || $criterion === 'last_name') {
+            if ($criterion === 'last_name') {
+                // Agrupar por Apellido completo normalizado (muestra homónimos y familiares / posibles duplicados por apellido)
+                $byLastName = $allPatients->filter(fn($p) => !empty(trim((string)$p->last_name)))
+                    ->groupBy(function ($p) {
+                        return mb_strtoupper(trim(preg_replace('/\s+/', ' ', (string)$p->last_name)), 'UTF-8');
+                    })
+                    ->filter(fn($g) => $g->count() > 1);
+
+                foreach ($byLastName as $lnKey => $items) {
+                    if (!$matchesFilter($items)) continue;
+                    $groups[] = [
+                        'type' => 'last_name',
+                        'badge' => 'Mismo Apellido',
+                        'color' => 'warning',
+                        'icon' => 'bi-people-fill',
+                        'key_label' => 'Apellido: ' . $lnKey,
+                        'patients' => $items->values(),
+                    ];
+                }
+            } else {
+                // En vista "Todos", agrupar por Apellido + Primer Nombre para máxima precisión sin ruido de familiares
+                $byFullName = $allPatients->filter(fn($p) => !empty(trim((string)$p->last_name)))
+                    ->groupBy(function ($p) {
+                        $ln = mb_strtoupper(trim((string)$p->last_name), 'UTF-8');
+                        $fn = mb_strtoupper(strtok(trim((string)$p->first_name), ' ') ?: '', 'UTF-8');
+                        return $ln . ' | ' . $fn;
+                    })
+                    ->filter(fn($g) => $g->count() > 1);
+
+                foreach ($byFullName as $fnKey => $items) {
+                    if (!$matchesFilter($items)) continue;
+                    $groups[] = [
+                        'type' => 'last_name',
+                        'badge' => 'Apellido y Nombre Coincidente',
+                        'color' => 'warning',
+                        'icon' => 'bi-person-vcard-fill',
+                        'key_label' => $fnKey,
+                        'patients' => $items->values(),
+                    ];
+                }
+            }
+        }
+
+        return view('patients.duplicates', compact('groups', 'criterion', 'filterTerm'));
+    }
+
+    /**
+     * Unificar una ficha duplicada secundaria dentro de la ficha principal conservando TODA su historia clínica.
+     */
+    public function mergeDuplicates(Request $request)
+    {
+        $validated = $request->validate([
+            'primary_id' => 'required|exists:patients,id|different:duplicate_id',
+            'duplicate_id' => 'required|exists:patients,id',
+        ]);
+
+        $primary = Patient::findOrFail($validated['primary_id']);
+        $duplicate = Patient::findOrFail($validated['duplicate_id']);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($primary, $duplicate) {
+            \App\Models\Visit::where('patient_id', $duplicate->id)->update(['patient_id' => $primary->id]);
+            \App\Models\PatientSurgery::where('patient_id', $duplicate->id)->update(['patient_id' => $primary->id]);
+            \App\Models\PatientStudy::where('patient_id', $duplicate->id)->update(['patient_id' => $primary->id]);
+            \App\Models\Appointment::where('patient_id', $duplicate->id)->update(['patient_id' => $primary->id]);
+            \App\Models\PatientAssignment::where('patient_id', $duplicate->id)->update(['patient_id' => $primary->id]);
+            \App\Models\PatientComment::where('patient_id', $duplicate->id)->update(['patient_id' => $primary->id]);
+
+            // Completar campos vacíos de la ficha principal con los datos de la duplicada
+            foreach (['phone', 'email', 'obra_social', 'plan', 'affiliate_number', 'address', 'profession', 'recommendation'] as $field) {
+                if (empty($primary->{$field}) && !empty($duplicate->{$field})) {
+                    $primary->{$field} = $duplicate->{$field};
+                }
+            }
+            if (!empty($duplicate->medical_notes) && $duplicate->medical_notes !== $primary->medical_notes) {
+                $primary->medical_notes = trim(($primary->medical_notes ? $primary->medical_notes . "\n" : '') . $duplicate->medical_notes);
+            }
+            $primary->save();
+
+            $duplicate->delete();
+        });
+
+        return back()->with('success', "Ficha #{$duplicate->id} unificada exitosamente dentro de {$primary->last_name}, {$primary->first_name} (#{$primary->id}). Se transfirieron todas sus consultas, cirugías, estudios y turnos.");
     }
 
     /**

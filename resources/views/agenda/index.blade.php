@@ -55,6 +55,22 @@
     color: #fff; 
     transform: scale(1.15); 
 }
+.cal-day.partial-block {
+    background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%);
+    color: #581c87;
+    border: 2px solid #9333ea;
+    font-weight: 800;
+    box-shadow: 0 3px 8px rgba(147, 51, 234, 0.22);
+}
+.cal-day.partial-block:hover {
+    transform: scale(1.15);
+    box-shadow: 0 6px 14px rgba(147, 51, 234, 0.38);
+}
+body.theme-dark .cal-day.partial-block {
+    background: linear-gradient(135deg, rgba(147, 51, 234, 0.35) 0%, rgba(126, 34, 206, 0.55) 100%) !important;
+    color: #e9d5ff !important;
+    border-color: #c084fc !important;
+}
 .cal-day.selected-day { box-shadow: 0 0 0 4px rgba(94, 106, 210, 0.6); transform: scale(1.1); }
 
 /* Timeline Slots */
@@ -107,34 +123,44 @@ body.theme-dark .cal-day.available:hover {
 </style>
 
 <!-- Leyenda Global -->
-<div class="d-flex align-items-center justify-content-end gap-3 mb-4">
+<div class="d-flex align-items-center justify-content-end flex-wrap gap-3 mb-4">
     <div class="d-flex align-items-center gap-2">
         <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #20c997 0%, #198754 100%); box-shadow: 0 2px 6px rgba(32, 201, 151, 0.4);"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">Día Disponible</small>
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Habilitado</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%); border: 2px solid #9333ea;"></div> 
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Parcialmente Bloqueado</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <div style="width:16px; height:16px; border-radius:50%; background: #fff3cd; border: 2px solid #ffc107;"></div> 
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Bloqueado</small>
     </div>
     <div class="d-flex align-items-center gap-2">
         <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #ff6b6b 0%, #dc3545 100%); box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">Día Saturado</small>
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Saturado</small>
     </div>
     <div class="d-flex align-items-center gap-2">
         <div style="width:16px; height:16px; border-radius:50%; background-color: transparent; border: 2px solid #ccc;"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">Ausencia</small>
+        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Sin Consultorio Habitual</small>
     </div>
 </div>
 
 <!-- Iterar por Cada Médico Renderizando Agendas Múltiples -->
 @foreach($doctors as $doc)
 <div class="modern-card p-0 mb-4 shadow-sm overflow-hidden" style="border: 2px solid rgba(94, 106, 210, 0.15); border-radius: 20px; box-shadow: 0 10px 40px rgba(94, 106, 210, 0.08) !important;">
-    <div class="px-4 py-3 d-flex align-items-center justify-content-between" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.08) 0%, transparent 100%); border-bottom: 2px solid rgba(94, 106, 210, 0.1);">
+    <div class="px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.08) 0%, transparent 100%); border-bottom: 2px solid rgba(94, 106, 210, 0.1);">
         <h6 class="fw-bold mb-0 text-dark d-flex align-items-center" style="font-size: 1.1rem;">
             <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 36px; height: 36px; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);">
                 <i class="bi bi-person-fill" style="font-size: 1.1rem;"></i>
             </div>
             Agenda de {{ $doc->name }}
         </h6>
-        <button class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-sm d-none" data-bs-toggle="modal" data-bs-target="#newAppointmentModal" onclick="document.getElementById('formDoctorSelect').value={{ $doc->id }}">
-            + Forzar Turno Manual
-        </button>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3 fw-bold text-dark shadow-sm" onclick="openDirectBlockModal({{ $doc->id }}, '{{ addslashes($doc->name) }}')">
+                <i class="bi bi-shield-lock-fill me-1"></i> Bloquear Días / Franja
+            </button>
+        </div>
     </div>
     
     <div class="row g-0">
@@ -161,13 +187,16 @@ body.theme-dark .cal-day.available:hover {
         </div>
 
         <!-- Columna Derecha: Timeline Diario -->
-        <div class="col-lg-7 d-flex flex-column agenda-timeline-col" style="background: #fafafa; min-height:280px;">
-            <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center shadow-sm z-1 agenda-timeline-header">
+        <div class="col-lg-7 d-flex flex-column agenda-timeline-col" style="background: #fafafa; min-height:320px;">
+            <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm z-1 agenda-timeline-header">
                 <div>
                     <h6 id="selectedDateLabel_{{ $doc->id }}" class="fw-bold mb-0 text-dark">Agenda Diaria</h6>
-                    <small class="text-muted" style="font-size: 0.75rem;" id="selectedDateSubLabel_{{ $doc->id }}">Seleccione un día en el calendario</small>
+                    <small class="text-muted" style="font-size: 0.75rem;" id="selectedDateSubLabel_{{ $doc->id }}">Seleccione cualquier día en el calendario</small>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold d-none" id="specialOpenBtn_{{ $doc->id }}" onclick="openSpecialOpeningModal({{ $doc->id }})" title="Habilitar una franja excepcional este día (ej: 2 hs)">
+                        <i class="bi bi-clock-history me-1"></i> Habilitar Franja (ej. 2 hs)
+                    </button>
                     <button class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-bold d-none text-dark" id="blockAgendaBtn_{{ $doc->id }}" onclick="openBlockModal({{ $doc->id }})">
                         <i class="bi bi-shield-lock-fill me-1"></i> Bloquear Agenda
                     </button>
@@ -175,14 +204,17 @@ body.theme-dark .cal-day.available:hover {
                 </div>
             </div>
             
-            <div id="slotsContainer_{{ $doc->id }}" class="p-3 flex-grow-1 overflow-auto" style="max-height: 280px;">
+            <div id="slotsContainer_{{ $doc->id }}" class="p-3 flex-grow-1 overflow-auto" style="max-height: 360px;">
                 <!-- Estado vacío -->
                 <div class="text-center py-4 opacity-50 text-muted">
                     <i class="bi bi-calendar-x" style="font-size: 4rem;"></i>
                     <h6 class="mt-3 text-dark">Sin selección</h6>
-                    <small>Haga clic en un día verde para ver los horarios.</small>
+                    <small>Haga clic en un día del calendario para ver horarios, desbloquear turnos o habilitar una franja especial.</small>
                 </div>
             </div>
+
+            <!-- Listado rápido de Bloqueos Activos del Médico (abajo a la derecha) -->
+            <div id="activeBlocksStrip_{{ $doc->id }}" class="px-3 py-2 bg-warning bg-opacity-10 border-top d-none" style="font-size: 0.76rem;"></div>
             
             <!-- Phase 17: Express Nearest Slot Footer (Moved inside doctor card) -->
             <div class="mt-auto bg-white border-top p-3 d-flex align-items-center justify-content-between shadow-sm z-1 agenda-express-footer" style="border-left: 4px solid #198754;">
@@ -375,11 +407,11 @@ body.theme-dark .cal-day.available:hover {
   </div>
 </div>
 
-<!-- Modal: Reprogramar Turno Directo -->
+<!-- Modal: Reprogramar Turno Directo (Horarios Libres Desplegados + Opción Sobreturno) -->
 <div class="modal fade" id="rescheduleAppointmentModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content border-0 rounded-4 shadow-lg">
-        <div class="modal-header border-bottom pb-2">
+        <div class="modal-header border-bottom pb-2 px-4 pt-3">
             <div>
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-repeat text-primary me-2"></i>Reprogramar Turno</h5>
                 <small class="text-muted fw-bold" id="reschedulePatientLabel">Paciente: --</small>
@@ -392,11 +424,17 @@ body.theme-dark .cal-day.available:hover {
             <input type="hidden" id="rescheduleOriginalDate">
             <input type="hidden" id="rescheduleOriginalDoctorId">
             <div class="modal-body p-4">
-                <div class="alert alert-info border-0 rounded-3 small py-2 mb-3">
-                    <i class="bi bi-info-circle me-1"></i> Turno actual: <strong id="rescheduleCurrentDetails">--</strong>
+                <div class="alert alert-info border-0 rounded-3 small py-2 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span><i class="bi bi-info-circle me-1"></i> Turno actual: <strong id="rescheduleCurrentDetails">--</strong></span>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="rescheduleIsOverbooked" onchange="toggleRescheduleOverbookMode()">
+                        <label class="form-check-label fw-bold text-dark" for="rescheduleIsOverbooked">
+                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Dar como Sobreturno
+                        </label>
+                    </div>
                 </div>
                 <div class="row g-3">
-                    <div class="col-md-12">
+                    <div class="col-md-5">
                         <label class="form-label text-dark small fw-bold mb-1">Profesional</label>
                         <select id="rescheduleDoctorId" class="form-select bg-white border rounded-3 shadow-none" onchange="loadRescheduleFreeSlots()">
                             @foreach($doctors as $doc)
@@ -404,20 +442,43 @@ body.theme-dark .cal-day.available:hover {
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label text-dark small fw-bold mb-1">Nueva Fecha *</label>
-                        <input type="date" id="rescheduleNewDate" class="form-control bg-white border rounded-3 shadow-none" required onchange="loadRescheduleFreeSlots()">
+                        <input type="date" id="rescheduleNewDate" class="form-control bg-white border rounded-3 shadow-none fw-bold" required onchange="loadRescheduleFreeSlots()" oninput="loadRescheduleFreeSlots()">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-dark small fw-bold mb-1">Nuevo Horario *</label>
-                        <input type="time" id="rescheduleNewTime" class="form-control bg-white border rounded-3 shadow-none" required>
+                    <div class="col-md-3">
+                        <label class="form-label text-dark small fw-bold mb-1">Horario Elegido *</label>
+                        <input type="time" id="rescheduleNewTime" class="form-control bg-white border rounded-3 shadow-none fw-bold text-primary" required>
                     </div>
+
+                    <!-- Horarios Libres Desplegados Automáticamente -->
                     <div class="col-md-12" id="rescheduleFreeSlotsWrap">
-                        <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">Horarios libres ese día (clic para seleccionar):</label>
-                        <div id="rescheduleFreeSlotsContainer" class="d-flex flex-wrap gap-1 p-2 rounded-3 bg-light border" style="max-height: 110px; overflow-y: auto;">
-                            <span class="text-muted small">Seleccione una fecha para ver horarios libres...</span>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label text-success small fw-bold mb-0">
+                                <i class="bi bi-calendar-check-fill me-1"></i> Horarios Libres Disponibles en este Día (clic para elegir):
+                            </label>
+                            <small class="text-muted" id="rescheduleSlotsSummaryLabel"></small>
+                        </div>
+                        <div id="rescheduleFreeSlotsContainer" class="d-flex flex-wrap gap-2 p-3 rounded-3 bg-light border" style="max-height: 170px; overflow-y: auto;">
+                            <span class="text-muted small">Seleccione una fecha para ver los horarios disponibles desplegados...</span>
                         </div>
                     </div>
+
+                    <!-- Sección de Sobreturno en la misma ventana -->
+                    <div class="col-md-12" id="rescheduleOverbookWrap">
+                        <div class="p-3 rounded-3 border" style="background: #fffdf5; border-color: rgba(245, 158, 11, 0.4) !important;">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <span class="small fw-bold text-dark">
+                                    <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Opción Sobreturno (clic en cualquier horario libre u ocupado, o escriba hora manual arriba):
+                                </span>
+                                <span class="badge bg-warning bg-opacity-25 text-dark border border-warning" id="rescheduleOverbookBadge">Modo Turno Regular</span>
+                            </div>
+                            <div id="rescheduleOverbookSlotsContainer" class="d-flex flex-wrap gap-2" style="max-height: 130px; overflow-y: auto;">
+                                <span class="text-muted small">Cargando horarios de sobreturno...</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="col-md-12">
                         <label class="form-label text-dark small fw-bold mb-1">Motivo / Nota (Opcional)</label>
                         <input type="text" id="rescheduleReason" class="form-control bg-white border rounded-3 shadow-none" placeholder="Ej: Solicitado por paciente, reprogramación...">
@@ -428,6 +489,50 @@ body.theme-dark .cal-day.available:hover {
                 <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" id="btnSubmitReschedule" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
                     <i class="bi bi-check2-circle me-1"></i> Confirmar Reprogramación
+                </button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Habilitar Franja Especial / Desbloquear Franja en Día Bloqueado (ej: Atender 2 hs) -->
+<div class="modal fade" id="specialOpeningModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow-lg">
+        <div class="modal-header border-bottom pb-2 px-4 pt-3">
+            <div>
+                <h5 class="modal-title fw-bold text-dark" id="specialModalTitle"><i class="bi bi-clock-history text-primary me-2"></i>Habilitar Franja Horaria en este Día</h5>
+                <small class="text-muted fw-bold" id="specialModalSubLabel">Seleccione desde y hasta qué hora desea atender</small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="specialOpeningForm" onsubmit="submitSpecialOpening(event)">
+            @csrf
+            <input type="hidden" id="specialDoctorId">
+            <input type="hidden" id="specialDate">
+            <input type="hidden" id="specialActionMode" value="special_open">
+            <div class="modal-body p-4">
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" onclick="document.getElementById('specialStartTime').value='09:00'; document.getElementById('specialEndTime').value='11:00';">2 hs Mañana (09 a 11)</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" onclick="document.getElementById('specialStartTime').value='10:00'; document.getElementById('specialEndTime').value='12:00';">2 hs Mediodía (10 a 12)</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" onclick="document.getElementById('specialStartTime').value='16:00'; document.getElementById('specialEndTime').value='18:00';">2 hs Tarde (16 a 18)</button>
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold mb-1">Hora Desde *</label>
+                        <input type="time" id="specialStartTime" class="form-control form-control-lg bg-white border rounded-3 shadow-none" value="10:00" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold mb-1">Hora Hasta *</label>
+                        <input type="time" id="specialEndTime" class="form-control form-control-lg bg-white border rounded-3 shadow-none" value="12:00" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top pt-3 pe-4">
+                <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" id="btnSubmitSpecialOpening" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm">
+                    <i class="bi bi-unlock-fill me-1"></i> Habilitar Horarios
                 </button>
             </div>
         </form>
@@ -598,22 +703,28 @@ body.theme-dark .cal-day.available:hover {
             let extraClass = '';
             const div = document.createElement('div');
 
-            if (status === 'blocked' || isBlocked) {
+            if (status === 'partial_block') {
+                extraClass = 'partial-block';
+                const freeCnt = dayData.available_slots ?? 0;
+                const blkCnt = dayData.blocked_slots ?? 0;
+                div.title = `Parcialmente Bloqueado (${freeCnt} hab. / ${blkCnt} bloq.) - ${blockReason}`;
+            } else if (status === 'blocked' || isBlocked) {
                 extraClass = 'blocked';
-                div.title = `Bloqueado: ${blockReason}`;
+                div.title = `Día Bloqueado: ${blockReason}`;
                 div.style.background = '#fff3cd';
                 div.style.color = '#856404';
                 div.style.border = '2px solid #ffc107';
                 div.style.fontWeight = 'bold';
             } else if (status === 'unavailable') {
                 extraClass = 'unavailable opacity-50';
-                div.title = 'No atiende';
+                div.title = 'Sin consultorio habitual (clic para habilitar franja especial)';
+                div.style.cursor = 'pointer';
             } else if (status === 'full') {
                 extraClass = 'full';
                 div.title = 'Agenda Llena (100%)';
             } else if (status === 'available') {
                 extraClass = 'available';
-                div.title = `Ocupado: ${percentage}%`;
+                div.title = `Disponible (Ocupado: ${percentage}%)`;
                 
                 div.style.setProperty('--fill-percentage', `${percentage}%`);
                 if (percentage >= 50) {
@@ -626,13 +737,31 @@ body.theme-dark .cal-day.available:hover {
             div.className = `cal-day ${extraClass}`;
             div.innerText = day;
             
-            // Permitir clic en disponibles, llenos o bloqueados para inspeccionar y desbloquear
-            if (status === 'available' || status === 'full' || status === 'blocked' || isBlocked) {
-                div.onclick = (e) => loadDaySlots(doctorId, dateStr, e);
-            }
+            // Todos los días son clickeables (incluso días libres por si desea abrir 2 hs excepcionales)
+            div.onclick = (e) => loadDaySlots(doctorId, dateStr, e);
 
             grid.appendChild(div);
         }
+    }
+
+    function renderActiveBlocksStrip(doctorId, activeBlocks, currentDateStr) {
+        const strip = document.getElementById(`activeBlocksStrip_${doctorId}`);
+        if (!strip) return;
+        if (!activeBlocks || activeBlocks.length === 0) {
+            strip.classList.add('d-none');
+            strip.innerHTML = '';
+            return;
+        }
+        strip.classList.remove('d-none');
+        const itemsHtml = activeBlocks.map(b => `
+            <span class="badge bg-white text-dark border shadow-sm d-inline-flex align-items-center gap-2 px-2 py-1">
+                <span><i class="bi bi-lock-fill text-warning me-1"></i><strong>${b.reason}:</strong> ${b.label}</span>
+                <button type="button" class="btn btn-link btn-sm p-0 text-danger fw-bold text-decoration-none" title="Anular este bloqueo completo y rehabilitar días habituales" onclick="unblockEntireBlock(${b.id}, ${doctorId}, '${currentDateStr || b.start_date}')">
+                    <i class="bi bi-x-circle-fill"></i> Desbloquear
+                </button>
+            </span>
+        `).join(' ');
+        strip.innerHTML = `<div class="d-flex align-items-center flex-wrap gap-2"><span class="fw-bold text-dark"><i class="bi bi-shield-lock me-1"></i>Bloqueos activos:</span> ${itemsHtml}</div>`;
     }
 
     function loadDaySlots(doctorId, dateStr, e) {
@@ -646,9 +775,10 @@ body.theme-dark .cal-day.available:hover {
              e.target.classList.add('selected-day');
         }
 
-        // Show the block agenda button
         const blockBtn = document.getElementById(`blockAgendaBtn_${doctorId}`);
         if (blockBtn) blockBtn.classList.remove('d-none');
+        const specialBtn = document.getElementById(`specialOpenBtn_${doctorId}`);
+        if (specialBtn) specialBtn.classList.remove('d-none');
 
         const [y, m, d] = dateStr.split('-');
         const dateObj = new Date(y, m - 1, d);
@@ -663,25 +793,47 @@ body.theme-dark .cal-day.available:hover {
         axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${doctorId}&date=${dateStr}`)
             .then(res => {
                 document.getElementById(`dateLoadingSpinner_${doctorId}`).classList.add('d-none');
+                renderActiveBlocksStrip(doctorId, res.data.active_doctor_blocks || [], dateStr);
                 
                 if (res.data.slots.length === 0) {
-                     document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = res.data.message || "Sin horarios de atención para este día.";
-                     slotsContainer.innerHTML = `
+                     document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = res.data.message || "Día libre / Sin horario habitual.";
+                     let emptyHtml = '';
+                     if (res.data.full_day_block) {
+                         const blk = res.data.full_day_block;
+                         emptyHtml += `
+                         <div class="alert alert-warning border-0 rounded-4 p-3 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 shadow-sm" style="background: rgba(255, 193, 7, 0.2); border-left: 5px solid #ffc107 !important;">
+                             <div>
+                                 <h6 class="fw-bold mb-1 text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i> Período Bloqueado (${blk.reason})</h6>
+                                 <span class="text-dark small">${blk.start} al ${blk.end}</span>
+                             </div>
+                             <button class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm" onclick="unblockEntireBlock(${blk.id}, ${doctorId}, '${dateStr}')">
+                                 <i class="bi bi-unlock-fill me-1"></i> Anular Bloqueo
+                             </button>
+                         </div>`;
+                     }
+                     emptyHtml += `
                         <div class="text-center py-4 text-muted">
-                            <i class="bi bi-calendar-x fs-1 text-secondary opacity-50 d-block mb-2"></i>
-                            <h6 class="text-dark">${res.data.message || 'Sin horarios de atención'}</h6>
-                            <small>Este profesional no tiene horario configurado para este día de la semana.</small>
+                            <i class="bi bi-calendar-plus fs-1 text-primary opacity-50 d-block mb-2"></i>
+                            <h6 class="text-dark fw-bold">${res.data.message || 'Día libre / Sin consultorio habitual'}</h6>
+                            <p class="small mb-3">Si desea atender excepcionalmente en este día (por ejemplo 2 horas), habilite una franja horaria:</p>
+                            <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'special_open')">
+                                <i class="bi bi-clock-fill me-1"></i> Habilitar Horario Especial (ej. 2 hs)
+                            </button>
                         </div>`;
+                     slotsContainer.innerHTML = emptyHtml;
                      return;
                 }
 
                 let totalLibres = 0;
                 let totalExtras = 0;
                 let totalOcupados = 0;
+                let totalBloqueados = 0;
 
                 res.data.slots.forEach(slot => {
                     if (slot.status === 'free') {
                         totalLibres++;
+                    } else if (slot.status === 'blocked') {
+                        totalBloqueados++;
                     } else if (slot.status === 'booked') {
                         totalOcupados++;
                         if (slot.is_extra) totalExtras++;
@@ -690,22 +842,63 @@ body.theme-dark .cal-day.available:hover {
 
                 document.getElementById(`selectedDateSubLabel_${doctorId}`).innerHTML = 
                     `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 me-1"><i class="bi bi-calendar-check me-1"></i>Libres: ${totalLibres}</span> ` +
+                    (totalBloqueados > 0 ? `<span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1 me-1"><i class="bi bi-lock-fill me-1"></i>Bloq: ${totalBloqueados}</span> ` : '') +
                     `<span class="badge bg-warning bg-opacity-25 text-dark border border-warning border-opacity-50 px-2 py-1 me-1"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Sobreturnos: ${totalExtras}</span> ` +
-                    `<span class="badge bg-light text-dark border px-2 py-1"><i class="bi bi-people-fill me-1"></i>Total: ${totalOcupados}</span>`;
+                    `<span class="badge bg-light text-dark border px-2 py-1"><i class="bi bi-people-fill me-1"></i>Ocupados: ${totalOcupados}</span>`;
 
                 let html = '';
 
-                // Si hay un bloqueo general de día completo o vacaciones, mostrar banner destacado arriba
+                // Banner de Día Completamente Bloqueado (con desbloqueo del día, de una franja de ej. 2 hs, o de todo el período)
                 if (res.data.full_day_block) {
                     const blk = res.data.full_day_block;
                     html += `
-                    <div class="alert alert-warning border-0 rounded-4 p-3 d-flex align-items-center justify-content-between mb-3 shadow-sm" style="background: rgba(255, 193, 7, 0.2); border-left: 5px solid #ffc107 !important;">
-                        <div>
-                            <h6 class="fw-bold mb-1 text-dark"><i class="bi bi-shield-lock-fill text-warning me-2 fs-5"></i> DÍA BLOQUEADO</h6>
-                            <span class="text-dark small"><strong>Motivo:</strong> ${blk.reason} (${blk.start} al ${blk.end})</span>
+                    <div class="alert alert-warning border-0 rounded-4 p-3 mb-3 shadow-sm" style="background: rgba(255, 193, 7, 0.2); border-left: 5px solid #ffc107 !important;">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark"><i class="bi bi-shield-lock-fill text-warning me-2 fs-5"></i> DÍA BLOQUEADO — Horario habitual visible abajo</h6>
+                                <span class="text-dark small"><strong>Motivo:</strong> ${blk.reason} (${blk.start} al ${blk.end}) · Puede liberar todo el día o habilitar solo algunos horarios abajo.</span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'unblock_range')">
+                                    <i class="bi bi-clock me-1"></i> Habilitar Franja (ej. 2 hs)
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onclick="unblockDayOnly(${doctorId}, '${dateStr}')">
+                                    <i class="bi bi-unlock-fill me-1"></i> Desbloquear Todo el Día
+                                </button>
+                                ${blk.is_multi_day ? `
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold bg-white" onclick="unblockEntireBlock(${blk.id}, ${doctorId}, '${dateStr}')">
+                                    <i class="bi bi-trash me-1"></i> Anular Período (${blk.start}-${blk.end})
+                                </button>` : ''}
+                            </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold shadow-sm" onclick="unblockSlot(${blk.id}, ${doctorId}, '${dateStr}')">
-                            <i class="bi bi-unlock-fill me-1"></i> Desbloquear Día
+                    </div>`;
+                } else if (res.data.partial_day_block) {
+                    const blk = res.data.partial_day_block;
+                    html += `
+                    <div class="alert border-0 rounded-4 p-3 mb-3 shadow-sm" style="background: #f3e8ff; border-left: 5px solid #9333ea !important;">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold mb-1" style="color:#581c87;"><i class="bi bi-circle-half me-2"></i> DÍA PARCIALMENTE BLOQUEADO</h6>
+                                <span class="text-dark small"><strong>Motivo:</strong> ${blk.reason} · <strong>${blk.free_slots}</strong> horarios habilitados y <strong>${blk.blocked_slots}</strong> bloqueados.</span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary bg-white rounded-pill px-3 fw-bold" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'unblock_range')">
+                                    <i class="bi bi-clock me-1"></i> Habilitar Otra Franja
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onclick="unblockDayOnly(${doctorId}, '${dateStr}')">
+                                    <i class="bi bi-unlock-fill me-1"></i> Desbloquear Todo el Día
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                if (res.data.special_openings && res.data.special_openings.length > 0) {
+                    html += `
+                    <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2 small">
+                        <span><i class="bi bi-stars text-primary me-1"></i> <strong>Horario especial habilitado en esta fecha</strong></span>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-2 fw-bold" style="font-size:0.72rem;" onclick="removeSpecialOpening(${doctorId}, '${dateStr}')">
+                            Quitar horario especial
                         </button>
                     </div>`;
                 }
@@ -813,6 +1006,7 @@ body.theme-dark .cal-day.available:hover {
                             </div>
                         </div>`;
                     } else if (slot.status === 'blocked') {
+                        const escapedReason = (slot.reason || 'Bloqueado').replace(/'/g, "\\'");
                         html += `
                         <div class="slot-card slot-blocked justify-content-between position-relative pe-2 mb-2">
                             <div class="d-flex align-items-center gap-3 flex-grow-1">
@@ -822,10 +1016,21 @@ body.theme-dark .cal-day.available:hover {
                                     <small class="text-muted">${slot.reason} ${slot.conflict_patient ? ' - <strong>Conflicto:</strong> ' + slot.conflict_patient : ''}</small>
                                 </div>
                             </div>
-                            <div class="d-flex align-items-center z-2">
-                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-none fw-bold" onclick="unblockSlot(${slot.block_id}, ${doctorId}, '${dateStr}')" style="font-size:0.7rem;">
-                                    Desbloquear
+                            <div class="d-flex align-items-center gap-1 dropdown z-2">
+                                <button class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-none fw-bold" onclick="unblockSingleSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" style="font-size:0.72rem;" title="Desbloquear únicamente el horario ${slot.time}">
+                                    <i class="bi bi-unlock-fill me-1"></i> Desbloquear ${slot.time}
                                 </button>
+                                <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Más opciones sobre este horario bloqueado">
+                                    <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
+                                    <li><button class="dropdown-item py-2 text-success fw-bold" onclick="unblockSingleSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})"><i class="bi bi-unlock-fill me-2"></i> Desbloquear solo este horario (${slot.time})</button></li>
+                                    <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'unblock_range', '${slot.time}')"><i class="bi bi-clock me-2"></i> Habilitar franja desde ${slot.time} (ej. 2 hs)</button></li>
+                                    <li><button class="dropdown-item py-2 text-dark fw-bold" onclick="unblockAndBookSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})"><i class="bi bi-calendar-plus me-2 text-success"></i> Liberar y asignar turno en ${slot.time}</button></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="unblockDayOnly(${doctorId}, '${dateStr}')"><i class="bi bi-calendar-check me-2"></i> Desbloquear todo este día</button></li>
+                                    ${slot.block_id ? `<li><button class="dropdown-item py-2 text-danger fw-bold" onclick="unblockEntireBlock(${slot.block_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Anular todo el bloqueo (${escapedReason})</button></li>` : ''}
+                                </ul>
                             </div>
                         </div>`;
                     } else {
@@ -835,7 +1040,7 @@ body.theme-dark .cal-day.available:hover {
                                 <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
                                     <span class="slot-time d-block text-success">${slot.time}</span>
                                     <div>
-                                        <h6 class="mb-0 text-success fw-bold">Turno Libre</h6>
+                                        <h6 class="mb-0 text-success fw-bold">Turno Libre ${slot.is_special ? '<span class="badge bg-info bg-opacity-10 text-primary border ms-1" style="font-size:0.65rem;">Franja Especial</span>' : ''}</h6>
                                         <small class="text-muted">Clic para asignar un paciente</small>
                                     </div>
                                 </div>
@@ -1032,14 +1237,22 @@ body.theme-dark .cal-day.available:hover {
                 blockStartTime.removeAttribute('required');
                 blockEndTime.removeAttribute('required');
                 blockReasonInput.placeholder = 'Ej: Anulación de día, Congreso, Licencia médica';
-            } else { // range or slot
+            } else if (val === 'range') {
+                blockEndDateCol.classList.remove('d-none');
+                blockEndDate.removeAttribute('required');
+                blockStartDateLabel.innerText = 'Fecha Desde *';
+                timeFields.forEach(el => el.classList.remove('d-none'));
+                blockStartTime.setAttribute('required', 'true');
+                blockEndTime.setAttribute('required', 'true');
+                blockReasonInput.placeholder = 'Ej: Mañana bloqueada por cirugías';
+            } else { // slot
                 blockEndDateCol.classList.add('d-none');
                 blockEndDate.removeAttribute('required');
                 blockStartDateLabel.innerText = 'Fecha *';
                 timeFields.forEach(el => el.classList.remove('d-none'));
                 blockStartTime.setAttribute('required', 'true');
                 blockEndTime.setAttribute('required', 'true');
-                blockReasonInput.placeholder = val === 'range' ? 'Ej: Mañana bloqueada por cirugías' : 'Ej: Turno bloqueado por trámite';
+                blockReasonInput.placeholder = 'Ej: Turno bloqueado por trámite';
             }
         });
     }
@@ -1137,19 +1350,153 @@ body.theme-dark .cal-day.available:hover {
         });
     }
 
-    function unblockSlot(blockId, doctorId, dateStr) {
-        if (!confirm('¿Estás seguro de que deseas eliminar este bloqueo y liberar la agenda?')) return;
-        
-        axios.delete(`/api/agenda/blocks/${blockId}`, {
-            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
-        })
-        .then(res => {
-            renderCalendar(doctorId);
-            loadDaySlots(doctorId, dateStr);
-            if (typeof loadNearestSlots === 'function') loadNearestSlots();
-        })
-        .catch(err => alert('Ocurrió un error al intentar quitar el bloqueo.'));
+    function csrfHeader() {
+        return { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') };
     }
+
+    function refreshDoctorAgendaUI(doctorId, dateStr) {
+        renderCalendar(doctorId);
+        if (dateStr) loadDaySlots(doctorId, dateStr);
+        if (typeof loadNearestSlots === 'function') loadNearestSlots();
+    }
+
+    function unblockSingleSlot(doctorId, dateStr, timeStr, duration) {
+        axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
+            doctor_id: doctorId,
+            date: dateStr,
+            mode: 'slot',
+            start_time: timeStr,
+            duration: duration || 20
+        }, { headers: csrfHeader() })
+        .then(() => {
+            if (typeof spawnToast === 'function') {
+                spawnToast('Horario Habilitado', `Se desbloqueó el horario ${timeStr} hs.`, 'unlock-fill', 'success text-white');
+            }
+            refreshDoctorAgendaUI(doctorId, dateStr);
+        })
+        .catch(err => alert(err.response?.data?.message || 'Error al desbloquear el horario.'));
+    }
+
+    function unblockAndBookSlot(doctorId, dateStr, timeStr, duration) {
+        axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
+            doctor_id: doctorId,
+            date: dateStr,
+            mode: 'slot',
+            start_time: timeStr,
+            duration: duration || 20
+        }, { headers: csrfHeader() })
+        .then(() => {
+            refreshDoctorAgendaUI(doctorId, dateStr);
+            openBookingFromExpress(doctorId, dateStr, timeStr, duration || 20);
+        })
+        .catch(err => alert(err.response?.data?.message || 'Error al liberar el horario.'));
+    }
+
+    function unblockDayOnly(doctorId, dateStr) {
+        if (!confirm('¿Desbloquear todos los horarios habituales de ESTE DÍA? (Los demás días bloqueados del período se mantendrán intactos).')) return;
+        axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
+            doctor_id: doctorId,
+            date: dateStr,
+            mode: 'day'
+        }, { headers: csrfHeader() })
+        .then(() => {
+            if (typeof spawnToast === 'function') {
+                spawnToast('Día Habilitado', 'Se habilitaron todos los horarios de este día.', 'check-circle-fill', 'success text-white');
+            }
+            refreshDoctorAgendaUI(doctorId, dateStr);
+        })
+        .catch(err => alert(err.response?.data?.message || 'Error al desbloquear el día.'));
+    }
+
+    function unblockEntireBlock(blockId, doctorId, dateStr) {
+        if (!confirm('¿Anular este bloqueo completo y rehabilitar todos los días y horarios habituales del médico?')) return;
+        axios.delete(`/api/agenda/blocks/${blockId}`, { headers: csrfHeader() })
+        .then(() => {
+            if (typeof spawnToast === 'function') {
+                spawnToast('Bloqueo Anulado', 'Toda la agenda habitual fue rehabilitada.', 'unlock-fill', 'success text-white');
+            }
+            refreshDoctorAgendaUI(doctorId, dateStr || doctorStates[doctorId]?.selectedDateStr);
+        })
+        .catch(() => alert('Ocurrió un error al intentar anular el bloqueo.'));
+    }
+
+    function unblockSlot(blockId, doctorId, dateStr) {
+        unblockEntireBlock(blockId, doctorId, dateStr);
+    }
+
+    function openSpecialOpeningModal(doctorId, dateStr, actionMode = 'special_open', defaultStart = '10:00') {
+        const targetDate = dateStr || doctorStates[doctorId]?.selectedDateStr;
+        if (!targetDate) {
+            alert('Seleccione primero un día en el calendario.');
+            return;
+        }
+        document.getElementById('specialDoctorId').value = doctorId;
+        document.getElementById('specialDate').value = targetDate;
+        document.getElementById('specialActionMode').value = actionMode;
+        document.getElementById('specialStartTime').value = defaultStart;
+
+        const [sh, sm] = defaultStart.split(':').map(n => parseInt(n, 10));
+        const endH = Math.min(23, (isNaN(sh) ? 10 : sh) + 2);
+        document.getElementById('specialEndTime').value = `${String(endH).padStart(2, '0')}:${String(isNaN(sm) ? 0 : sm).padStart(2, '0')}`;
+
+        const [y, m, d] = targetDate.split('-');
+        document.getElementById('specialModalSubLabel').innerText = `Fecha: ${d}/${m}/${y}`;
+        document.getElementById('specialModalTitle').innerHTML = actionMode === 'unblock_range'
+            ? '<i class="bi bi-unlock-fill text-success me-2"></i>Desbloquear Franja Horaria (ej: 2 hs)'
+            : '<i class="bi bi-clock-history text-primary me-2"></i>Habilitar Horario Especial en Día Libre';
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('specialOpeningModal')).show();
+    }
+
+    function submitSpecialOpening(e) {
+        e.preventDefault();
+        const doctorId = parseInt(document.getElementById('specialDoctorId').value, 10);
+        const dateStr = document.getElementById('specialDate').value;
+        const mode = document.getElementById('specialActionMode').value;
+        const startTime = document.getElementById('specialStartTime').value;
+        const endTime = document.getElementById('specialEndTime').value;
+        const btn = document.getElementById('btnSubmitSpecialOpening');
+
+        btn.disabled = true;
+        const req = (mode === 'unblock_range')
+            ? axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
+                doctor_id: doctorId,
+                date: dateStr,
+                mode: 'time_range',
+                start_time: startTime,
+                end_time: endTime
+              }, { headers: csrfHeader() })
+            : axios.post(`{{ route('api.agenda.special_opening.store') }}`, {
+                doctor_id: doctorId,
+                date: dateStr,
+                start_time: startTime,
+                end_time: endTime
+              }, { headers: csrfHeader() });
+
+        req.then(() => {
+            btn.disabled = false;
+            const modal = bootstrap.Modal.getInstance(document.getElementById('specialOpeningModal'));
+            if (modal) modal.hide();
+            if (typeof spawnToast === 'function') {
+                spawnToast('Franja Habilitada', `Horarios de ${startTime} a ${endTime} hs habilitados.`, 'check-circle-fill', 'success text-white');
+            }
+            refreshDoctorAgendaUI(doctorId, dateStr);
+        }).catch(err => {
+            btn.disabled = false;
+            alert(err.response?.data?.message || 'Verifique que la hora fin sea posterior a la de inicio.');
+        });
+    }
+
+    function removeSpecialOpening(doctorId, dateStr) {
+        if (!confirm('¿Quitar el horario especial habilitado en esta fecha?')) return;
+        axios.delete(`{{ route('api.agenda.special_opening.destroy') }}`, {
+            headers: csrfHeader(),
+            data: { doctor_id: doctorId, date: dateStr }
+        }).then(() => {
+            refreshDoctorAgendaUI(doctorId, dateStr);
+        }).catch(() => alert('Error al quitar horario especial.'));
+    }
+
     // Init Call
     document.addEventListener('DOMContentLoaded', () => {
         // Init all calendars
@@ -1239,6 +1586,41 @@ body.theme-dark .cal-day.available:hover {
         }
     }
 
+    function toggleRescheduleOverbookMode() {
+        const isOver = document.getElementById('rescheduleIsOverbooked')?.checked;
+        const badge = document.getElementById('rescheduleOverbookBadge');
+        if (badge) {
+            if (isOver) {
+                badge.className = 'badge bg-warning text-dark fw-bold';
+                badge.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i>Se agendará como SOBRETURNO';
+            } else {
+                badge.className = 'badge bg-light text-secondary border';
+                badge.innerText = 'Modo Turno Regular';
+            }
+        }
+    }
+
+    function pickRescheduleSlot(timeStr, asOverbook) {
+        document.getElementById('rescheduleNewTime').value = timeStr;
+        const overChk = document.getElementById('rescheduleIsOverbooked');
+        if (overChk) {
+            overChk.checked = Boolean(asOverbook);
+            toggleRescheduleOverbookMode();
+        }
+        document.querySelectorAll('#rescheduleFreeSlotsContainer .resched-slot-btn').forEach(b => {
+            const active = (!asOverbook && b.getAttribute('data-time') === timeStr);
+            b.className = active
+                ? 'btn btn-sm btn-success rounded-pill py-1 px-3 fw-bold shadow-sm resched-slot-btn'
+                : 'btn btn-sm btn-outline-success rounded-pill py-1 px-3 fw-bold resched-slot-btn';
+        });
+        document.querySelectorAll('#rescheduleOverbookSlotsContainer .resched-over-btn').forEach(b => {
+            const active = (asOverbook && b.getAttribute('data-time') === timeStr);
+            b.className = active
+                ? 'btn btn-sm btn-warning text-dark rounded-pill py-1 px-3 fw-bold shadow-sm resched-over-btn'
+                : 'btn btn-sm btn-outline-warning text-dark bg-white rounded-pill py-1 px-3 fw-semibold resched-over-btn';
+        });
+    }
+
     function openRescheduleModal(appointmentId, patientName, currentDate, currentTime, doctorId) {
         document.getElementById('rescheduleAppointmentId').value = appointmentId;
         document.getElementById('rescheduleOriginalDate').value = currentDate;
@@ -1252,6 +1634,9 @@ body.theme-dark .cal-day.available:hover {
         document.getElementById('rescheduleNewDate').value = currentDate;
         document.getElementById('rescheduleNewTime').value = currentTime;
         document.getElementById('rescheduleReason').value = '';
+        const overChk = document.getElementById('rescheduleIsOverbooked');
+        if (overChk) overChk.checked = false;
+        toggleRescheduleOverbookMode();
         
         loadRescheduleFreeSlots();
 
@@ -1264,23 +1649,70 @@ body.theme-dark .cal-day.available:hover {
         const docId = document.getElementById('rescheduleDoctorId').value;
         const dateVal = document.getElementById('rescheduleNewDate').value;
         const box = document.getElementById('rescheduleFreeSlotsContainer');
+        const overBox = document.getElementById('rescheduleOverbookSlotsContainer');
+        const sumLabel = document.getElementById('rescheduleSlotsSummaryLabel');
         if (!box || !docId || !dateVal) return;
 
-        box.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> Consultando horarios...</span>';
+        box.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> Cargando horarios disponibles del día...</span>';
+        if (overBox) overBox.innerHTML = '<span class="text-muted small">Consultando...</span>';
+
         axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${docId}&date=${dateVal}`)
             .then(res => {
                 const slots = (res.data && res.data.slots) ? res.data.slots : [];
-                const freeSlots = slots.filter(s => s.status === 'free');
-                if (freeSlots.length === 0) {
-                    box.innerHTML = '<span class="text-muted small">Sin turnos libres regulares ese día (puede escribir un horario manual arriba como sobreturno).</span>';
-                    return;
+                const freeSlots = slots.filter(s => s.status === 'free' && !s.is_past);
+
+                // Agrupar todos los horarios no bloqueados para opción de Sobreturno
+                const overMap = new Map();
+                slots.forEach(s => {
+                    if (s.status === 'blocked') return;
+                    if (!overMap.has(s.time)) {
+                        overMap.set(s.time, { time: s.time, count: s.status === 'booked' ? 1 : 0 });
+                    } else if (s.status === 'booked') {
+                        overMap.get(s.time).count++;
+                    }
+                });
+                const overSlots = Array.from(overMap.values());
+
+                if (sumLabel) {
+                    sumLabel.innerText = `${freeSlots.length} libre(s) · ${overSlots.length} horario(s) p/ sobreturno`;
                 }
-                box.innerHTML = freeSlots.map(s => `
-                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 fw-bold" style="font-size: 0.74rem;"
-                            onclick="document.getElementById('rescheduleNewTime').value='${s.time}'">
-                        ${s.time}
-                    </button>
-                `).join('');
+
+                if (freeSlots.length === 0) {
+                    box.innerHTML = '<span class="text-muted small"><i class="bi bi-exclamation-circle me-1"></i>No quedan turnos libres regulares en esta fecha. Use un horario de <strong>Sobreturno</strong> abajo o escriba la hora manualmente arriba.</span>';
+                } else {
+                    // Auto-seleccionar el primer horario libre si la fecha cambió respecto de la original
+                    const origDate = document.getElementById('rescheduleOriginalDate').value;
+                    if (dateVal !== origDate && freeSlots.length > 0) {
+                        document.getElementById('rescheduleNewTime').value = freeSlots[0].time;
+                    }
+                    const currentChosen = document.getElementById('rescheduleNewTime').value;
+                    box.innerHTML = freeSlots.map(s => {
+                        const isSel = (s.time === currentChosen);
+                        return `
+                        <button type="button" data-time="${s.time}"
+                                class="btn btn-sm ${isSel ? 'btn-success shadow-sm' : 'btn-outline-success'} rounded-pill py-1 px-3 fw-bold resched-slot-btn"
+                                style="font-size: 0.8rem;"
+                                onclick="pickRescheduleSlot('${s.time}', false)">
+                            <i class="bi bi-clock me-1"></i>${s.time}
+                        </button>`;
+                    }).join('');
+                }
+
+                if (overBox) {
+                    if (overSlots.length === 0) {
+                        overBox.innerHTML = '<span class="text-muted small">Día sin grilla regular o bloqueado: tilde "Dar como Sobreturno" arriba y elija cualquier horario manualmente.</span>';
+                    } else {
+                        overBox.innerHTML = overSlots.map(os => `
+                            <button type="button" data-time="${os.time}"
+                                    class="btn btn-sm btn-outline-warning text-dark bg-white rounded-pill py-1 px-3 fw-semibold resched-over-btn"
+                                    style="font-size: 0.78rem;"
+                                    onclick="pickRescheduleSlot('${os.time}', true)"
+                                    title="${os.count > 0 ? os.count + ' turno(s) ya asignado(s) en este horario' : 'Horario libre (forzar como sobreturno)'}">
+                                <i class="bi bi-lightning-charge-fill text-warning me-1"></i>${os.time} ${os.count > 0 ? '<span class="badge bg-warning bg-opacity-25 text-dark ms-1">' + os.count + ' ocup.</span>' : '<span class="text-muted small ms-1">(libre)</span>'}
+                            </button>
+                        `).join('');
+                    }
+                }
             })
             .catch(() => {
                 box.innerHTML = '<span class="text-muted small">Puede ingresar cualquier horario manualmente arriba.</span>';
@@ -1296,6 +1728,7 @@ body.theme-dark .cal-day.available:hover {
         const newDate = document.getElementById('rescheduleNewDate').value;
         const newTime = document.getElementById('rescheduleNewTime').value;
         const reason = document.getElementById('rescheduleReason').value;
+        const isOverbooked = Boolean(document.getElementById('rescheduleIsOverbooked')?.checked);
         const btn = document.getElementById('btnSubmitReschedule');
         
         btn.disabled = true;
@@ -1305,7 +1738,8 @@ body.theme-dark .cal-day.available:hover {
             date: newDate,
             time: newTime,
             doctor_id: doctorId,
-            reason: reason
+            reason: reason,
+            is_overbooked: isOverbooked
         }, {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
         })

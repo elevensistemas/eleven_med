@@ -143,8 +143,16 @@ Route::middleware('auth')->group(function () {
     Route::post('agenda/settings/config', [App\Http\Controllers\AgendaSettingsController::class, 'storeConfig'])->name('agenda.config.store');
     Route::post('agenda/settings/blocks', [App\Http\Controllers\AgendaSettingsController::class, 'storeBlock'])->name('agenda.blocks.store');
     Route::delete('agenda/settings/blocks/{block}', [App\Http\Controllers\AgendaSettingsController::class, 'destroyBlock'])->name('agenda.blocks.destroy');
+    Route::delete('agenda/settings/blocks-doctor/{doctor}', [App\Http\Controllers\AgendaSettingsController::class, 'destroyDoctorBlocks'])->name('agenda.blocks.destroy_doctor');
     Route::post('api/agenda/blocks', [App\Http\Controllers\AppointmentController::class, 'storeBlock'])->name('api.agenda.blocks.store');
+    Route::post('api/agenda/blocks/unblock-range', [App\Http\Controllers\AppointmentController::class, 'unblockRange'])->name('api.agenda.blocks.unblock_range');
     Route::delete('api/agenda/blocks/{block}', [App\Http\Controllers\AppointmentController::class, 'destroyBlock'])->name('api.agenda.blocks.destroy');
+    Route::post('api/agenda/special-opening', [App\Http\Controllers\AppointmentController::class, 'storeSpecialOpening'])->name('api.agenda.special_opening.store');
+    Route::delete('api/agenda/special-opening', [App\Http\Controllers\AppointmentController::class, 'removeSpecialOpening'])->name('api.agenda.special_opening.destroy');
+
+    // Duplicate Patients Detector & Merger
+    Route::get('patients-duplicates', [App\Http\Controllers\PatientController::class, 'duplicates'])->name('patients.duplicates');
+    Route::post('patients-duplicates/merge', [App\Http\Controllers\PatientController::class, 'mergeDuplicates'])->name('patients.duplicates.merge');
     // Chat IT (Asistente Médico IA)
     Route::get('/chat-it', [App\Http\Controllers\ChatItController::class, 'index'])->name('chatit.index');
     Route::post('/chat-it/ask', [App\Http\Controllers\ChatItController::class, 'ask'])->name('chatit.ask');

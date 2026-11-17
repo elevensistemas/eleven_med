@@ -417,9 +417,34 @@ body.theme-dark .sidebar-nav-container {
                     </div>
 
                     <div class="card-body p-3" style="max-height: 390px; overflow-y: auto;" id="fichaTopHistoryViewport">
+                        @php
+                            $fichaTopTimeline = collect();
+                            foreach ($patient->visits as $vItem) {
+                                $fichaTopTimeline->push([
+                                    'type' => 'visit',
+                                    'timestamp' => $vItem->created_at ? $vItem->created_at->timestamp : 0,
+                                    'item' => $vItem,
+                                ]);
+                            }
+                            if ($patient->surgeries) {
+                                foreach ($patient->surgeries as $surg) {
+                                    $sTs = $surg->surgery_date
+                                        ? \Carbon\Carbon::parse($surg->surgery_date->format('Y-m-d') . ' 12:00:00')->timestamp
+                                        : ($surg->created_at ? $surg->created_at->timestamp : 0);
+                                    $fichaTopTimeline->push([
+                                        'type' => 'surgery',
+                                        'timestamp' => $sTs,
+                                        'item' => $surg,
+                                    ]);
+                                }
+                            }
+                            $fichaTopTimeline = $fichaTopTimeline->sortByDesc('timestamp')->values();
+                            $seenLatestVisit = false;
+                        @endphp
+
                         @if($patient->surgeries && $patient->surgeries->count() > 0)
                             <div class="mb-3 p-2 px-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25">
-                                <div class="fw-bold text-danger small text-uppercase mb-1"><i class="bi bi-bandaid-fill me-1"></i> Cirugías ({{ $patient->surgeries->count() }})</div>
+                                <div class="fw-bold text-danger small text-uppercase mb-1"><i class="bi bi-bandaid-fill me-1"></i> Resumen de Cirugías ({{ $patient->surgeries->count() }}) — También intercaladas cronológicamente abajo</div>
                                 <div class="d-flex flex-wrap gap-2">
                                     @foreach($patient->surgeries->sortByDesc('surgery_date') as $surg)
                                         <span class="badge bg-white text-dark border shadow-sm px-3 py-2 text-wrap text-start" style="font-size: 0.8rem; font-weight: 500;">
@@ -432,79 +457,102 @@ body.theme-dark .sidebar-nav-container {
                             </div>
                         @endif
 
-                        @if($patient->visits->count() > 0)
+                        @if($fichaTopTimeline->count() > 0)
                             <div class="d-flex flex-column gap-3" id="fichaTopVisitsList">
-                                @foreach($patient->visits->sortByDesc('created_at') as $vIdx => $vItem)
-                                    <div class="card border rounded-3 shadow-sm bg-white ficha-top-visit-card">
-                                        <div class="card-header bg-light border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                                <span class="badge {{ $vIdx === 0 ? 'bg-primary' : 'bg-secondary' }} rounded-pill px-3 py-1">
-                                                    <i class="bi bi-calendar-check me-1"></i> {{ $vItem->created_at->format('d/m/Y - H:i') }}
-                                                </span>
-                                                <span class="small fw-bold text-dark"><i class="bi bi-person-badge text-primary me-1"></i> Dr. {{ $vItem->doctor->name ?? 'Staff' }}</span>
-                                                @if($vItem->is_open)
-                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill">Abierta</span>
-                                                @endif
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <a href="{{ route('visits.edit', $vItem) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-0.5 fw-bold" style="font-size: 0.76rem;">
-                                                    <i class="bi bi-pencil-square me-1"></i> {{ $vItem->is_open ? 'Continuar' : 'Modificar' }}
-                                                </a>
-                                                <form action="{{ route('visits.toggleStatus', $vItem) }}" method="POST" class="d-inline m-0">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-{{ $vItem->is_open ? 'danger' : 'secondary' }} rounded-pill px-2 py-0.5" style="font-size: 0.75rem;" title="{{ $vItem->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
-                                                        <i class="bi {{ $vItem->is_open ? 'bi-lock-fill' : 'bi-unlock-fill' }}"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                        <div class="card-body p-3 small">
-                                            <div class="row g-2">
-                                                @if($vItem->motivo_consulta)
-                                                    <div class="col-md-6"><div class="p-2 rounded bg-light h-100"><strong class="text-primary d-block">Motivo:</strong><div class="text-dark" style="white-space: pre-line;">{{ $vItem->motivo_consulta }}</div></div></div>
-                                                @endif
-                                                @if($vItem->diagnostico)
-                                                    <div class="col-md-6"><div class="p-2 rounded bg-light h-100"><strong class="text-danger d-block">Diagnóstico:</strong><div class="text-dark fw-bold" style="white-space: pre-line;">{{ $vItem->diagnostico }}</div></div></div>
-                                                @endif
-                                                @if($vItem->av_od_lejos || $vItem->av_oi_lejos || $vItem->av_od_cerca || $vItem->av_oi_cerca)
-                                                    <div class="col-md-6">
-                                                        <div class="p-2 rounded border border-primary border-opacity-25 bg-primary bg-opacity-10 h-100">
-                                                            <strong class="text-primary d-block mb-1"><i class="bi bi-eyeglasses me-1"></i> Agudeza Visual / Anteojos:</strong>
-                                                            <div class="text-dark font-monospace" style="font-size: 0.82rem;">
-                                                                <div><strong>Lejos:</strong> <span class="text-danger fw-bold">OD:</span> {{ $vItem->av_od_lejos ?: '-' }} | <span class="text-primary fw-bold">OI:</span> {{ $vItem->av_oi_lejos ?: '-' }}</div>
-                                                                <div><strong>Cerca:</strong> <span class="text-danger fw-bold">OD:</span> {{ $vItem->av_od_cerca ?: '-' }} | <span class="text-primary fw-bold">OI:</span> {{ $vItem->av_oi_cerca ?: '-' }}</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                @endif
-                                                @if($vItem->pio || $vItem->bmc || $vItem->obi || $vItem->otros_examen)
-                                                    <div class="col-md-6">
-                                                        <div class="p-2 rounded border bg-white h-100">
-                                                            <strong class="text-secondary d-block mb-1"><i class="bi bi-activity me-1"></i> PIO / BMC / OBI:</strong>
-                                                            <div class="text-dark" style="font-size: 0.83rem;">
-                                                                @if($vItem->pio) <span class="badge bg-warning bg-opacity-25 text-dark border border-warning me-1">PIO: {{ $vItem->pio }}</span> @endif
-                                                                @if($vItem->bmc) <div><strong>BMC:</strong> {{ $vItem->bmc }}</div> @endif
-                                                                @if($vItem->obi) <div><strong>OBI:</strong> {{ $vItem->obi }}</div> @endif
-                                                                @if($vItem->otros_examen) <div><strong>Otros:</strong> {{ $vItem->otros_examen }}</div> @endif
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                @endif
-                                                @if($vItem->antecedentes_oftalmologicos || $vItem->tratamiento_oftalmologico || $vItem->antecedentes_generales || $vItem->tratamientos_generales)
-                                                    <div class="col-12">
-                                                        <div class="p-2 rounded bg-light border-start border-4 border-success">
-                                                            <div class="row g-2">
-                                                                @if($vItem->antecedentes_oftalmologicos) <div class="col-md-6"><strong>Ant. Oftalmológicos:</strong> <span style="white-space: pre-line;">{{ $vItem->antecedentes_oftalmologicos }}</span></div> @endif
-                                                                @if($vItem->tratamiento_oftalmologico) <div class="col-md-6"><strong class="text-success">Medicación / Trat. Oftalmológico:</strong> <span class="fw-semibold" style="white-space: pre-line;">{{ $vItem->tratamiento_oftalmologico }}</span></div> @endif
-                                                                @if($vItem->antecedentes_generales) <div class="col-md-6"><strong>Ant. Generales:</strong> <span style="white-space: pre-line;">{{ $vItem->antecedentes_generales }}</span></div> @endif
-                                                                @if($vItem->tratamientos_generales) <div class="col-md-6"><strong>Trat. Generales:</strong> <span style="white-space: pre-line;">{{ $vItem->tratamientos_generales }}</span></div> @endif
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                @foreach($fichaTopTimeline as $entry)
+                                    @if($entry['type'] === 'surgery')
+                                        @php $surg = $entry['item']; @endphp
+                                        <div class="card rounded-3 shadow-sm ficha-top-visit-card"
+                                             style="background: linear-gradient(90deg, #fff5f5 0%, #ffffff 100%); border: 2px solid {{ $surg->eye === 'OD' ? '#dc3545' : '#0d6efd' }} !important; border-left-width: 6px !important;">
+                                            <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <span class="badge {{ $surg->eye === 'OD' ? 'bg-danger' : 'bg-primary' }} rounded-pill px-3 py-1 fw-bold">
+                                                        <i class="bi bi-bandaid-fill me-1"></i> CIRUGÍA OJO {{ $surg->eye }} — {{ $surg->surgery_date ? $surg->surgery_date->format('d/m/Y') : '-' }}
+                                                    </span>
+                                                    <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $surg->notes }}</span>
+                                                </div>
+                                                @if($surg->doctor)
+                                                    <span class="small fw-semibold text-muted"><i class="bi bi-person-badge me-1"></i> Cirujano: Dr. {{ $surg->doctor->name }}</span>
                                                 @endif
                                             </div>
                                         </div>
-                                    </div>
+                                    @else
+                                        @php
+                                            $vItem = $entry['item'];
+                                            $isFirstVisitCard = !$seenLatestVisit;
+                                            $seenLatestVisit = true;
+                                        @endphp
+                                        <div class="card border rounded-3 shadow-sm bg-white ficha-top-visit-card">
+                                            <div class="card-header bg-light border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <span class="badge {{ $isFirstVisitCard ? 'bg-primary' : 'bg-secondary' }} rounded-pill px-3 py-1">
+                                                        <i class="bi bi-calendar-check me-1"></i> {{ $vItem->created_at->format('d/m/Y - H:i') }}
+                                                    </span>
+                                                    <span class="small fw-bold text-dark"><i class="bi bi-person-badge text-primary me-1"></i> Dr. {{ $vItem->doctor->name ?? 'Staff' }}</span>
+                                                    @if($vItem->is_open)
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill">Abierta</span>
+                                                    @endif
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <a href="{{ route('visits.edit', $vItem) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-0.5 fw-bold" style="font-size: 0.76rem;">
+                                                        <i class="bi bi-pencil-square me-1"></i> {{ $vItem->is_open ? 'Continuar' : 'Modificar' }}
+                                                    </a>
+                                                    <form action="{{ route('visits.toggleStatus', $vItem) }}" method="POST" class="d-inline m-0">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-outline-{{ $vItem->is_open ? 'danger' : 'secondary' }} rounded-pill px-2 py-0.5" style="font-size: 0.75rem;" title="{{ $vItem->is_open ? 'Cerrar consulta' : 'Reabrir consulta' }}">
+                                                            <i class="bi {{ $vItem->is_open ? 'bi-lock-fill' : 'bi-unlock-fill' }}"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                            <div class="card-body p-3 small">
+                                                <div class="row g-2">
+                                                    @if($vItem->motivo_consulta)
+                                                        <div class="col-md-6"><div class="p-2 rounded bg-light h-100"><strong class="text-primary d-block">Motivo:</strong><div class="text-dark" style="white-space: pre-line;">{{ $vItem->motivo_consulta }}</div></div></div>
+                                                    @endif
+                                                    @if($vItem->diagnostico)
+                                                        <div class="col-md-6"><div class="p-2 rounded bg-light h-100"><strong class="text-danger d-block">Diagnóstico:</strong><div class="text-dark fw-bold" style="white-space: pre-line;">{{ $vItem->diagnostico }}</div></div></div>
+                                                    @endif
+                                                    @if($vItem->av_od_lejos || $vItem->av_oi_lejos || $vItem->av_od_cerca || $vItem->av_oi_cerca)
+                                                        <div class="col-md-6">
+                                                            <div class="p-2 rounded border border-primary border-opacity-25 bg-primary bg-opacity-10 h-100">
+                                                                <strong class="text-primary d-block mb-1"><i class="bi bi-eyeglasses me-1"></i> Agudeza Visual / Anteojos:</strong>
+                                                                <div class="text-dark font-monospace" style="font-size: 0.82rem;">
+                                                                    <div><strong>Lejos:</strong> <span class="text-danger fw-bold">OD:</span> {{ $vItem->av_od_lejos ?: '-' }} | <span class="text-primary fw-bold">OI:</span> {{ $vItem->av_oi_lejos ?: '-' }}</div>
+                                                                    <div><strong>Cerca:</strong> <span class="text-danger fw-bold">OD:</span> {{ $vItem->av_od_cerca ?: '-' }} | <span class="text-primary fw-bold">OI:</span> {{ $vItem->av_oi_cerca ?: '-' }}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                    @if($vItem->pio || $vItem->bmc || $vItem->obi || $vItem->otros_examen)
+                                                        <div class="col-md-6">
+                                                            <div class="p-2 rounded border bg-white h-100">
+                                                                <strong class="text-secondary d-block mb-1"><i class="bi bi-activity me-1"></i> PIO / BMC / OBI:</strong>
+                                                                <div class="text-dark" style="font-size: 0.83rem;">
+                                                                    @if($vItem->pio) <span class="badge bg-warning bg-opacity-25 text-dark border border-warning me-1">PIO: {{ $vItem->pio }}</span> @endif
+                                                                    @if($vItem->bmc) <div><strong>BMC:</strong> {{ $vItem->bmc }}</div> @endif
+                                                                    @if($vItem->obi) <div><strong>OBI:</strong> {{ $vItem->obi }}</div> @endif
+                                                                    @if($vItem->otros_examen) <div><strong>Otros:</strong> {{ $vItem->otros_examen }}</div> @endif
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                    @if($vItem->antecedentes_oftalmologicos || $vItem->tratamiento_oftalmologico || $vItem->antecedentes_generales || $vItem->tratamientos_generales)
+                                                        <div class="col-12">
+                                                            <div class="p-2 rounded bg-light border-start border-4 border-success">
+                                                                <div class="row g-2">
+                                                                    @if($vItem->antecedentes_oftalmologicos) <div class="col-md-6"><strong>Ant. Oftalmológicos:</strong> <span style="white-space: pre-line;">{{ $vItem->antecedentes_oftalmologicos }}</span></div> @endif
+                                                                    @if($vItem->tratamiento_oftalmologico) <div class="col-md-6"><strong class="text-success">Medicación / Trat. Oftalmológico:</strong> <span class="fw-semibold" style="white-space: pre-line;">{{ $vItem->tratamiento_oftalmologico }}</span></div> @endif
+                                                                    @if($vItem->antecedentes_generales) <div class="col-md-6"><strong>Ant. Generales:</strong> <span style="white-space: pre-line;">{{ $vItem->antecedentes_generales }}</span></div> @endif
+                                                                    @if($vItem->tratamientos_generales) <div class="col-md-6"><strong>Trat. Generales:</strong> <span style="white-space: pre-line;">{{ $vItem->tratamientos_generales }}</span></div> @endif
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
                                 @endforeach
                             </div>
                         @else

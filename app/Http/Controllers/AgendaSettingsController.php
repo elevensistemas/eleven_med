@@ -16,9 +16,9 @@ class AgendaSettingsController extends Controller
         // Get doctors to populate the select drop-down
         $doctors = User::role('médico')->get();
         
-        // Include upcoming existing blocks, eager load doctor info
+        // Include active, recent-month and upcoming blocks, eager load doctor info
         $blocks = ScheduleBlock::with('doctor')
-                    ->where('end_datetime', '>=', now()->toDateString())
+                    ->where('end_datetime', '>=', now()->subDays(30)->startOfDay())
                     ->orderBy('start_datetime', 'asc')
                     ->get();
                     
@@ -47,19 +47,30 @@ class AgendaSettingsController extends Controller
             if ($request->input('block_mode') === 'time_range') {
                 $sTime = $request->filled('start_time') ? substr($request->input('start_time'), 0, 5) . ':00' : '08:00:00';
                 $eTime = $request->filled('end_time') ? substr($request->input('end_time'), 0, 5) . ':00' : '20:00:00';
-                $startDt = $startDate . ' ' . $sTime;
-                $endDt = $endDate . ' ' . $eTime;
-            } else {
-                $startDt = $startDate . ' 00:00:00';
-                $endDt = $endDate . ' 23:59:59';
-            }
 
-            ScheduleBlock::create([
-                'doctor_id' => $request->doctor_id,
-                'start_datetime' => $startDt,
-                'end_datetime' => $endDt,
-                'reason' => $request->reason,
-            ]);
+                $cursor = \Illuminate\Support\Carbon::parse($startDate)->startOfDay();
+                $endLimit = \Illuminate\Support\Carbon::parse($endDate)->startOfDay();
+
+                while ($cursor->lte($endLimit)) {
+                    $dStr = $cursor->format('Y-m-d');
+                    if ($sTime < $eTime) {
+                        ScheduleBlock::create([
+                            'doctor_id' => $request->doctor_id,
+                            'start_datetime' => $dStr . ' ' . $sTime,
+                            'end_datetime' => $dStr . ' ' . $eTime,
+                            'reason' => $request->reason,
+                        ]);
+                    }
+                    $cursor->addDay();
+                }
+            } else {
+                ScheduleBlock::create([
+                    'doctor_id' => $request->doctor_id,
+                    'start_datetime' => $startDate . ' 00:00:00',
+                    'end_datetime' => $endDate . ' 23:59:59',
+                    'reason' => $request->reason,
+                ]);
+            }
 
             return redirect()->route('agenda.settings')->with('success', 'El bloqueo de agenda fue registrado exitosamente.');
         }
@@ -88,7 +99,19 @@ class AgendaSettingsController extends Controller
     {
         $block->delete();
         
-        return redirect()->route('agenda.settings')->with('success', 'Bloque horario eliminado. La agenda vuelve a estar libre.');
+        return redirect()->route('agenda.settings')->with('success', 'Bloqueo eliminado. Todos los días y horarios habituales vuelven a estar habilitados.');
+    }
+
+    /**
+     * Delete all active/recent ScheduleBlocks of a doctor at once.
+     */
+    public function destroyDoctorBlocks(User $doctor)
+    {
+        ScheduleBlock::where('doctor_id', $doctor->id)
+            ->where('end_datetime', '>=', now()->subDays(30)->startOfDay())
+            ->delete();
+
+        return redirect()->route('agenda.settings')->with('success', 'Se liberaron todos los bloqueos de ' . $doctor->name . '. Su agenda habitual quedó totalmente habilitada.');
     }
 
     /**
@@ -198,6 +221,12 @@ class AgendaSettingsController extends Controller
             $maxAfternoonEnd = $shift2End;
         }
 
+        // Preservar aperturas especiales por fecha si existían
+        $existingCfg = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
+        if ($existingCfg && is_array($existingCfg->working_days) && !empty($existingCfg->working_days['special_openings'])) {
+            $formattedWorkingDays['special_openings'] = $existingCfg->working_days['special_openings'];
+        }
+
         // Guardar en DoctorConfiguration
         \App\Models\DoctorConfiguration::updateOrCreate(
             ['doctor_id' => $doctorId],
@@ -215,6 +244,7 @@ class AgendaSettingsController extends Controller
         \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->delete();
 
         foreach ($formattedWorkingDays as $dayOfWeek => $dayData) {
+            if (!is_numeric($dayOfWeek)) continue;
             if (!empty($dayData['active'])) {
                 $startTime = null;
                 $endTime = null;
