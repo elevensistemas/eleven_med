@@ -149,9 +149,25 @@ class AppointmentController extends Controller
 
         $appointment = Appointment::create($validated);
 
+        // Envío automático por WhatsApp al agendar (si está habilitado en reglas y en el formulario)
+        $shouldSendWa = $request->has('send_whatsapp_present')
+            ? $request->boolean('send_whatsapp')
+            : true;
+
+        $waQueued = false;
+        if ($shouldSendWa) {
+            try {
+                $waRes = \App\Services\WhatsappDispatcher::dispatchForAppointment($appointment, 'instant_new');
+                $waQueued = !empty($waRes['queued']);
+            } catch (\Throwable $e) {
+                // No interrumpir el agendado ante fallas externas
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Turno agendado correctamente',
+            'message' => 'Turno agendado correctamente' . ($waQueued ? ' (Confirmación enviada por WhatsApp)' : ''),
+            'whatsapp_queued' => $waQueued,
             'appointment' => $appointment
         ]);
     }
@@ -818,11 +834,41 @@ class AppointmentController extends Controller
         $appointment->status = 'pending';
         $appointment->save();
 
+        $shouldSendWa = $request->has('send_whatsapp') ? $request->boolean('send_whatsapp') : true;
+        $waQueued = false;
+        if ($shouldSendWa) {
+            try {
+                $waRes = \App\Services\WhatsappDispatcher::dispatchForAppointment($appointment, 'instant_reschedule');
+                $waQueued = !empty($waRes['queued']);
+            } catch (\Throwable $e) {
+                // Silencioso
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Turno reprogramado exitosamente.',
+            'message' => 'Turno reprogramado exitosamente' . ($waQueued ? ' y notificado por WhatsApp.' : '.'),
+            'whatsapp_queued' => $waQueued,
             'appointment' => $appointment
         ]);
+    }
+
+    /**
+     * Enviar recordatorio puntual por WhatsApp desde el menú de un turno en la Agenda.
+     */
+    public function sendWhatsappNow(Appointment $appointment)
+    {
+        $res = \App\Services\WhatsappDispatcher::dispatchForAppointment($appointment, 'reminder', true);
+        if (!empty($res['queued'])) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Recordatorio enviado a la cola de WhatsApp del consultorio.'
+            ]);
+        }
+        return response()->json([
+            'success' => false,
+            'message' => 'El paciente no tiene un número de celular válido cargado en su ficha.'
+        ], 422);
     }
 
     /**

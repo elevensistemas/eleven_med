@@ -309,6 +309,15 @@ body.theme-dark .cal-day.available:hover {
                         </div>
                         <input type="text" name="reason" id="appointmentReasonInput" class="form-control bg-light border-0 shadow-none" placeholder="Ej: Control, Anteojos, Fondo de ojo...">
                     </div>
+                    <div class="col-md-12">
+                        <input type="hidden" name="send_whatsapp_present" value="1">
+                        <div class="form-check form-switch p-2 px-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 d-flex align-items-center justify-content-between">
+                            <label class="form-check-label fw-bold text-dark small mb-0" for="newApptSendWhatsapp">
+                                <i class="bi bi-whatsapp text-success me-1"></i> Enviar confirmación por WhatsApp al instante (según reglas activas)
+                            </label>
+                            <input class="form-check-input ms-2" type="checkbox" name="send_whatsapp" id="newApptSendWhatsapp" value="1" checked>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer border-top-0 pt-0 pe-4 flex-nowrap">
@@ -482,6 +491,14 @@ body.theme-dark .cal-day.available:hover {
                     <div class="col-md-12">
                         <label class="form-label text-dark small fw-bold mb-1">Motivo / Nota (Opcional)</label>
                         <input type="text" id="rescheduleReason" class="form-control bg-white border rounded-3 shadow-none" placeholder="Ej: Solicitado por paciente, reprogramación...">
+                    </div>
+                    <div class="col-md-12">
+                        <div class="form-check form-switch p-2 px-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 d-flex align-items-center justify-content-between">
+                            <label class="form-check-label fw-bold text-dark small mb-0" for="rescheduleSendWhatsapp">
+                                <i class="bi bi-whatsapp text-success me-1"></i> Avisar reprogramación por WhatsApp al paciente
+                            </label>
+                            <input class="form-check-input ms-2" type="checkbox" id="rescheduleSendWhatsapp" value="1" checked>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -938,6 +955,7 @@ body.theme-dark .cal-day.available:hover {
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
                                 <li><button class="dropdown-item py-2 text-success fw-bold" onclick="openDarEntradaModal(${slot.patient_id}, '${escapedName}', ${doctorId}, '${escapedNotes}')"><i class="bi bi-box-arrow-in-right me-2"></i> Dar Entrada (Sala de Espera)</button></li>
                                 <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${escapedName}', '${dateStr}', '${slot.time}', ${doctorId})"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
+                                <li><button class="dropdown-item py-2 text-success fw-bold" onclick="sendAppointmentWhatsappNow(${slot.appointment_id})"><i class="bi bi-whatsapp me-2"></i> Enviar Recordatorio WhatsApp</button></li>
                                 <li><a class="dropdown-item py-2 text-dark fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2 text-primary"></i> Abrir Historia Clínica</a></li>
                                 <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
                                 <li><hr class="dropdown-divider"></li>
@@ -1729,6 +1747,7 @@ body.theme-dark .cal-day.available:hover {
         const newTime = document.getElementById('rescheduleNewTime').value;
         const reason = document.getElementById('rescheduleReason').value;
         const isOverbooked = Boolean(document.getElementById('rescheduleIsOverbooked')?.checked);
+        const sendWhatsapp = Boolean(document.getElementById('rescheduleSendWhatsapp')?.checked);
         const btn = document.getElementById('btnSubmitReschedule');
         
         btn.disabled = true;
@@ -1739,7 +1758,8 @@ body.theme-dark .cal-day.available:hover {
             time: newTime,
             doctor_id: doctorId,
             reason: reason,
-            is_overbooked: isOverbooked
+            is_overbooked: isOverbooked,
+            send_whatsapp: sendWhatsapp
         }, {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
         })
@@ -1784,6 +1804,22 @@ body.theme-dark .cal-day.available:hover {
             alert(msg);
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Confirmar Reprogramación';
+        });
+    }
+
+    function sendAppointmentWhatsappNow(appointmentId) {
+        axios.post(`{{ url('api/appointments') }}/${appointmentId}/send-whatsapp`, {}, {
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        })
+        .then(res => {
+            if (typeof spawnToast === 'function') {
+                spawnToast('WhatsApp Encolado', res.data.message || 'Recordatorio enviado.', 'whatsapp', 'success text-white');
+            } else {
+                alert(res.data.message || 'Recordatorio enviado.');
+            }
+        })
+        .catch(err => {
+            alert(err.response?.data?.message || 'No se pudo enviar el recordatorio por WhatsApp.');
         });
     }
 </script>

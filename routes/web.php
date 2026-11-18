@@ -77,6 +77,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/configuracion/whatsapp/qr', [App\Http\Controllers\WhatsappConfigController::class, 'qr'])->name('whatsapp.qr');
     Route::post('/configuracion/whatsapp/disconnect', [App\Http\Controllers\WhatsappConfigController::class, 'disconnect'])->name('whatsapp.disconnect');
     Route::post('/configuracion/whatsapp/test-send', [App\Http\Controllers\WhatsappConfigController::class, 'testSend'])->name('whatsapp.testSend');
+    Route::post('/configuracion/whatsapp/send-batch', [App\Http\Controllers\WhatsappConfigController::class, 'sendManualBatch'])->name('whatsapp.sendBatch');
+    Route::get('/configuracion/whatsapp/history', [App\Http\Controllers\WhatsappConfigController::class, 'history'])->name('whatsapp.history');
+    Route::delete('/configuracion/whatsapp/history', [App\Http\Controllers\WhatsappConfigController::class, 'clearHistory'])->name('whatsapp.clearHistory');
     Route::get('/configuracion/whatsapp/download-connector', [App\Http\Controllers\WhatsappConfigController::class, 'downloadConnector'])->name('whatsapp.downloadConnector');
     
     Route::resource('patients', App\Http\Controllers\PatientController::class);
@@ -130,6 +133,7 @@ Route::middleware('auth')->group(function () {
     Route::get('api/appointments/nearest', [App\Http\Controllers\AppointmentController::class, 'getNearestSlots'])->name('api.agenda.nearest');
     Route::post('api/appointments', [App\Http\Controllers\AppointmentController::class, 'store'])->name('agenda.store');
     Route::match(['post', 'patch'], 'api/appointments/{appointment}/reschedule', [App\Http\Controllers\AppointmentController::class, 'reschedule'])->name('agenda.reschedule');
+    Route::post('api/appointments/{appointment}/send-whatsapp', [App\Http\Controllers\AppointmentController::class, 'sendWhatsappNow'])->name('agenda.send_whatsapp');
     Route::patch('api/appointments/{appointment}/no-show', [App\Http\Controllers\AppointmentController::class, 'markNoShow'])->name('agenda.no_show');
     Route::delete('api/appointments/{appointment}', [App\Http\Controllers\AppointmentController::class, 'destroy'])->name('agenda.destroy');
     Route::get('api/patients/{id}/habits', [App\Http\Controllers\PatientController::class, 'getHabits']);
