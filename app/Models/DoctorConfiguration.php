@@ -8,6 +8,8 @@ class DoctorConfiguration extends Model
 {
     protected $fillable = [
         'doctor_id',
+        'agenda_type',
+        'agenda_label',
         'working_days',
         'shift_1_start',
         'shift_1_end',

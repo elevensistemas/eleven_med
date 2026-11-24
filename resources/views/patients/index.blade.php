@@ -105,7 +105,7 @@
                                     {{ $patient->last_name }}, {{ $patient->first_name }}
                                 </a>
                                 <small class="text-muted">
-                                    Carpeta #{{ $patient->code ?: str_pad($patient->id, 6, '0', STR_PAD_LEFT) }}
+                                    <span class="fw-bold text-primary">N° Paciente #{{ $patient->patient_number }}</span>
                                     @if($patient->phone)
                                         · <i class="bi bi-telephone"></i> {{ $patient->phone }}
                                     @endif

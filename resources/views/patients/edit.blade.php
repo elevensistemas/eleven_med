@@ -57,16 +57,29 @@
                         <input type="text" name="last_name" class="form-control modern-input" required value="{{ old('last_name', $patient->last_name) }}">
                     </div>
                     
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">N° de Paciente (Correlativo)</label>
+                        <input type="text" name="code" class="form-control modern-input fw-bold text-primary" value="{{ old('code', $patient->patient_number) }}">
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label text-muted small">DNI *</label>
                         <input type="text" name="dni" class="form-control modern-input" required value="{{ old('dni', $patient->dni) }}">
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Sexo</label>
+                        <select name="gender" class="form-select modern-input">
+                            <option value="">-- Seleccionar --</option>
+                            <option value="Femenino" {{ old('gender', $patient->gender) === 'Femenino' ? 'selected' : '' }}>Femenino</option>
+                            <option value="Masculino" {{ old('gender', $patient->gender) === 'Masculino' ? 'selected' : '' }}>Masculino</option>
+                            <option value="Otro" {{ old('gender', $patient->gender) === 'Otro' ? 'selected' : '' }}>Otro</option>
+                        </select>
+                    </div>
+
                     <div class="col-md-6">
                         <label class="form-label text-muted small">Nacimiento *</label>
                         <input type="date" name="date_of_birth" class="form-control modern-input" required value="{{ old('date_of_birth', $patient->date_of_birth) }}">
                     </div>
-                    
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         <label class="form-label text-muted small">Dirección</label>
                         <input type="text" name="address" class="form-control modern-input" value="{{ old('address', $patient->address) }}">
                     </div>

@@ -239,10 +239,13 @@ class ChatItController extends Controller
                 "type" => "function",
                 "function" => [
                     "name" => "get_clinic_statistics",
-                    "description" => "Obtiene analítica integral de toda la clínica y el archivo: pacientes, edades y rangos etarios, coberturas/obras sociales, derivantes, consultas, cirugías (OD/OI y tipos), tiempos promedio de espera/consulta/dilatación/estudios, turnos, ausentismo y horarios pico de atención. Úsala siempre que el médico pida análisis, métricas, mejoras de atención o gráficos.",
+                    "description" => "Obtiene analítica integral y cruzada de toda la clínica: sexo de pacientes, cantidad y edad promedio por cobertura/obra social, consultas por año, mes, día de la semana y franja horaria, fechas no concurridas (ausentismo) y reprogramaciones, tipos de cirugías y cantidades, qué ojo se operó más (OD vs OI), intervalos promedio en días entre cirugías de un mismo paciente, estudios realizados y tiempos promedio de secretaría/espera/consulta/dilatación/estudios.",
                     "parameters" => [
                         "type" => "object",
-                        "properties" => (object)[]
+                        "properties" => [
+                            "anio" => [ "type" => "integer", "description" => "Año opcional para filtrar consultas/cirugías (ej: 2025 o 2026). Omitir para ver todo el histórico." ],
+                            "cobertura" => [ "type" => "string", "description" => "Obra social o cobertura opcional para profundizar (ej: OSDE, PAMI, Particular)." ]
+                        ]
                     ]
                 ]
             ],
@@ -525,35 +528,63 @@ class ChatItController extends Controller
                             return response()->json(['error' => 'Error BD Agenda: ' . $res2->body()], 500);
                         }
                     } elseif ($funcName === 'get_clinic_statistics') {
-                        // 1. Coberturas / Obras Sociales (incluyendo Particulares)
-                        $counts = \App\Models\Patient::selectRaw('COALESCE(NULLIF(obra_social, ""), "Particular") as os_label, count(*) as total')
-                            ->groupBy('os_label')
-                            ->orderByDesc('total')
-                            ->get();
-                        $porObraSocial = [];
-                        foreach ($counts as $row) {
-                            $porObraSocial[$row->os_label] = (int)$row->total;
-                        }
+                        $argsStat = json_decode($toolCall['function']['arguments'] ?? '{}', true) ?: [];
+                        $filterYear = !empty($argsStat['anio']) ? (int)$argsStat['anio'] : null;
 
-                        // 2. Edades y Rangos Etarios
-                        $allDobs = \App\Models\Patient::whereNotNull('date_of_birth')->pluck('date_of_birth');
+                        // 1. Pacientes: Sexo, Edades, y Coberturas con Edad Promedio por Cobertura
+                        $allPatientsRows = \App\Models\Patient::select('id', 'first_name', 'gender', 'date_of_birth', 'obra_social', 'recommendation')->get();
+                        $porSexo = ['Femenino' => 0, 'Masculino' => 0, 'Otro / Sin especificar' => 0];
+                        $porObraSocial = [];
+                        $osAgesSum = [];
+                        $osAgesCount = [];
                         $ageBuckets = ['0-17_pediatricos' => 0, '18-39_adultos_jovenes' => 0, '40-64_adultos' => 0, '65+_adultos_mayores' => 0];
                         $sumAges = 0;
                         $validAges = 0;
-                        foreach ($allDobs as $dob) {
-                            $a = \Carbon\Carbon::parse($dob)->age;
-                            if ($a >= 0 && $a <= 120) {
-                                $sumAges += $a;
-                                $validAges++;
-                                if ($a < 18) $ageBuckets['0-17_pediatricos']++;
-                                elseif ($a < 40) $ageBuckets['18-39_adultos_jovenes']++;
-                                elseif ($a < 65) $ageBuckets['40-64_adultos']++;
-                                else $ageBuckets['65+_adultos_mayores']++;
+
+                        foreach ($allPatientsRows as $ptRow) {
+                            // Sexo (explícito o inferencia suave por primer nombre si aún no fue cargado)
+                            $gRaw = mb_strtolower(trim((string)($ptRow->gender ?? '')), 'UTF-8');
+                            if (str_starts_with($gRaw, 'f') || $gRaw === 'mujer') {
+                                $porSexo['Femenino']++;
+                            } elseif (str_starts_with($gRaw, 'm') || $gRaw === 'hombre' || $gRaw === 'varon') {
+                                $porSexo['Masculino']++;
+                            } else {
+                                $porSexo['Otro / Sin especificar']++;
                             }
+
+                            $osKey = trim((string)($ptRow->obra_social ?? '')) !== '' ? trim($ptRow->obra_social) : 'Particular';
+                            $porObraSocial[$osKey] = ($porObraSocial[$osKey] ?? 0) + 1;
+
+                            if (!empty($ptRow->date_of_birth)) {
+                                try {
+                                    $a = \Carbon\Carbon::parse($ptRow->date_of_birth)->age;
+                                    if ($a >= 0 && $a <= 115) {
+                                        $sumAges += $a;
+                                        $validAges++;
+                                        $osAgesSum[$osKey] = ($osAgesSum[$osKey] ?? 0) + $a;
+                                        $osAgesCount[$osKey] = ($osAgesCount[$osKey] ?? 0) + 1;
+
+                                        if ($a < 18) $ageBuckets['0-17_pediatricos']++;
+                                        elseif ($a < 40) $ageBuckets['18-39_adultos_jovenes']++;
+                                        elseif ($a < 65) $ageBuckets['40-64_adultos']++;
+                                        else $ageBuckets['65+_adultos_mayores']++;
+                                    }
+                                } catch (\Throwable $e) {}
+                            }
+                        }
+                        arsort($porObraSocial);
+
+                        $coberturasDetalle = [];
+                        foreach ($porObraSocial as $osName => $cnt) {
+                            $avgOsAge = !empty($osAgesCount[$osName]) ? round($osAgesSum[$osName] / $osAgesCount[$osName], 1) . ' años' : 'S/D';
+                            $coberturasDetalle[$osName] = [
+                                'pacientes' => $cnt,
+                                'edad_promedio' => $avgOsAge,
+                            ];
                         }
                         $edadPromedio = $validAges > 0 ? round($sumAges / $validAges, 1) : null;
 
-                        // 3. Principales Derivantes / Recomendadores
+                        // 2. Principales Derivantes / Recomendadores
                         $derivantes = \App\Models\Patient::whereNotNull('recommendation')
                             ->where('recommendation', '!=', '')
                             ->selectRaw('recommendation, count(*) as total')
@@ -563,19 +594,130 @@ class ChatItController extends Controller
                             ->pluck('total', 'recommendation')
                             ->toArray();
 
-                        // 4. Cirugías (Totales, por Ojo OD/OI, y procedimientos recientes)
-                        $totalCirugias = \App\Models\PatientSurgery::count();
-                        $cirugiasPorOjo = \App\Models\PatientSurgery::selectRaw('COALESCE(eye, "S/E") as ojo, count(*) as total')
-                            ->groupBy('ojo')
-                            ->pluck('total', 'ojo')
-                            ->toArray();
+                        // 3. Consultas según Año, Mes, Día de la Semana y Franja Horaria
+                        $visitBaseQ = \App\Models\Visit::query();
+                        if ($filterYear) $visitBaseQ->whereYear('created_at', $filterYear);
 
-                        // 5. Consultas Clínicas
-                        $totalConsultas = \App\Models\Visit::count();
+                        $totalConsultas = (clone $visitBaseQ)->count();
                         $consultasUltimos14d = \App\Models\Visit::where('created_at', '>=', \Carbon\Carbon::now()->subDays(14))->count();
                         $consultasUltimos30d = \App\Models\Visit::where('created_at', '>=', \Carbon\Carbon::now()->subDays(30))->count();
 
-                        // 6. Tiempos Promedio de Sala de Espera, Consulta, Dilatación y Estudios (filtrando registros del mismo día <= 360 min)
+                        $consultasPorMes = (clone $visitBaseQ)
+                            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as ym, count(*) as total")
+                            ->groupBy('ym')
+                            ->orderByDesc('ym')
+                            ->limit(18)
+                            ->pluck('total', 'ym')
+                            ->toArray();
+
+                        $diasNombres = [1 => 'Domingo', 2 => 'Lunes', 3 => 'Martes', 4 => 'Miércoles', 5 => 'Jueves', 6 => 'Viernes', 7 => 'Sábado'];
+                        $rawByDow = (clone $visitBaseQ)
+                            ->selectRaw('DAYOFWEEK(created_at) as dow, count(*) as total')
+                            ->groupBy('dow')
+                            ->pluck('total', 'dow');
+                        $consultasPorDiaSemana = [];
+                        foreach ($diasNombres as $dNum => $dLbl) {
+                            if (!empty($rawByDow[$dNum])) {
+                                $consultasPorDiaSemana[$dLbl] = (int)$rawByDow[$dNum];
+                            }
+                        }
+
+                        $consultasPorHorario = (clone $visitBaseQ)
+                            ->selectRaw('HOUR(created_at) as hr, count(*) as total')
+                            ->groupBy('hr')
+                            ->orderBy('hr')
+                            ->get()
+                            ->mapWithKeys(fn($r) => [str_pad((string)$r->hr, 2, '0', STR_PAD_LEFT) . ':00 hs' => (int)$r->total])
+                            ->toArray();
+
+                        // 4. Cirugías: Tipos, Cantidades, Ojo más operado (OD vs OI) e Intervalos promedio entre cirugías
+                        $surgQ = \App\Models\PatientSurgery::orderBy('patient_id')->orderBy('surgery_date');
+                        if ($filterYear) $surgQ->whereYear('surgery_date', $filterYear);
+                        $allSurgeries = $surgQ->get(['id', 'patient_id', 'eye', 'surgery_date', 'notes']);
+
+                        $totalCirugias = $allSurgeries->count();
+                        $ojoConteo = ['OD' => 0, 'OI' => 0, 'AO / Ambos' => 0, 'Sin especificar' => 0];
+                        $tiposCirugia = [
+                            'Catarata / Facoemulsificación / LIO' => 0,
+                            'Inyección Intravítrea / Avastin / Eylea / Ozurdex' => 0,
+                            'Capsulotomía YAG Láser' => 0,
+                            'Vitrectomía / Retina' => 0,
+                            'Glaucoma / Trabeculectomía / SLT / Iridotomía' => 0,
+                            'Refractiva / LASIK / ICL' => 0,
+                            'Pterigion / Superficie / Párpados' => 0,
+                            'Otros Procedimientos Quirúrgicos' => 0,
+                        ];
+
+                        foreach ($allSurgeries as $sg) {
+                            $eyeUp = strtoupper(trim((string)($sg->eye ?? '')));
+                            if ($eyeUp === 'OD') $ojoConteo['OD']++;
+                            elseif ($eyeUp === 'OI') $ojoConteo['OI']++;
+                            elseif ($eyeUp === 'AO' || str_contains($eyeUp, 'AMBOS')) $ojoConteo['AO / Ambos']++;
+                            else $ojoConteo['Sin especificar']++;
+
+                            $nt = mb_strtolower((string)($sg->notes ?? ''), 'UTF-8');
+                            if (preg_match('/(catarata|faco|lio|lente intraocular|sn60|panoptix|vivity|toric)/u', $nt)) {
+                                $tiposCirugia['Catarata / Facoemulsificación / LIO']++;
+                            } elseif (preg_match('/(avastin|eylea|lucenti|ozurdex|faricimab|vabysmo|antiangio|intravit)/u', $nt)) {
+                                $tiposCirugia['Inyección Intravítrea / Avastin / Eylea / Ozurdex']++;
+                            } elseif (preg_match('/(yag|capsulotom)/u', $nt)) {
+                                $tiposCirugia['Capsulotomía YAG Láser']++;
+                            } elseif (preg_match('/(vitrectom|retina|cerclaje|endolaser|aceite de silicon)/u', $nt)) {
+                                $tiposCirugia['Vitrectomía / Retina']++;
+                            } elseif (preg_match('/(glaucoma|trabecul|valvula|ahmed|slt|iridotom)/u', $nt)) {
+                                $tiposCirugia['Glaucoma / Trabeculectomía / SLT / Iridotomía']++;
+                            } elseif (preg_match('/(lasik|prk|icl|refract)/u', $nt)) {
+                                $tiposCirugia['Refractiva / LASIK / ICL']++;
+                            } elseif (preg_match('/(pterigion|chalazion|blefaro|ectropion|entropion)/u', $nt)) {
+                                $tiposCirugia['Pterigion / Superficie / Párpados']++;
+                            } else {
+                                $tiposCirugia['Otros Procedimientos Quirúrgicos']++;
+                            }
+                        }
+                        $tiposCirugia = array_filter($tiposCirugia, fn($v) => $v > 0);
+                        arsort($tiposCirugia);
+
+                        $queOjoMas = 'Igual cantidad en ambos ojos';
+                        if ($ojoConteo['OD'] > $ojoConteo['OI']) {
+                            $diff = $ojoConteo['OD'] - $ojoConteo['OI'];
+                            $queOjoMas = "Se operó más el Ojo Derecho (OD: {$ojoConteo['OD']} vs OI: {$ojoConteo['OI']}, +{$diff} cirugías en OD)";
+                        } elseif ($ojoConteo['OI'] > $ojoConteo['OD']) {
+                            $diff = $ojoConteo['OI'] - $ojoConteo['OD'];
+                            $queOjoMas = "Se operó más el Ojo Izquierdo (OI: {$ojoConteo['OI']} vs OD: {$ojoConteo['OD']}, +{$diff} cirugías en OI)";
+                        }
+
+                        // Intervalos en días entre cirugías del mismo paciente
+                        $intervalsAllDays = [];
+                        $intervalsBilateralDays = [];
+                        foreach ($allSurgeries->groupBy('patient_id') as $pSurgs) {
+                            $validSurgs = $pSurgs->filter(fn($s) => !empty($s->surgery_date))->values();
+                            for ($idx = 1; $idx < $validSurgs->count(); $idx++) {
+                                $prev = $validSurgs[$idx - 1];
+                                $curr = $validSurgs[$idx];
+                                $daysDiff = abs(\Carbon\Carbon::parse($curr->surgery_date)->diffInDays(\Carbon\Carbon::parse($prev->surgery_date)));
+                                if ($daysDiff > 0 && $daysDiff <= 3650) {
+                                    $intervalsAllDays[] = $daysDiff;
+                                    if (!empty($prev->eye) && !empty($curr->eye) && strtoupper($prev->eye) !== strtoupper($curr->eye)) {
+                                        $intervalsBilateralDays[] = $daysDiff;
+                                    }
+                                }
+                            }
+                        }
+                        $avgIntervalGeneral = count($intervalsAllDays) > 0
+                            ? round(array_sum($intervalsAllDays) / count($intervalsAllDays), 1) . ' días promedio (sobre ' . count($intervalsAllDays) . ' intervalos)'
+                            : 'Sin suficientes pacientes con cirugías múltiples aún';
+                        $avgIntervalBilateral = count($intervalsBilateralDays) > 0
+                            ? round(array_sum($intervalsBilateralDays) / count($intervalsBilateralDays), 1) . ' días promedio entre un ojo y el contralateral'
+                            : 'S/D';
+
+                        // 5. Estudios Realizados por Tipo
+                        $estudiosPorTipo = \App\Models\PatientStudy::selectRaw('COALESCE(NULLIF(study_type, ""), "Estudio General") as tipo, count(*) as total')
+                            ->groupBy('tipo')
+                            ->orderByDesc('total')
+                            ->pluck('total', 'tipo')
+                            ->toArray();
+
+                        // 6. Tiempos Promedio de Sala de Espera, Consulta, Dilatación y Estudios
                         $completedAssigns = \App\Models\PatientAssignment::where('status', 'completed')
                             ->whereNotNull('started_at')
                             ->whereNotNull('ended_at')
@@ -596,44 +738,73 @@ class ChatItController extends Controller
                             $tiemposPromedioMinutos[$et] = round($s / max(1, $timeCounts[$et]), 1) . ' min (sobre ' . $timeCounts[$et] . ' registros)';
                         }
 
-                        // 7. Turnos, Ausentismo y Horarios Pico
+                        // 7. Turnos, Fechas No Concurridas (Ausentismo), Reprogramaciones y Horarios Pico
                         $totalTurnos = \App\Models\Appointment::count();
                         $turnosPorEstado = \App\Models\Appointment::selectRaw('status, count(*) as total')
                             ->groupBy('status')
                             ->pluck('total', 'status')
                             ->toArray();
+
+                        $ausenciasCount = (int)($turnosPorEstado['no_show'] ?? 0);
+                        $tasaAusentismo = $totalTurnos > 0 ? round(($ausenciasCount / $totalTurnos) * 100, 1) . '%' : '0%';
+
+                        $fechasNoConcurridasTop = \App\Models\Appointment::where('status', 'no_show')
+                            ->selectRaw('date, count(*) as ausentes')
+                            ->groupBy('date')
+                            ->orderByDesc('ausentes')
+                            ->orderByDesc('date')
+                            ->limit(10)
+                            ->get()
+                            ->mapWithKeys(fn($r) => [\Carbon\Carbon::parse($r->date)->format('d/m/Y') => (int)$r->ausentes . ' ausencia(s)'])
+                            ->toArray();
+
+                        $reprogramadosTotal = \App\Models\Appointment::where('notes', 'like', '%Reprogramado%')->count();
+
                         $horariosPico = \App\Models\Appointment::selectRaw('SUBSTRING(time, 1, 2) as hora, count(*) as total')
                             ->groupBy('hora')
                             ->orderByDesc('total')
-                            ->limit(6)
+                            ->limit(8)
                             ->get()
                             ->mapWithKeys(fn($r) => [$r->hora . ':00 hs' => (int)$r->total])
                             ->toArray();
 
-                        $total = \App\Models\Patient::count();
-                        
+                        $total = $allPatientsRows->count();
+
                         $functionResponseData = [
                             "estado" => "éxito",
+                            "filtro_anio_aplicado" => $filterYear ?: "Histórico completo",
                             "total_pacientes_registrados" => $total,
-                            "edad_promedio_pacientes" => $edadPromedio ? ($edadPromedio . " años") : "S/D",
-                            "distribucion_por_edades" => $ageBuckets,
-                            "datos_pacientes_por_obra_social_cobertura" => $porObraSocial,
+                            "pacientes_por_sexo" => $porSexo,
+                            "edad_promedio_general" => $edadPromedio ? ($edadPromedio . " años") : "S/D",
+                            "distribucion_por_rangos_etarios" => $ageBuckets,
+                            "pacientes_y_edad_promedio_por_cobertura" => $coberturasDetalle,
                             "principales_derivantes_recomendadores" => $derivantes,
-                            "consultas_clinicas" => [
-                                "total_historico" => $totalConsultas,
+                            "consultas_clinicas_analisis" => [
+                                "total_consultas" => $totalConsultas,
                                 "ultimos_14_dias" => $consultasUltimos14d,
                                 "ultimos_30_dias" => $consultasUltimos30d,
+                                "por_anio_y_mes" => $consultasPorMes,
+                                "por_dia_de_la_semana" => $consultasPorDiaSemana,
+                                "por_franja_horaria" => $consultasPorHorario,
                                 "diagnosticos_frecuentes" => $topDiagnosticos,
                             ],
-                            "cirugias" => [
+                            "cirugias_analisis_profundo" => [
                                 "total_cirugias" => $totalCirugias,
-                                "por_ojo_OD_OI" => $cirugiasPorOjo,
+                                "por_ojo_OD_vs_OI" => $ojoConteo,
+                                "comparativa_que_ojo_mas" => $queOjoMas,
+                                "cantidad_por_tipo_de_cirugia" => $tiposCirugia,
+                                "intervalo_promedio_entre_cirugias_mismo_paciente" => $avgIntervalGeneral,
+                                "intervalo_promedio_entre_ojo_derecho_e_izquierdo" => $avgIntervalBilateral,
                             ],
-                            "tiempos_promedio_atencion_y_espera" => $tiemposPromedioMinutos,
-                            "agenda_y_turnos" => [
+                            "estudios_por_tipo" => $estudiosPorTipo,
+                            "tiempos_promedio_atencion_secretaria_y_espera" => $tiemposPromedioMinutos,
+                            "agenda_ausentismo_y_fechas_no_concurridas" => [
                                 "total_turnos_registrados" => $totalTurnos,
                                 "desglose_por_estado" => $turnosPorEstado,
-                                "franjas_horarias_mas_demandadas" => $horariosPico,
+                                "tasa_ausentismo" => $tasaAusentismo,
+                                "fechas_con_mayor_inasistencia_no_concurridas" => $fechasNoConcurridasTop,
+                                "total_turnos_reprogramados" => $reprogramadosTotal,
+                                "franjas_horarias_mas_demandadas_turnos" => $horariosPico,
                             ],
                         ];
 

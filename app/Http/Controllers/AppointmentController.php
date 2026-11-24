@@ -10,16 +10,31 @@ use Illuminate\Support\Carbon;
 
 class AppointmentController extends Controller
 {
+    protected function normalizeAgendaType(?string $type): string
+    {
+        return ($type === 'tecnica') ? 'tecnica' : 'medica';
+    }
+
+    protected function applyAgendaTypeScope($query, string $agendaType)
+    {
+        if ($agendaType === 'tecnica') {
+            return $query->where('agenda_type', 'tecnica');
+        }
+        return $query->where(function ($q) {
+            $q->where('agenda_type', 'medica')->orWhereNull('agenda_type');
+        });
+    }
+
     /**
-     * Shows the Medical Agenda Calendar UI
+     * Shows the Medical & Technical Agenda Calendar UI
      */
     public function index()
     {
+        $agendaUnits = \App\Http\Controllers\AgendaSettingsController::buildAgendaUnits();
         $doctors = User::role('médico')->get();
-        // Useful for the quick-add form
         $patients = Patient::select('id', 'first_name', 'last_name', 'dni')->get();
-        
-        return view('agenda.index', compact('doctors', 'patients'));
+
+        return view('agenda.index', compact('doctors', 'agendaUnits', 'patients'));
     }
 
     /**
@@ -119,12 +134,15 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'patient_id' => 'required|exists:patients,id',
             'doctor_id' => 'required|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
             'date' => 'required|date',
             'time' => 'required',
             'duration_minutes' => 'integer',
             'reason' => 'nullable|string',
             'is_overbooked' => 'nullable|boolean',
         ]);
+
+        $agendaType = $this->normalizeAgendaType($validated['agenda_type'] ?? 'medica');
 
         // Validation for past date (allow same-day appointments cleanly)
         $appointmentDate = \Carbon\Carbon::parse($request->date)->startOfDay();
@@ -136,12 +154,14 @@ class AppointmentController extends Controller
         }
 
         $normalizedTime = \Carbon\Carbon::parse($request->time)->format('H:i:s');
-        $conflictExists = Appointment::where('doctor_id', $validated['doctor_id'])
+        $conflictQ = Appointment::where('doctor_id', $validated['doctor_id'])
             ->whereDate('date', $validated['date'])
             ->where('time', $normalizedTime)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
+            ->whereIn('status', ['pending', 'confirmed']);
+        $this->applyAgendaTypeScope($conflictQ, $agendaType);
+        $conflictExists = $conflictQ->exists();
 
+        $validated['agenda_type'] = $agendaType;
         $validated['time'] = $normalizedTime;
         $validated['is_overbooked'] = $conflictExists || $request->boolean('is_overbooked');
         $validated['created_by'] = \Auth::id();
@@ -268,12 +288,13 @@ class AppointmentController extends Controller
     /**
      * Helper: Recorta / divide bloqueos superpuestos para liberar un intervalo [unlockStart, unlockEnd].
      */
-    protected function carveOutBlocks(int $doctorId, Carbon $unlockStart, Carbon $unlockEnd, bool $fullDayMode = false): int
+    protected function carveOutBlocks(int $doctorId, Carbon $unlockStart, Carbon $unlockEnd, bool $fullDayMode = false, string $agendaType = 'medica'): int
     {
-        $overlapping = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
+        $overlapQ = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
             ->where('start_datetime', '<', $unlockEnd)
-            ->where('end_datetime', '>', $unlockStart)
-            ->get();
+            ->where('end_datetime', '>', $unlockStart);
+        $this->applyAgendaTypeScope($overlapQ, $agendaType);
+        $overlapping = $overlapQ->get();
 
         $modified = 0;
 
@@ -281,6 +302,7 @@ class AppointmentController extends Controller
             $bStart = $block->start_datetime->copy();
             $bEnd = $block->end_datetime->copy();
             $reason = $block->reason;
+            $bType = $block->agenda_type ?: $agendaType;
 
             if ($bStart->gte($unlockStart) && $bEnd->lte($unlockEnd)) {
                 // El bloqueo cae íntegramente dentro del rango a desbloquear
@@ -304,6 +326,7 @@ class AppointmentController extends Controller
                 if ($bEnd->gt($rightStart)) {
                     \App\Models\ScheduleBlock::create([
                         'doctor_id' => $doctorId,
+                        'agenda_type' => $bType,
                         'start_datetime' => $rightStart,
                         'end_datetime' => $bEnd,
                         'reason' => $reason,
@@ -345,13 +368,19 @@ class AppointmentController extends Controller
     public function getMonthAvailability(Request $request)
     {
         $doctorId = $request->doctor_id;
+        $agendaType = $this->normalizeAgendaType($request->input('agenda_type', 'medica'));
         $year = $request->year;
         $month = str_pad($request->month, 2, '0', STR_PAD_LEFT);
 
         if (!$doctorId) return response()->json([]);
 
-        $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
-        $schedules = \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->get();
+        $cfgQ = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->applyAgendaTypeScope($cfgQ, $agendaType);
+        $config = $cfgQ->first();
+
+        $schQ = \App\Models\DoctorSchedule::where('doctor_id', $doctorId);
+        $this->applyAgendaTypeScope($schQ, $agendaType);
+        $schedules = $schQ->get();
 
         if (!$config && $schedules->isEmpty()) {
             return response()->json([]);
@@ -365,18 +394,20 @@ class AppointmentController extends Controller
         $daysInMonth = $startDate->daysInMonth;
         $endDate = $startDate->copy()->endOfMonth();
 
-        $appointments = Appointment::where('doctor_id', $doctorId)
+        $appQ = Appointment::where('doctor_id', $doctorId)
             ->whereYear('date', $year)
             ->whereMonth('date', $month)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->get()
-            ->groupBy('date');
+            ->whereIn('status', ['pending', 'confirmed']);
+        $this->applyAgendaTypeScope($appQ, $agendaType);
+        $appointments = $appQ->get()->groupBy('date');
 
-        $blocks = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
+        $blkQ = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
             ->where(function($q) use ($startDate, $endDate) {
                 $q->where('start_datetime', '<=', $endDate->toDateString() . ' 23:59:59')
                   ->where('end_datetime', '>=', $startDate->toDateString() . ' 00:00:00');
-            })->get();
+            });
+        $this->applyAgendaTypeScope($blkQ, $agendaType);
+        $blocks = $blkQ->get();
 
         $availability = [];
 
@@ -492,13 +523,20 @@ class AppointmentController extends Controller
     public function getDaySlots(Request $request)
     {
         $doctorId = (int)$request->doctor_id;
+        $agendaType = $this->normalizeAgendaType($request->input('agenda_type', 'medica'));
         $date = Carbon::parse($request->date);
         $dateStr = $date->format('Y-m-d');
         $dayOfWeek = $date->dayOfWeek;
 
-        // 1. Configuración del médico
-        $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
-        $doctorSchedule = \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->where('day_of_week', $dayOfWeek)->first();
+        // 1. Configuración de esta agenda (médica o técnica)
+        $cfgQ = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->applyAgendaTypeScope($cfgQ, $agendaType);
+        $config = $cfgQ->first();
+
+        $schQ = \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->where('day_of_week', $dayOfWeek);
+        $this->applyAgendaTypeScope($schQ, $agendaType);
+        $doctorSchedule = $schQ->first();
+
         $slotDuration = $config->appointment_duration ?? ($doctorSchedule->slot_duration_minutes ?? 20);
         $workingDays = $config ? $config->working_days : null;
 
@@ -508,21 +546,23 @@ class AppointmentController extends Controller
             ? array_values($workingDays['special_openings'][$dateStr])
             : [];
 
-        // 3. Bloqueos que toquen este día
-        $blocks = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
+        // 3. Bloqueos que toquen este día para esta agenda
+        $blkQ = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
             ->where(function($q) use ($dateStr) {
                 $q->where('start_datetime', '<=', $dateStr . ' 23:59:59')
                   ->where('end_datetime', '>=', $dateStr . ' 00:00:00');
             })
-            ->orderBy('start_datetime')
-            ->get();
+            ->orderBy('start_datetime');
+        $this->applyAgendaTypeScope($blkQ, $agendaType);
+        $blocks = $blkQ->get();
 
-        // Bloqueos activos / futuros del médico (para mostrar también en el panel inferior derecho de la agenda)
-        $activeDoctorBlocks = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
+        // Bloqueos activos / futuros de esta agenda
+        $activeBlkQ = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
             ->where('end_datetime', '>=', now()->startOfDay())
             ->orderBy('start_datetime')
-            ->limit(15)
-            ->get()
+            ->limit(15);
+        $this->applyAgendaTypeScope($activeBlkQ, $agendaType);
+        $activeDoctorBlocks = $activeBlkQ->get()
             ->map(function($b) {
                 $sameDay = $b->start_datetime->format('Y-m-d') === $b->end_datetime->format('Y-m-d');
                 return [
@@ -535,12 +575,13 @@ class AppointmentController extends Controller
                 ];
             });
 
-        // 4. Turnos agendados con datos completos del paciente
-        $appointments = Appointment::with('patient')->where('doctor_id', $doctorId)
+        // 4. Turnos agendados en esta agenda con datos completos del paciente
+        $appQ = Appointment::with('patient')->where('doctor_id', $doctorId)
             ->whereDate('date', $dateStr)
             ->whereIn('status', ['pending', 'confirmed', 'no_show'])
-            ->orderBy('time')
-            ->get()
+            ->orderBy('time');
+        $this->applyAgendaTypeScope($appQ, $agendaType);
+        $appointments = $appQ->get()
             ->groupBy(function($item) {
                 return Carbon::parse($item->time)->format('H:i:00');
             });
@@ -708,20 +749,32 @@ class AppointmentController extends Controller
 
     public function getNearestSlots()
     {
-        $doctors = User::role('médico')->with('schedules')->get();
+        $agendaUnits = \App\Http\Controllers\AgendaSettingsController::buildAgendaUnits();
         $results = [];
 
-        foreach ($doctors as $doctor) {
-            $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctor->id)->first();
-            if (!$config && $doctor->schedules->isEmpty()) continue;
+        foreach ($agendaUnits as $unit) {
+            $doctorId = (int)$unit['doctor_id'];
+            $agendaType = $unit['agenda_type'];
+            $uid = $unit['uid'];
 
-            $scheduleMap = $doctor->schedules->keyBy('day_of_week');
+            $cfgQ = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId);
+            $this->applyAgendaTypeScope($cfgQ, $agendaType);
+            $config = $cfgQ->first();
+
+            $schQ = \App\Models\DoctorSchedule::where('doctor_id', $doctorId);
+            $this->applyAgendaTypeScope($schQ, $agendaType);
+            $schedules = $schQ->get();
+
+            if (!$config && $schedules->isEmpty()) continue;
+
+            $scheduleMap = $schedules->keyBy('day_of_week');
             $workingDays = $config ? $config->working_days : null;
             $slotDuration = $config->appointment_duration ?? 20;
 
-            $blocks = \App\Models\ScheduleBlock::where('doctor_id', $doctor->id)
-                ->where('end_datetime', '>=', now())
-                ->get();
+            $blkQ = \App\Models\ScheduleBlock::where('doctor_id', $doctorId)
+                ->where('end_datetime', '>=', now());
+            $this->applyAgendaTypeScope($blkQ, $agendaType);
+            $blocks = $blkQ->get();
 
             $found = null;
             $currentDate = Carbon::today();
@@ -735,10 +788,11 @@ class AppointmentController extends Controller
                 $intervals = $this->buildDayIntervals($dateStr, $dayOfWeek, $config, $workingDays, $scheduleMap, null);
                 if (empty($intervals)) continue;
 
-                $bookedAppts = Appointment::where('doctor_id', $doctor->id)
+                $bookedQ = Appointment::where('doctor_id', $doctorId)
                     ->whereDate('date', $dateStr)
-                    ->whereIn('status', ['pending', 'confirmed'])
-                    ->pluck('time')
+                    ->whereIn('status', ['pending', 'confirmed']);
+                $this->applyAgendaTypeScope($bookedQ, $agendaType);
+                $bookedAppts = $bookedQ->pluck('time')
                     ->map(fn($t) => Carbon::parse($t)->format('H:i:00'))
                     ->toArray();
 
@@ -761,8 +815,10 @@ class AppointmentController extends Controller
 
                         if (!$isBlocked && $start > $now && !in_array($timeStr, $bookedAppts)) {
                             $found = [
-                                'doctor_id' => $doctor->id,
-                                'doctor_name' => $doctor->name,
+                                'uid' => $uid,
+                                'doctor_id' => $doctorId,
+                                'agenda_type' => $agendaType,
+                                'doctor_name' => $unit['person_name'],
                                 'date' => $dateStr,
                                 'time' => $start->format('H:i'),
                                 'slot_duration' => $dur,
@@ -804,6 +860,7 @@ class AppointmentController extends Controller
             'date' => 'required|date',
             'time' => 'required|string',
             'doctor_id' => 'nullable|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
             'reason' => 'nullable|string|max:500',
             'is_overbooked' => 'nullable|boolean',
         ]);
@@ -812,18 +869,21 @@ class AppointmentController extends Controller
         $oldTime = substr((string)$appointment->time, 0, 5);
 
         $targetDoctorId = !empty($validated['doctor_id']) ? (int)$validated['doctor_id'] : (int)$appointment->doctor_id;
+        $targetAgendaType = $this->normalizeAgendaType($validated['agenda_type'] ?? ($appointment->agenda_type ?? 'medica'));
         $normalizedTime = Carbon::parse($validated['time'])->format('H:i:s');
 
-        $conflictExists = Appointment::where('doctor_id', $targetDoctorId)
+        $conflictQ = Appointment::where('doctor_id', $targetDoctorId)
             ->whereDate('date', $validated['date'])
             ->where('time', $normalizedTime)
             ->where('id', '!=', $appointment->id)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
+            ->whereIn('status', ['pending', 'confirmed']);
+        $this->applyAgendaTypeScope($conflictQ, $targetAgendaType);
+        $conflictExists = $conflictQ->exists();
 
         $appointment->date = $validated['date'];
         $appointment->time = $normalizedTime;
         $appointment->doctor_id = $targetDoctorId;
+        $appointment->agenda_type = $targetAgendaType;
         $appointment->is_overbooked = $conflictExists || $request->boolean('is_overbooked');
 
         $note = "Reprogramado del {$oldDateFormatted} {$oldTime} hs.";
@@ -878,6 +938,7 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'doctor_id' => 'required|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
             'date' => 'required|date',
             'end_date' => 'nullable|date',
             'block_type' => 'required|string|in:day,vacation,range_days,range,slot',
@@ -886,6 +947,7 @@ class AppointmentController extends Controller
             'reason' => 'required|string|max:255',
         ]);
 
+        $agendaType = $this->normalizeAgendaType($validated['agenda_type'] ?? 'medica');
         $date = $validated['date'];
 
         if ($validated['block_type'] === 'vacation' || $validated['block_type'] === 'range_days') {
@@ -899,6 +961,7 @@ class AppointmentController extends Controller
 
             $block = \App\Models\ScheduleBlock::create([
                 'doctor_id' => $validated['doctor_id'],
+                'agenda_type' => $agendaType,
                 'start_datetime' => $startDatetime,
                 'end_datetime' => $endDatetime,
                 'reason' => $validated['reason'],
@@ -908,6 +971,7 @@ class AppointmentController extends Controller
         } elseif ($validated['block_type'] === 'day') {
             $block = \App\Models\ScheduleBlock::create([
                 'doctor_id' => $validated['doctor_id'],
+                'agenda_type' => $agendaType,
                 'start_datetime' => $date . ' 00:00:00',
                 'end_datetime' => $date . ' 23:59:59',
                 'reason' => $validated['reason'],
@@ -930,6 +994,7 @@ class AppointmentController extends Controller
                 $dStr = $cursor->format('Y-m-d');
                 $lastBlock = \App\Models\ScheduleBlock::create([
                     'doctor_id' => $validated['doctor_id'],
+                    'agenda_type' => $agendaType,
                     'start_datetime' => $dStr . ' ' . $startTime . ':00',
                     'end_datetime' => $dStr . ' ' . $endTime . ':00',
                     'reason' => $validated['reason'],
@@ -948,6 +1013,7 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'doctor_id' => 'required|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
             'date' => 'required|date',
             'mode' => 'required|string|in:slot,time_range,day,all_block',
             'start_time' => 'nullable|string',
@@ -957,6 +1023,7 @@ class AppointmentController extends Controller
         ]);
 
         $doctorId = (int)$validated['doctor_id'];
+        $agendaType = $this->normalizeAgendaType($validated['agenda_type'] ?? 'medica');
         $dateStr = Carbon::parse($validated['date'])->format('Y-m-d');
         $mode = $validated['mode'];
 
@@ -968,7 +1035,7 @@ class AppointmentController extends Controller
         if ($mode === 'day') {
             $unlockStart = Carbon::parse($dateStr . ' 00:00:00');
             $unlockEnd = Carbon::parse($dateStr . ' 23:59:59');
-            $this->carveOutBlocks($doctorId, $unlockStart, $unlockEnd, true);
+            $this->carveOutBlocks($doctorId, $unlockStart, $unlockEnd, true, $agendaType);
             return response()->json(['success' => true, 'message' => 'Día desbloqueado correctamente.']);
         }
 
@@ -978,7 +1045,7 @@ class AppointmentController extends Controller
             if ($dur <= 0) $dur = 20;
             $unlockStart = Carbon::parse($dateStr . ' ' . $sTime . ':00');
             $unlockEnd = (clone $unlockStart)->addMinutes($dur);
-            $this->carveOutBlocks($doctorId, $unlockStart, $unlockEnd, false);
+            $this->carveOutBlocks($doctorId, $unlockStart, $unlockEnd, false, $agendaType);
             return response()->json(['success' => true, 'message' => "Horario {$sTime} desbloqueado correctamente."]);
         }
 
@@ -990,7 +1057,7 @@ class AppointmentController extends Controller
         }
         $unlockStart = Carbon::parse($dateStr . ' ' . $sTime . ':00');
         $unlockEnd = Carbon::parse($dateStr . ' ' . $eTime . ':00');
-        $this->carveOutBlocks($doctorId, $unlockStart, $unlockEnd, false);
+        $this->carveOutBlocks($doctorId, $unlockStart, $unlockEnd, false, $agendaType);
 
         return response()->json(['success' => true, 'message' => "Franja {$sTime} a {$eTime} habilitada correctamente."]);
     }
@@ -1002,12 +1069,14 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'doctor_id' => 'required|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
             'date' => 'required|date',
             'start_time' => 'required|string',
             'end_time' => 'required|string',
         ]);
 
         $doctorId = (int)$validated['doctor_id'];
+        $agendaType = $this->normalizeAgendaType($validated['agenda_type'] ?? 'medica');
         $dateStr = Carbon::parse($validated['date'])->format('Y-m-d');
         $sTime = substr($validated['start_time'], 0, 5);
         $eTime = substr($validated['end_time'], 0, 5);
@@ -1016,15 +1085,20 @@ class AppointmentController extends Controller
             return response()->json(['success' => false, 'message' => 'La hora de fin debe ser posterior a la hora de inicio.'], 422);
         }
 
-        $config = \App\Models\DoctorConfiguration::firstOrCreate(
-            ['doctor_id' => $doctorId],
-            [
+        $cfgQ = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->applyAgendaTypeScope($cfgQ, $agendaType);
+        $config = $cfgQ->first();
+
+        if (!$config) {
+            $config = \App\Models\DoctorConfiguration::create([
+                'doctor_id' => $doctorId,
+                'agenda_type' => $agendaType,
                 'working_days' => [],
                 'shift_1_start' => '08:00',
                 'shift_1_end' => '12:00',
                 'appointment_duration' => 20,
-            ]
-        );
+            ]);
+        }
 
         $workingDays = is_array($config->working_days) ? $config->working_days : [];
         if (!isset($workingDays['special_openings']) || !is_array($workingDays['special_openings'])) {
@@ -1047,7 +1121,8 @@ class AppointmentController extends Controller
             $doctorId,
             Carbon::parse($dateStr . ' ' . $sTime . ':00'),
             Carbon::parse($dateStr . ' ' . $eTime . ':00'),
-            false
+            false,
+            $agendaType
         );
 
         return response()->json([
@@ -1063,12 +1138,17 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'doctor_id' => 'required|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
             'date' => 'required|date',
         ]);
 
         $doctorId = (int)$validated['doctor_id'];
+        $agendaType = $this->normalizeAgendaType($validated['agenda_type'] ?? 'medica');
         $dateStr = Carbon::parse($validated['date'])->format('Y-m-d');
-        $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
+
+        $cfgQ = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->applyAgendaTypeScope($cfgQ, $agendaType);
+        $config = $cfgQ->first();
 
         if ($config && is_array($config->working_days) && isset($config->working_days['special_openings'][$dateStr])) {
             $workingDays = $config->working_days;

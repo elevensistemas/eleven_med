@@ -566,4 +566,14 @@ class ConfigController extends Controller
         $obraSocial->delete();
         return back()->with('success', 'Obra Social eliminada exitosamente.');
     }
+
+    /**
+     * Carga o actualiza los pacientes históricos de muestra del Viejo Eleven con todo su historial clínico.
+     */
+    public function importLegacySample()
+    {
+        $res = \App\Services\LegacyElevenImporter::provisionClinicUsersAndSample();
+        $cnt = count($res['sample_patients'] ?? []);
+        return back()->with('success', "Se integraron exitosamente {$cnt} pacientes históricos del Viejo Eleven con todas sus consultas y cirugías previas.");
+    }
 }

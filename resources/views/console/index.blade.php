@@ -157,8 +157,11 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
             </span>
             <select id="consoleSortField" class="form-select form-select-sm bg-light border-0 shadow-none fw-semibold rounded-pill px-3 py-1" style="width: auto; cursor: pointer;">
                 <option value="llegada" selected>Horario de Llegada (Default)</option>
+                <option value="tiempo_total">Tiempo Total (Desde Recepción)</option>
                 <option value="espera">Tiempo de Espera</option>
+                <option value="consulta">Tiempo de Consulta Médica</option>
                 <option value="dilatacion">Tiempo de Dilatación</option>
+                <option value="estudios">Tiempo de Estudios</option>
                 <option value="agenda">Horario de Agenda (Turno)</option>
                 <option value="cobertura">Cobertura Médica</option>
                 <option value="nombre">Nombre de Paciente (A-Z)</option>
@@ -228,8 +231,11 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
 
     <div class="patient-card active-patient-card mb-3"
          data-llegada="{{ $llegadaTimestamp }}"
+         data-tiempo-total="{{ $totalDiaMins }}"
          data-espera="{{ $totals['Ingreso (espera)'] }}"
+         data-consulta="{{ $totals['Atención Médica'] }}"
          data-dilatacion="{{ $totals['Dilatación'] }}"
+         data-estudios="{{ $totals['Estudios Visuales'] }}"
          data-agenda="{{ $agendaMinutes }}"
          data-cobertura="{{ strtolower($patient->obra_social ?? 'particular') }}"
          data-nombre="{{ strtolower($patient->last_name . ' ' . $patient->first_name) }}">
@@ -797,12 +803,16 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
             }
         });
 
-        // Timer de Total Día (Cabecera negra)
+        // Timer de Total Día (Cabecera negra) + actualizar data-tiempo-total en vivo
         document.querySelectorAll('.total-day-timer').forEach(el => {
             const startStr = el.getAttribute('data-start');
             if(startStr) {
                 const start = new Date(startStr);
                 const diffMins = Math.max(0, Math.floor((now - start) / 60000));
+                const parentCard = el.closest('.active-patient-card');
+                if (parentCard) {
+                    parentCard.setAttribute('data-tiempo-total', String(diffMins));
+                }
                 
                 let timeStr = diffMins + ' min';
                 if (diffMins >= 60) {
@@ -879,14 +889,29 @@ body.theme-dark .transition-form small.text-dark { color: #f8f9fa !important; }
                         valB = parseInt(b.getAttribute('data-llegada')) || 0;
                         return sortDir === 'asc' ? (valA - valB) : (valB - valA);
 
+                    case 'tiempo_total':
+                        valA = parseFloat(a.getAttribute('data-tiempo-total')) || 0;
+                        valB = parseFloat(b.getAttribute('data-tiempo-total')) || 0;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
                     case 'espera':
                         valA = parseFloat(a.getAttribute('data-espera')) || 0;
                         valB = parseFloat(b.getAttribute('data-espera')) || 0;
                         return sortDir === 'asc' ? (valA - valB) : (valB - valA);
 
+                    case 'consulta':
+                        valA = parseFloat(a.getAttribute('data-consulta')) || 0;
+                        valB = parseFloat(b.getAttribute('data-consulta')) || 0;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
                     case 'dilatacion':
                         valA = parseFloat(a.getAttribute('data-dilatacion')) || 0;
                         valB = parseFloat(b.getAttribute('data-dilatacion')) || 0;
+                        return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+
+                    case 'estudios':
+                        valA = parseFloat(a.getAttribute('data-estudios')) || 0;
+                        valB = parseFloat(b.getAttribute('data-estudios')) || 0;
                         return sortDir === 'asc' ? (valA - valB) : (valB - valA);
 
                     case 'agenda':

@@ -232,7 +232,8 @@ class PatientController extends Controller
     {
         $doctors = User::role('médico')->get();
         $obrasSociales = \App\Models\ObraSocial::orderBy('name')->get();
-        return view('patients.create', compact('doctors', 'obrasSociales'));
+        $nextPatientNumber = Patient::nextCorrelativeNumber();
+        return view('patients.create', compact('doctors', 'obrasSociales', 'nextPatientNumber'));
     }
 
     /**
@@ -241,10 +242,12 @@ class PatientController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'code' => 'nullable|string|max:50',
             'last_name' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'dni' => 'required|string|unique:patients|max:50',
             'date_of_birth' => 'required|date',
+            'gender' => 'nullable|string|max:20',
             'obra_social' => 'nullable|string|max:255',
             'plan' => 'nullable|string|max:255',
             'affiliate_number' => 'nullable|string|max:255',
@@ -259,10 +262,13 @@ class PatientController extends Controller
             'medical_notes' => 'nullable|string',
         ]);
 
+        if (empty(trim((string)($validated['code'] ?? '')))) {
+            $validated['code'] = Patient::nextCorrelativeNumber();
+        }
         if (!empty($validated['phone'])) { $validated['phone'] = self::formatArgentinePhone($validated['phone']); }
         $patient = Patient::create($validated);
 
-        return redirect()->route('patients.show', $patient)->with('success', 'Paciente registrado correctamente.');
+        return redirect()->route('patients.show', $patient)->with('success', "Paciente registrado correctamente (N° de Paciente #{$patient->patient_number}).");
     }
 
     /**
@@ -483,10 +489,12 @@ class PatientController extends Controller
     public function update(Request $request, Patient $patient)
     {
         $validated = $request->validate([
+            'code' => 'nullable|string|max:50',
             'last_name' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'dni' => 'required|string|max:50|unique:patients,dni,'.$patient->id,
             'date_of_birth' => 'required|date',
+            'gender' => 'nullable|string|max:20',
             'obra_social' => 'nullable|string|max:255',
             'plan' => 'nullable|string|max:255',
             'affiliate_number' => 'nullable|string|max:255',

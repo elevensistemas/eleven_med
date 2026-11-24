@@ -50,6 +50,44 @@ class Patient extends Model
     }
 
     /**
+     * Número de Paciente correlativo (heredado de Viejo Eleven en `code` o `id`).
+     */
+    public function getPatientNumberAttribute(): string
+    {
+        $raw = trim((string)($this->code ?? ''));
+        if ($raw !== '') {
+            return ltrim($raw, '0') !== '' ? ltrim($raw, '0') : '0';
+        }
+        return (string)$this->id;
+    }
+
+    /**
+     * Calcula el próximo Número de Paciente correlativo respetando la numeración histórica de Viejo Eleven.
+     */
+    public static function nextCorrelativeNumber(): string
+    {
+        $maxId = (int)(static::max('id') ?? 0);
+        $maxCode = 0;
+
+        try {
+            $codes = static::whereNotNull('code')->where('code', '!=', '')->pluck('code');
+            foreach ($codes as $c) {
+                $clean = trim((string)$c);
+                if (ctype_digit($clean)) {
+                    $val = (int)$clean;
+                    if ($val > 0 && $val < 1000000 && $val > $maxCode) {
+                        $maxCode = $val;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback a maxId
+        }
+
+        return (string)(max($maxId, $maxCode) + 1);
+    }
+
+    /**
      * Get the medical studies files tied to this patient.
      */
     public function studies(): \Illuminate\Database\Eloquent\Relations\HasMany

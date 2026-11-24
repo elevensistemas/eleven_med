@@ -69,7 +69,7 @@
             </div>
             
             <!-- 3. RESGUARDO TÉCNICO DE SERVIDOR (.SQL) -->
-            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-1" style="border: 1px solid rgba(0,0,0,0.06) !important;">
+            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-3" style="border: 1px solid rgba(0,0,0,0.06) !important;">
                 <div class="d-flex align-items-center mb-2">
                     <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3 flex-shrink-0" style="width: 44px; height: 44px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
                         <i class="bi bi-database-fill-check fs-5"></i>
@@ -82,6 +82,25 @@
                 <a href="{{ route('config.backup.database') }}" class="btn text-white fw-bold p-2 shadow-sm rounded-pill btn-sm" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
                     <i class="bi bi-hdd-stack me-1"></i> Descargar Resguardo Técnico (.SQL)
                 </a>
+            </div>
+
+            <!-- 4. INTEGRACIÓN HISTÓRICA VIEJO ELEVEN -->
+            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-1" style="border: 1.5px solid rgba(16, 185, 129, 0.25) !important;">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3 flex-shrink-0" style="width: 44px; height: 44px; background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                        <i class="bi bi-arrow-left-right fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">Integración de Historial Viejo Eleven</h6>
+                        <small class="text-muted d-block" style="line-height: 1.3;">Integra fichas históricas con su N° de Paciente correlativo original, consultas previas (PIO, AV, BMC, OBI) y cirugías OD/OI.</small>
+                    </div>
+                </div>
+                <form action="{{ route('config.import.legacySample') }}" method="POST" class="m-0">
+                    @csrf
+                    <button type="submit" class="btn text-white fw-bold p-2 shadow-sm rounded-pill btn-sm w-100" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); border: none;">
+                        <i class="bi bi-cloud-check-fill me-1"></i> Verificar / Sincronizar Muestra Histórica Viejo Eleven
+                    </button>
+                </form>
             </div>
         </div>
     </div>

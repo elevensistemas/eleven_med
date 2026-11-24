@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Configurar Horarios de Agenda')
-@section('subtitle', 'Define días y horarios específicos de atención para cada profesional (mañana y tarde independientes)')
+@section('title', 'Configurar Horarios de Agendas (Médicas y Técnicas)')
+@section('subtitle', 'Define días y horarios independientes para cada Médico/a y Técnico/a (si una persona cumple dos funciones, cada función tiene su propia agenda)')
 
 @section('content')
 
@@ -12,41 +12,69 @@
 @endif
 
 <div class="row g-4 mb-4">
-    <!-- PANEL PRINCIPAL: PATRÓN SEMANAL PERSONALIZADO POR DÍA -->
+    <!-- PANEL PRINCIPAL: PATRÓN SEMANAL PERSONALIZADO POR DÍA Y FUNCIÓN -->
     <div class="col-12">
         <div class="modern-card p-4 shadow-sm border-0 rounded-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom gap-2">
                 <div>
-                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-week text-primary me-2"></i> 1. Horarios de Agenda por Día de la Semana</h5>
-                    <p class="text-muted small mb-0">Configura qué días atiende el profesional y sus horarios específicos. Puedes activar o anular el turno mañana o tarde según sus actividades (ej: cirugías, docencia o consultorio).</p>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-week text-primary me-2"></i> 1. Horarios de Agenda por Profesional / Técnico y Función</h5>
+                    <p class="text-muted small mb-0">
+                        Seleccione la agenda a configurar (<strong>Agenda Médica</strong> o <strong>Agenda Técnica / Estudios</strong>). Si un integrante tiene ambos roles (ej: Recepcionista + Técnica, o Médica + Técnica), cada función maneja su propia agenda independiente.
+                    </p>
                 </div>
+                <a href="{{ route('users.index') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">
+                    <i class="bi bi-people me-1"></i> Asignar Rol Técnico/Médico en Usuarios
+                </a>
             </div>
 
             <form action="{{ route('agenda.config.store') }}" method="POST" id="weeklyScheduleForm">
                 @csrf
+                <input type="hidden" name="doctor_id" id="configDoctorIdHidden">
+                <input type="hidden" name="agenda_type" id="configAgendaTypeHidden" value="medica">
+
                 <div class="row g-3 mb-4 align-items-end bg-light p-3 rounded-4 border">
-                    <div class="col-md-5">
-                        <label class="form-label text-muted small fw-bold">Profesional Médico *</label>
-                        <select name="doctor_id" id="configDoctorSelect" class="form-control bg-white border shadow-none form-select" required>
-                            <option value="">-- Seleccionar Médico --</option>
-                            @foreach($doctors as $doc)
-                                <option value="{{ $doc->id }}">{{ $doc->name }}</option>
-                            @endforeach
+                    <div class="col-lg-4 col-md-6">
+                        <label class="form-label text-muted small fw-bold">Profesional y Tipo de Agenda *</label>
+                        <select name="agenda_target" id="configDoctorSelect" class="form-control bg-white border shadow-none form-select fw-semibold" required>
+                            <option value="">-- Seleccionar Médico o Técnico/a --</option>
+                            @php
+                                $medUnits = collect($agendaUnits ?? [])->where('agenda_type', 'medica');
+                                $tecUnits = collect($agendaUnits ?? [])->where('agenda_type', 'tecnica');
+                            @endphp
+                            @if($medUnits->count() > 0)
+                                <optgroup label="🩺 Agendas Médicas (Consultorio)">
+                                    @foreach($medUnits as $u)
+                                        <option value="{{ $u['target_key'] }}" data-label="{{ $u['agenda_label'] }}">{{ $u['short_option'] }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                            @if($tecUnits->count() > 0)
+                                <optgroup label="🔬 Agendas Técnicas / Estudios (Campos Visuales, OCT, etc.)">
+                                    @foreach($tecUnits as $u)
+                                        <option value="{{ $u['target_key'] }}" data-label="{{ $u['agenda_label'] }}">{{ $u['short_option'] }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label text-muted small fw-bold">Duración de Cada Consulta *</label>
+                    <div class="col-lg-3 col-md-6">
+                        <label class="form-label text-muted small fw-bold">Especialidad / Estudio (Etiqueta)</label>
+                        <input type="text" name="agenda_label" id="configAgendaLabelInput" class="form-control bg-white border shadow-none" placeholder="Ej: Campos Visuales, OCT, Consultorio...">
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <label class="form-label text-muted small fw-bold">Duración de Cada Turno *</label>
                         <select name="appointment_duration" id="appointmentDurationSelect" class="form-control bg-white border shadow-none form-select" required>
+                            <option value="10">Cada 10 minutos</option>
                             <option value="15">Cada 15 minutos</option>
                             <option value="20" selected>Cada 20 minutos (Estándar)</option>
                             <option value="30">Cada 30 minutos</option>
                             <option value="45">Cada 45 minutos</option>
-                            <option value="60">Cada 60 minutos (Estudios / Pre-quirúrgico)</option>
+                            <option value="60">Cada 60 minutos (Estudios largos)</option>
                         </select>
                     </div>
-                    <div class="col-md-3 text-md-end">
-                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm w-100" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
-                            <i class="bi bi-save me-2"></i> Guardar Horarios
+                    <div class="col-lg-2 col-md-6 text-md-end">
+                        <button type="submit" class="btn btn-primary rounded-pill px-3 py-2 fw-bold shadow-sm w-100" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                            <i class="bi bi-save me-1"></i> Guardar
                         </button>
                     </div>
                 </div>
@@ -141,7 +169,7 @@
 
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                     <button type="button" class="btn btn-outline-danger rounded-pill px-4 fw-bold shadow-sm d-none" id="btnDeleteConfig" onclick="deleteConfig()">
-                        <i class="bi bi-trash me-2"></i> Eliminar Patrón de este Médico
+                        <i class="bi bi-trash me-2"></i> Eliminar Patrón de esta Agenda
                     </button>
                     <button type="submit" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm ms-auto" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
                         <i class="bi bi-save me-2"></i> Guardar Todos los Horarios
@@ -152,31 +180,31 @@
             <form id="deleteConfigForm" method="POST" action="">
                 @csrf
                 @method('DELETE')
+                <input type="hidden" name="agenda_type" id="deleteConfigAgendaType" value="medica">
             </form>
         </div>
     </div>
 </div>
 
 <div class="row g-4">
-    <!-- PANEL SECUNDARIO: BLOQUEOS DE EXCEPCION Y VACACIONES (ESPACIADO AMPLIO Y CLARO) -->
+    <!-- PANEL SECUNDARIO: BLOQUEOS DE EXCEPCION Y VACACIONES -->
     <div class="col-lg-5">
         <div class="modern-card p-4 h-100 shadow-sm border-0 rounded-4">
             <h5 class="fw-bold text-dark mb-2"><i class="bi bi-shield-lock text-primary me-2"></i> 2. Bloqueos de Turnos / Vacaciones</h5>
-            <p class="text-muted small mb-4">Bloquee días completos, vacaciones o franjas horarias con campos amplios y separados.</p>
+            <p class="text-muted small mb-4">Bloquee días completos, vacaciones o franjas horarias de una Agenda Médica o Técnica específica.</p>
             
             <form action="{{ route('agenda.blocks.store') }}" method="POST">
                 @csrf
                 <div class="mb-4">
-                    <label class="form-label text-dark small fw-bold mb-2">Médico Afectado *</label>
-                    <select name="doctor_id" class="form-select border rounded-3 py-2.5 px-3 shadow-none bg-white fw-semibold" required>
-                        <option value="">-- Seleccionar Médico --</option>
-                        @foreach($doctors as $doc)
-                            <option value="{{ $doc->id }}">{{ $doc->name }}</option>
+                    <label class="form-label text-dark small fw-bold mb-2">Agenda Afectada (Médica o Técnica) *</label>
+                    <select name="agenda_target" class="form-select border rounded-3 py-2.5 px-3 shadow-none bg-white fw-semibold" required>
+                        <option value="">-- Seleccionar Agenda --</option>
+                        @foreach($agendaUnits ?? [] as $u)
+                            <option value="{{ $u['target_key'] }}">{{ $u['short_option'] }}</option>
                         @endforeach
                     </select>
                 </div>
 
-                <!-- Modo de Bloqueo: Día(s) completo(s) vs Franja Horaria -->
                 <div class="mb-4">
                     <label class="form-label text-dark small fw-bold mb-2">Modalidad de Bloqueo *</label>
                     <div class="d-flex gap-2">
@@ -192,7 +220,6 @@
                     </div>
                 </div>
 
-                <!-- Fechas amplias y bien separadas -->
                 <div class="p-3 rounded-4 bg-light border mb-4">
                     <div class="mb-3">
                         <label class="form-label text-dark small fw-bold mb-1"><i class="bi bi-calendar-event text-primary me-1"></i> Fecha Desde *</label>
@@ -205,7 +232,6 @@
                     </div>
                 </div>
 
-                <!-- Horarios amplios y separados (solo visibles si elige Franja Horaria) -->
                 <div class="p-3 rounded-4 bg-warning bg-opacity-10 border border-warning border-opacity-50 mb-4 d-none" id="settingsBlockTimeRow">
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
                         <span class="small fw-bold text-dark"><i class="bi bi-alarm me-1"></i> Horario a bloquear:</span>
@@ -228,7 +254,7 @@
 
                 <div class="mb-4">
                     <label class="form-label text-dark small fw-bold mb-2">Motivo del Bloqueo *</label>
-                    <input type="text" name="reason" class="form-control bg-white border rounded-3 py-2.5 px-3 shadow-none" placeholder="Ej: Vacaciones, Quirófano, Congreso, Trámite..." required>
+                    <input type="text" name="reason" class="form-control bg-white border rounded-3 py-2.5 px-3 shadow-none" placeholder="Ej: Vacaciones, Quirófano, Congreso, Mantenimiento equipo..." required>
                 </div>
 
                 <button type="submit" class="btn btn-warning text-dark w-100 py-2.5 rounded-pill fw-bold shadow-sm fs-6">
@@ -244,31 +270,15 @@
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                 <div>
                     <h5 class="fw-bold text-dark mb-1"><i class="bi bi-list-check text-primary me-2"></i> Bloqueos Activos y Futuros</h5>
-                    <small class="text-muted">Al anular un bloqueo se rehabilitan todos los horarios habituales del médico.</small>
+                    <small class="text-muted">Al anular un bloqueo se rehabilitan todos los horarios habituales de esa agenda.</small>
                 </div>
-                @php
-                    $blockedDoctorIds = $blocks->pluck('doctor_id')->unique()->filter();
-                @endphp
-                @if($blockedDoctorIds->count() > 0)
-                    <div class="d-flex flex-wrap gap-2">
-                        @foreach($doctors->whereIn('id', $blockedDoctorIds) as $bDoc)
-                            <form action="{{ route('agenda.blocks.destroy_doctor', $bDoc) }}" method="POST" class="m-0">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold shadow-sm" onclick="return confirm('¿Anular TODOS los bloqueos activos de {{ $bDoc->name }} y rehabilitar toda su agenda habitual?');">
-                                    <i class="bi bi-unlock-fill me-1"></i> Liberar todo ({{ $bDoc->name }})
-                                </button>
-                            </form>
-                        @endforeach
-                    </div>
-                @endif
             </div>
             
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead>
                         <tr class="text-muted small">
-                            <th>Profesional</th>
+                            <th>Profesional / Agenda</th>
                             <th>Desde</th>
                             <th>Hasta</th>
                             <th>Motivo</th>
@@ -278,7 +288,14 @@
                     <tbody>
                         @forelse($blocks as $block)
                             <tr>
-                                <td class="fw-bold text-dark">{{ $block->doctor->name ?? 'General' }}</td>
+                                <td>
+                                    <div class="fw-bold text-dark">{{ $block->doctor->name ?? 'General' }}</div>
+                                    @if(($block->agenda_type ?? 'medica') === 'tecnica')
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill" style="font-size: 0.7rem;">Agenda Técnica / Estudios</span>
+                                    @else
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill" style="font-size: 0.7rem;">Agenda Médica</span>
+                                    @endif
+                                </td>
                                 <td>{{ $block->start_datetime->format('d/m/Y H:i') }}</td>
                                 <td>{{ $block->end_datetime->format('d/m/Y H:i') }}</td>
                                 <td><span class="badge bg-warning bg-opacity-25 text-dark border">{{ $block->reason }}</span></td>
@@ -297,7 +314,7 @@
                                 <td colspan="5" class="text-center py-5">
                                     <i class="bi bi-calendar-check fs-1 text-muted opacity-25 d-block mb-3"></i>
                                     <span class="fw-bold text-muted">Sin Bloqueos Pendientes</span>
-                                    <p class="small text-muted mb-0">No hay ausencias programadas para ningún médico.</p>
+                                    <p class="small text-muted mb-0">No hay ausencias programadas para ninguna agenda.</p>
                                 </td>
                             </tr>
                         @endforelse
@@ -368,8 +385,6 @@
 
         for (let d = 1; d <= 6; d++) {
             if (d === sourceDay) continue;
-            
-            // Only apply to days currently active or apply to weekdays 1-5
             if (d <= 5) {
                 document.getElementById(`dayActive_${d}`).checked = true;
                 toggleDayRow(d);
@@ -393,11 +408,10 @@
         const docSelect = document.getElementById('configDoctorSelect');
         const deleteBtn = document.getElementById('btnDeleteConfig');
         const deleteForm = document.getElementById('deleteConfigForm');
+        const labelInput = document.getElementById('configAgendaLabelInput');
 
-        // Init toggles for default state
         for (let d = 1; d <= 6; d++) {
             if (d === 6) {
-                // Sábado inactive by default
                 document.getElementById(`dayActive_${d}`).checked = false;
             }
             toggleDayRow(d);
@@ -406,23 +420,33 @@
         }
 
         docSelect.addEventListener('change', function() {
-            const docId = this.value;
+            const rawVal = this.value;
             deleteBtn.classList.add('d-none');
 
-            if (!docId) return;
+            if (!rawVal || !rawVal.includes('|')) return;
+            const [docId, agendaType] = rawVal.split('|');
+            document.getElementById('configDoctorIdHidden').value = docId;
+            document.getElementById('configAgendaTypeHidden').value = agendaType;
 
-            axios.get(`/api/agenda/config/${docId}`)
+            const selOpt = this.options[this.selectedIndex];
+            labelInput.value = selOpt ? (selOpt.getAttribute('data-label') || '') : '';
+            labelInput.placeholder = agendaType === 'tecnica'
+                ? 'Ej: Campos Visuales, OCT, Biometría...'
+                : 'Ej: Consultorio General, Retina, Glaucoma...';
+
+            axios.get(`/api/agenda/config/${docId}?agenda_type=${encodeURIComponent(agendaType)}`)
                 .then(res => {
                     if (res.data.exists) {
                         const config = res.data.config;
                         const workingDays = config.working_days || {};
 
-                        // Check duration
+                        if (config.agenda_label !== undefined && config.agenda_label !== null) {
+                            labelInput.value = config.agenda_label;
+                        }
                         if (config.appointment_duration) {
                             document.getElementById('appointmentDurationSelect').value = config.appointment_duration;
                         }
 
-                        // If array with day keys 1 to 6
                         for (let d = 1; d <= 6; d++) {
                             const dayData = workingDays[d] || workingDays[String(d)] || null;
 
@@ -430,21 +454,18 @@
                                 document.getElementById(`dayActive_${d}`).checked = Boolean(dayData.active);
                                 toggleDayRow(d);
 
-                                // Morning
                                 const mActive = Boolean(dayData.morning_active);
                                 document.getElementById(`morningActive_${d}`).checked = mActive;
                                 if (dayData.morning_start) document.getElementById(`morningStart_${d}`).value = dayData.morning_start.substring(0, 5);
                                 if (dayData.morning_end) document.getElementById(`morningEnd_${d}`).value = dayData.morning_end.substring(0, 5);
                                 toggleShiftInputs(d, 'morning');
 
-                                // Afternoon
                                 const aActive = Boolean(dayData.afternoon_active);
                                 document.getElementById(`afternoonActive_${d}`).checked = aActive;
                                 if (dayData.afternoon_start) document.getElementById(`afternoonStart_${d}`).value = dayData.afternoon_start.substring(0, 5);
                                 if (dayData.afternoon_end) document.getElementById(`afternoonEnd_${d}`).value = dayData.afternoon_end.substring(0, 5);
                                 toggleShiftInputs(d, 'afternoon');
                             } else if (Array.isArray(workingDays) && (workingDays.includes(String(d)) || workingDays.includes(d))) {
-                                // Legacy array of days
                                 document.getElementById(`dayActive_${d}`).checked = true;
                                 toggleDayRow(d);
 
@@ -464,11 +485,10 @@
                             }
                         }
 
-                        // Show delete button
                         deleteBtn.classList.remove('d-none');
                         deleteForm.action = `/agenda/settings/config/${docId}`;
+                        document.getElementById('deleteConfigAgendaType').value = agendaType;
                     } else {
-                        // Reset to defaults
                         for (let d = 1; d <= 6; d++) {
                             document.getElementById(`dayActive_${d}`).checked = (d <= 5);
                             toggleDayRow(d);
@@ -488,7 +508,7 @@
     });
 
     function deleteConfig() {
-        if (confirm("¿Estás seguro de eliminar todo el patrón de horarios de este profesional? Desactivarás su agenda completamente.")) {
+        if (confirm("¿Estás seguro de eliminar todo el patrón de horarios de esta agenda? Las demás agendas no se verán afectadas.")) {
             document.getElementById('deleteConfigForm').submit();
         }
     }

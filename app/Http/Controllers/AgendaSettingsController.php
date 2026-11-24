@@ -4,32 +4,119 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\ScheduleBlock;
+use App\Models\DoctorConfiguration;
+use App\Models\DoctorSchedule;
+use Spatie\Permission\Models\Role;
 use Illuminate\Http\Request;
 
 class AgendaSettingsController extends Controller
 {
+    protected function normalizeAgendaType(?string $type): string
+    {
+        return ($type === 'tecnica') ? 'tecnica' : 'medica';
+    }
+
+    protected function scopeAgendaType($query, string $agendaType)
+    {
+        if ($agendaType === 'tecnica') {
+            return $query->where('agenda_type', 'tecnica');
+        }
+        return $query->where(function ($q) {
+            $q->where('agenda_type', 'medica')->orWhereNull('agenda_type');
+        });
+    }
+
+    /**
+     * Construye el listado de agendas configurables separadas por función (Médica vs Técnica/Estudios).
+     */
+    public static function buildAgendaUnits(): array
+    {
+        try {
+            Role::firstOrCreate(['name' => 'técnico', 'guard_name' => 'web']);
+        } catch (\Throwable $e) {
+            // Silencioso
+        }
+
+        $medicos = User::role('médico')->orderBy('name')->get();
+        $tecnicos = User::role('técnico')->orderBy('name')->get();
+        $configs = DoctorConfiguration::all();
+
+        $units = [];
+
+        foreach ($medicos as $doc) {
+            $cfg = $configs->first(function ($c) use ($doc) {
+                return (int)$c->doctor_id === (int)$doc->id && (($c->agenda_type ?? 'medica') === 'medica');
+            });
+            $customLabel = $cfg && !empty($cfg->agenda_label) ? $cfg->agenda_label : 'Consultorio Médico';
+            $units[] = [
+                'uid' => $doc->id . '_medica',
+                'target_key' => $doc->id . '|medica',
+                'doctor_id' => $doc->id,
+                'agenda_type' => 'medica',
+                'person_name' => $doc->name,
+                'agenda_label' => $cfg->agenda_label ?? '',
+                'badge' => 'Agenda Médica',
+                'display_title' => 'Agenda Médica — ' . $doc->name . (!empty($cfg->agenda_label) ? ' (' . $cfg->agenda_label . ')' : ''),
+                'short_option' => $doc->name . ' — Agenda Médica' . (!empty($cfg->agenda_label) ? ' (' . $cfg->agenda_label . ')' : ''),
+                'subtitle' => $customLabel,
+                'has_config' => (bool)$cfg,
+            ];
+        }
+
+        foreach ($tecnicos as $tec) {
+            $cfg = $configs->first(function ($c) use ($tec) {
+                return (int)$c->doctor_id === (int)$tec->id && (($c->agenda_type ?? 'medica') === 'tecnica');
+            });
+            $customLabel = $cfg && !empty($cfg->agenda_label) ? $cfg->agenda_label : 'Estudios / Campos Visuales';
+            $units[] = [
+                'uid' => $tec->id . '_tecnica',
+                'target_key' => $tec->id . '|tecnica',
+                'doctor_id' => $tec->id,
+                'agenda_type' => 'tecnica',
+                'person_name' => $tec->name,
+                'agenda_label' => $cfg->agenda_label ?? '',
+                'badge' => 'Agenda Técnica / Estudios',
+                'display_title' => 'Agenda Técnica — ' . $tec->name . ' (' . $customLabel . ')',
+                'short_option' => $tec->name . ' — Agenda Técnica / Estudios (' . $customLabel . ')',
+                'subtitle' => $customLabel,
+                'has_config' => (bool)$cfg,
+            ];
+        }
+
+        return $units;
+    }
+
     /**
      * Display the Agenda Settings screen.
      */
     public function index()
     {
-        // Get doctors to populate the select drop-down
+        $agendaUnits = self::buildAgendaUnits();
         $doctors = User::role('médico')->get();
-        
-        // Include active, recent-month and upcoming blocks, eager load doctor info
+
         $blocks = ScheduleBlock::with('doctor')
-                    ->where('end_datetime', '>=', now()->subDays(30)->startOfDay())
-                    ->orderBy('start_datetime', 'asc')
-                    ->get();
-                    
-        return view('agenda.settings', compact('doctors', 'blocks'));
+            ->where('end_datetime', '>=', now()->subDays(30)->startOfDay())
+            ->orderBy('start_datetime', 'asc')
+            ->get();
+
+        return view('agenda.settings', compact('doctors', 'agendaUnits', 'blocks'));
     }
 
     /**
-     * Store a new ScheduleBlock for a doctor (supports separate clean dates & times or datetime-local).
+     * Store a new ScheduleBlock for a doctor/técnico agenda.
      */
     public function storeBlock(Request $request)
     {
+        if ($request->filled('agenda_target') && str_contains($request->input('agenda_target'), '|')) {
+            [$dId, $aType] = explode('|', $request->input('agenda_target'), 2);
+            $request->merge([
+                'doctor_id' => (int)$dId,
+                'agenda_type' => $this->normalizeAgendaType($aType),
+            ]);
+        }
+
+        $agendaType = $this->normalizeAgendaType($request->input('agenda_type', 'medica'));
+
         if ($request->filled('start_date')) {
             $request->validate([
                 'doctor_id' => 'required|exists:users,id',
@@ -56,6 +143,7 @@ class AgendaSettingsController extends Controller
                     if ($sTime < $eTime) {
                         ScheduleBlock::create([
                             'doctor_id' => $request->doctor_id,
+                            'agenda_type' => $agendaType,
                             'start_datetime' => $dStr . ' ' . $sTime,
                             'end_datetime' => $dStr . ' ' . $eTime,
                             'reason' => $request->reason,
@@ -66,6 +154,7 @@ class AgendaSettingsController extends Controller
             } else {
                 ScheduleBlock::create([
                     'doctor_id' => $request->doctor_id,
+                    'agenda_type' => $agendaType,
                     'start_datetime' => $startDate . ' 00:00:00',
                     'end_datetime' => $endDate . ' 23:59:59',
                     'reason' => $request->reason,
@@ -84,6 +173,7 @@ class AgendaSettingsController extends Controller
 
         ScheduleBlock::create([
             'doctor_id' => $request->doctor_id,
+            'agenda_type' => $agendaType,
             'start_datetime' => $request->start_datetime,
             'end_datetime' => $request->end_datetime,
             'reason' => $request->reason,
@@ -98,30 +188,38 @@ class AgendaSettingsController extends Controller
     public function destroyBlock(ScheduleBlock $block)
     {
         $block->delete();
-        
+
         return redirect()->route('agenda.settings')->with('success', 'Bloqueo eliminado. Todos los días y horarios habituales vuelven a estar habilitados.');
     }
 
     /**
-     * Delete all active/recent ScheduleBlocks of a doctor at once.
+     * Delete all active/recent ScheduleBlocks of a doctor/técnico agenda at once.
      */
-    public function destroyDoctorBlocks(User $doctor)
+    public function destroyDoctorBlocks(Request $request, User $doctor)
     {
-        ScheduleBlock::where('doctor_id', $doctor->id)
-            ->where('end_datetime', '>=', now()->subDays(30)->startOfDay())
-            ->delete();
+        $q = ScheduleBlock::where('doctor_id', $doctor->id)
+            ->where('end_datetime', '>=', now()->subDays(30)->startOfDay());
 
-        return redirect()->route('agenda.settings')->with('success', 'Se liberaron todos los bloqueos de ' . $doctor->name . '. Su agenda habitual quedó totalmente habilitada.');
+        if ($request->filled('agenda_type')) {
+            $this->scopeAgendaType($q, $this->normalizeAgendaType($request->input('agenda_type')));
+        }
+        $q->delete();
+
+        return redirect()->route('agenda.settings')->with('success', 'Se liberaron los bloqueos de ' . $doctor->name . '. Su agenda habitual quedó totalmente habilitada.');
     }
 
     /**
-     * Phase 19: Get Doctor Configuration
+     * Get Doctor / Técnico Configuration scoped by agenda_type.
      */
-    public function getConfig($doctorId)
+    public function getConfig(Request $request, $doctorId)
     {
-        $config = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
+        $agendaType = $this->normalizeAgendaType($request->query('agenda_type', 'medica'));
+        $q = DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->scopeAgendaType($q, $agendaType);
+        $config = $q->first();
+
         if (!$config) {
-            return response()->json(['exists' => false]);
+            return response()->json(['exists' => false, 'agenda_type' => $agendaType]);
         }
         return response()->json([
             'exists' => true,
@@ -130,29 +228,46 @@ class AgendaSettingsController extends Controller
     }
 
     /**
-     * Phase 19: Destroy Doctor Configuration and its schedules
+     * Destroy Doctor / Técnico Configuration and its schedules scoped by agenda_type.
      */
-    public function destroyConfig($doctorId)
+    public function destroyConfig(Request $request, $doctorId)
     {
-        \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->delete();
-        \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->delete();
+        $agendaType = $this->normalizeAgendaType($request->input('agenda_type', 'medica'));
+
+        $cfgQ = DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->scopeAgendaType($cfgQ, $agendaType)->delete();
+
+        $schQ = DoctorSchedule::where('doctor_id', $doctorId);
+        $this->scopeAgendaType($schQ, $agendaType)->delete();
 
         return redirect()->route('agenda.settings')->with('success', 'Patrón de agenda eliminado completamente. El calendario ha sido liberado.');
     }
 
     /**
-     * Store or update the base Doctor Configuration for the week.
+     * Store or update the base Weekly Configuration for a Medical or Technical Agenda.
      */
     public function storeConfig(Request $request)
     {
+        if ($request->filled('agenda_target') && str_contains($request->input('agenda_target'), '|')) {
+            [$dId, $aType] = explode('|', $request->input('agenda_target'), 2);
+            $request->merge([
+                'doctor_id' => (int)$dId,
+                'agenda_type' => $this->normalizeAgendaType($aType),
+            ]);
+        }
+
         $request->validate([
             'doctor_id' => 'required|exists:users,id',
+            'agenda_type' => 'nullable|string|in:medica,tecnica',
+            'agenda_label' => 'nullable|string|max:120',
             'appointment_duration' => 'required|integer',
             'days' => 'nullable|array',
             'working_days' => 'nullable|array',
         ]);
 
-        $doctorId = $request->doctor_id;
+        $doctorId = (int)$request->doctor_id;
+        $agendaType = $this->normalizeAgendaType($request->input('agenda_type', 'medica'));
+        $agendaLabel = trim((string)$request->input('agenda_label', '')) ?: null;
         $appointmentDuration = (int)$request->appointment_duration;
         $daysData = $request->input('days');
 
@@ -163,7 +278,6 @@ class AgendaSettingsController extends Controller
         $maxAfternoonEnd = null;
 
         if (is_array($daysData)) {
-            // Configuración detallada por cada día (Lunes a Sábado)
             foreach (['1', '2', '3', '4', '5', '6'] as $dayKey) {
                 $intKey = (int)$dayKey;
                 $d = $daysData[$dayKey] ?? [];
@@ -176,7 +290,6 @@ class AgendaSettingsController extends Controller
                 $aStart = ($aActive && !empty($d['afternoon_start'])) ? $d['afternoon_start'] : null;
                 $aEnd = ($aActive && !empty($d['afternoon_end'])) ? $d['afternoon_end'] : null;
 
-                // Si se marcó el día como activo pero no se tildó ningún turno, no tiene horarios
                 $hasAnyShift = ($mActive && $mStart && $mEnd) || ($aActive && $aStart && $aEnd);
 
                 $formattedWorkingDays[$intKey] = [
@@ -195,7 +308,6 @@ class AgendaSettingsController extends Controller
                 if ($aEnd && (!$maxAfternoonEnd || $aEnd > $maxAfternoonEnd)) $maxAfternoonEnd = $aEnd;
             }
         } elseif ($request->has('working_days')) {
-            // Formato simple legacy
             $workingDays = $request->input('working_days', []);
             $shift1Start = $request->input('shift_1_start', '08:00');
             $shift1End = $request->input('shift_1_end', '12:00');
@@ -221,27 +333,36 @@ class AgendaSettingsController extends Controller
             $maxAfternoonEnd = $shift2End;
         }
 
-        // Preservar aperturas especiales por fecha si existían
-        $existingCfg = \App\Models\DoctorConfiguration::where('doctor_id', $doctorId)->first();
+        // Buscar configuración existente para (doctor_id, agenda_type)
+        $existingQ = DoctorConfiguration::where('doctor_id', $doctorId);
+        $this->scopeAgendaType($existingQ, $agendaType);
+        $existingCfg = $existingQ->first();
+
         if ($existingCfg && is_array($existingCfg->working_days) && !empty($existingCfg->working_days['special_openings'])) {
             $formattedWorkingDays['special_openings'] = $existingCfg->working_days['special_openings'];
         }
 
-        // Guardar en DoctorConfiguration
-        \App\Models\DoctorConfiguration::updateOrCreate(
-            ['doctor_id' => $doctorId],
-            [
-                'working_days' => $formattedWorkingDays,
-                'shift_1_start' => $minMorningStart ?: '08:00',
-                'shift_1_end' => $maxMorningEnd ?: '12:00',
-                'shift_2_start' => $minAfternoonStart,
-                'shift_2_end' => $maxAfternoonEnd,
-                'appointment_duration' => $appointmentDuration
-            ]
-        );
+        $payload = [
+            'doctor_id' => $doctorId,
+            'agenda_type' => $agendaType,
+            'agenda_label' => $agendaLabel,
+            'working_days' => $formattedWorkingDays,
+            'shift_1_start' => $minMorningStart ?: '08:00',
+            'shift_1_end' => $maxMorningEnd ?: '12:00',
+            'shift_2_start' => $minAfternoonStart,
+            'shift_2_end' => $maxAfternoonEnd,
+            'appointment_duration' => $appointmentDuration
+        ];
 
-        // Sincronizar con DoctorSchedule para compatibilidad
-        \App\Models\DoctorSchedule::where('doctor_id', $doctorId)->delete();
+        if ($existingCfg) {
+            $existingCfg->update($payload);
+        } else {
+            DoctorConfiguration::create($payload);
+        }
+
+        // Sincronizar con DoctorSchedule para esa agenda específica
+        $delSchQ = DoctorSchedule::where('doctor_id', $doctorId);
+        $this->scopeAgendaType($delSchQ, $agendaType)->delete();
 
         foreach ($formattedWorkingDays as $dayOfWeek => $dayData) {
             if (!is_numeric($dayOfWeek)) continue;
@@ -261,8 +382,9 @@ class AgendaSettingsController extends Controller
                 }
 
                 if ($startTime && $endTime) {
-                    \App\Models\DoctorSchedule::create([
+                    DoctorSchedule::create([
                         'doctor_id' => $doctorId,
+                        'agenda_type' => $agendaType,
                         'day_of_week' => (int)$dayOfWeek,
                         'start_time' => $startTime,
                         'end_time' => $endTime,
@@ -272,6 +394,6 @@ class AgendaSettingsController extends Controller
             }
         }
 
-        return redirect()->route('agenda.settings')->with('success', 'Los horarios semanales personalizados por día se han guardado y sincronizado correctamente con la agenda.');
+        return redirect()->route('agenda.settings')->with('success', 'Los horarios semanales de la agenda (' . ($agendaType === 'tecnica' ? 'Técnica / Estudios' : 'Médica') . ') se han guardado correctamente.');
     }
 }

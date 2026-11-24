@@ -31,9 +31,6 @@
                         <h5 class="fw-bold text-dark mb-0" style="font-size: 1.2rem;">
                             {{ $patient->last_name }}, {{ $patient->first_name }}
                         </h5>
-                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.8rem;">
-                            <i class="bi bi-folder2-open me-1"></i> Carpeta #{{ $patient->code ?: sprintf('%06d', $patient->id) }}
-                        </span>
                         <span class="badge bg-white text-dark border rounded-pill px-3 py-1 fw-bold" style="font-size: 0.8rem;">
                             <i class="bi bi-card-text text-secondary me-1"></i> DNI: {{ $patient->dni }}
                         </span>
@@ -41,6 +38,14 @@
                             <span class="badge bg-white text-secondary border rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.8rem;">
                                 <i class="bi bi-cake2 me-1"></i> {{ $patientAge }} años ({{ $patientDob }})
                             </span>
+                        @endif
+                    </div>
+                    <div class="mt-1">
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.8rem;">
+                            <i class="bi bi-person-vcard me-1"></i> N° de Paciente: #{{ $patient->patient_number }}
+                        </span>
+                        @if(!empty($patient->gender))
+                            <span class="badge bg-white text-secondary border rounded-pill px-2.5 py-1 ms-1" style="font-size: 0.76rem;">{{ $patient->gender }}</span>
                         @endif
                     </div>
 

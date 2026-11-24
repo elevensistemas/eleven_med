@@ -12,10 +12,25 @@ use Illuminate\Support\Facades\Storage;
 class UserController extends Controller
 {
     /**
+     * Garantiza que todos los roles del consultorio (incluido técnico) existan en la base de datos.
+     */
+    protected function ensureRolesExist(): void
+    {
+        try {
+            foreach (['administrador', 'médico', 'técnico', 'recepcionista', 'supervisor'] as $rName) {
+                Role::firstOrCreate(['name' => $rName, 'guard_name' => 'web']);
+            }
+        } catch (\Throwable $e) {
+            // Silencioso
+        }
+    }
+
+    /**
      * Display a listing of the users.
      */
     public function index()
     {
+        $this->ensureRolesExist();
         $users = User::with('roles')->paginate(15);
         return view('users.index', compact('users'));
     }
@@ -25,21 +40,31 @@ class UserController extends Controller
      */
     public function create()
     {
-        $roles = Role::all();
+        $this->ensureRolesExist();
+        $roles = Role::orderBy('id')->get();
         return view('users.create', compact('roles'));
     }
 
     /**
-     * Store a newly created user in storage.
+     * Store a newly created user in storage (soporta múltiples roles simultáneos).
      */
     public function store(Request $request)
     {
+        $this->ensureRolesExist();
+
+        if (!$request->has('roles') && $request->filled('role_name')) {
+            $request->merge(['roles' => [$request->input('role_name')]]);
+        }
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role_name' => ['required', 'exists:roles,name'],
+            'roles' => ['required', 'array', 'min:1'],
+            'roles.*' => ['required', 'string', 'exists:roles,name'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+        ], [
+            'roles.required' => 'Debes seleccionar al menos un rol para el usuario.',
         ]);
 
         $photoPath = null;
@@ -54,9 +79,9 @@ class UserController extends Controller
             'profile_photo' => $photoPath,
         ]);
 
-        $user->assignRole($request->role_name);
+        $user->syncRoles($request->input('roles', []));
 
-        return redirect()->route('users.index')->with('success', 'Usuario creado correctamente.');
+        return redirect()->route('users.index')->with('success', 'Usuario creado correctamente con sus roles asignados.');
     }
 
     /**
@@ -64,22 +89,33 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
-        $roles = Role::all();
-        // Spatie returns collection of roles, pluck the first one to pre-select
-        $userRole = $user->roles->pluck('name')->first();
-        return view('users.edit', compact('user', 'roles', 'userRole'));
+        $this->ensureRolesExist();
+        $roles = Role::orderBy('id')->get();
+        $userRoles = $user->roles->pluck('name')->toArray();
+        $userRole = $userRoles[0] ?? null;
+        return view('users.edit', compact('user', 'roles', 'userRole', 'userRoles'));
     }
 
     /**
-     * Update the specified user in storage.
+     * Update the specified user in storage (soporta múltiples roles simultáneos y cambio opcional de clave por admin).
      */
     public function update(Request $request, User $user)
     {
+        $this->ensureRolesExist();
+
+        if (!$request->has('roles') && $request->filled('role_name')) {
+            $request->merge(['roles' => [$request->input('role_name')]]);
+        }
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'role_name' => ['required', 'exists:roles,name'],
+            'roles' => ['required', 'array', 'min:1'],
+            'roles.*' => ['required', 'string', 'exists:roles,name'],
+            'password' => ['nullable', 'confirmed', 'min:6'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+        ], [
+            'roles.required' => 'Debes seleccionar al menos un rol para el usuario.',
         ]);
 
         $data = [
@@ -87,8 +123,11 @@ class UserController extends Controller
             'email' => $request->email,
         ];
 
+        if ($request->filled('password') && auth()->user() && auth()->user()->hasRole('administrador')) {
+            $data['password'] = Hash::make($request->password);
+        }
+
         if ($request->hasFile('profile_photo')) {
-            // Delete old photo if it exists
             if ($user->profile_photo) {
                 Storage::disk('public')->delete($user->profile_photo);
             }
@@ -96,22 +135,50 @@ class UserController extends Controller
         }
 
         $user->update($data);
+        $user->syncRoles($request->input('roles', []));
 
-        $user->syncRoles([$request->role_name]);
+        return redirect()->route('users.index')->with('success', 'Perfil y roles de usuario actualizados correctamente.');
+    }
 
-        return redirect()->route('users.index')->with('success', 'Perfil de usuario actualizado correctamente.');
+    /**
+     * Cambio de contraseña propia al ingresar al sistema — EXCLUSIVO para usuarios con rol Administrador.
+     */
+    public function changeOwnPassword(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->hasRole('administrador')) {
+            abort(403, 'Solo los usuarios Administradores tienen habilitado cambiar su contraseña de ingreso.');
+        }
+
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ], [
+            'current_password.required' => 'Ingresá tu contraseña actual.',
+            'password.min' => 'La nueva contraseña debe tener al menos 6 caracteres.',
+            'password.confirmed' => 'La confirmación de la nueva contraseña no coincide.',
+        ]);
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'La contraseña actual ingresada es incorrecta.']);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return back()->with('success', '¡Tu contraseña de entrada fue actualizada correctamente!');
     }
 
     /**
      * Remove the specified user from storage.
-     * Note: A soft delete would be ideal, but falling back to standard delete if migration lacks softdeletes.
      */
     public function destroy(User $user)
     {
         if ($user->id === auth()->id()) {
             return back()->withErrors(['Error' => 'No puedes inhabilitarte a ti mismo.']);
         }
-        
+
         $user->delete();
         return back()->with('success', 'Usuario inhabilitado correctamente.');
     }

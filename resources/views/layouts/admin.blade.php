@@ -679,15 +679,23 @@
                         <img src="{{ Auth::user()->avatar_url }}" width="42" height="42" class="rounded-circle shadow-sm me-2 object-fit-cover">
                         <div class="d-none d-md-block">
                             <span class="d-block fw-bold text-dark" style="font-size: 0.95rem; line-height: 1;">{{ Auth::user()->name }}</span>
-                            <small class="text-muted" style="font-size: 0.75rem;">{{ Auth::user()->getRoleNames()->first() ?? 'Staff' }}</small>
+                            <small class="text-muted text-capitalize" style="font-size: 0.74rem;">{{ Auth::user()->getRoleNames()->implode(' / ') ?: 'Staff' }}</small>
                         </div>
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3">
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-3" style="min-width: 240px;">
                         <li class="px-3 py-2 text-center border-bottom mb-2">
                             <img src="{{ Auth::user()->avatar_url }}" width="48" height="48" class="rounded-circle shadow-sm mb-2 object-fit-cover">
                             <div class="fw-bold">{{ Auth::user()->name }}</div>
-                            <small class="text-muted d-block">{{ Auth::user()->getRoleNames()->first() ?? 'Staff' }}</small>
+                            <small class="text-muted d-block text-capitalize">{{ Auth::user()->getRoleNames()->implode(' / ') ?: 'Staff' }}</small>
                         </li>
+                        @if(Auth::user()->hasRole('administrador'))
+                        <li>
+                            <a class="dropdown-item py-2 text-primary fw-bold" href="#" data-bs-toggle="modal" data-bs-target="#adminChangeOwnPasswordModal">
+                                <i class="bi bi-key-fill me-2"></i> Cambiar mi Contraseña
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        @endif
                         <li>
                             <a class="dropdown-item py-2 text-danger fw-bold" href="{{ route('logout') }}"
                                onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
@@ -1578,5 +1586,44 @@
             if(tBtn) tBtn.className = 'bi bi-sun-fill text-warning';
         }
     </script>
+    @if(Auth::check() && Auth::user()->hasRole('administrador'))
+    <!-- Modal Exclusivo Administradores: Cambiar mi Contraseña de Entrada -->
+    <div class="modal fade" id="adminChangeOwnPasswordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow-lg">
+                <div class="modal-header border-bottom-0 pb-0 px-4 pt-4">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Cambiar mi Contraseña de Entrada</h5>
+                        <small class="text-muted">Opción habilitada exclusivamente para perfiles Administradores ({{ Auth::user()->email }})</small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <form action="{{ route('profile.changePassword') }}" method="POST">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Contraseña Actual *</label>
+                            <input type="password" name="current_password" class="form-control bg-light border rounded-3 py-2" required autocomplete="current-password">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Nueva Contraseña (mínimo 6 caracteres) *</label>
+                            <input type="password" name="password" class="form-control bg-light border rounded-3 py-2" minlength="6" required autocomplete="new-password">
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label small fw-bold text-muted">Confirmar Nueva Contraseña *</label>
+                            <input type="password" name="password_confirmation" class="form-control bg-light border rounded-3 py-2" minlength="6" required autocomplete="new-password">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border:none;">
+                            <i class="bi bi-check2-circle me-1"></i> Guardar Nueva Contraseña
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
 </body>
 </html>

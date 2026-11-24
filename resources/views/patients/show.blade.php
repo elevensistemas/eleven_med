@@ -217,9 +217,14 @@ body.theme-dark .sidebar-nav-container {
                 <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-none p-0" style="font-size: 0.8rem;"><i class="bi bi-trash me-1"></i>Quitar foto</button>
             </form>
             @endif
-            <h5 class="fw-bold mb-2 text-dark" style="font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
+            <h5 class="fw-bold mb-1 text-dark" style="font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold mb-2" style="font-size: 0.86rem;" title="Número de Paciente correlativo institucional">
+                <i class="bi bi-hash"></i> N° Paciente: {{ $patient->patient_number }}
+            </span>
             <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-sm mb-1"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
-            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold mb-2" style="font-size: 0.85rem;" title="Número de Carpeta correlativo institucional"><i class="bi bi-folder2-open me-1"></i> Carpeta #{{ $patient->code ?: sprintf("%06d", $patient->id) }}</span>
+            @if(!empty($patient->gender))
+                <span class="badge bg-light text-dark border px-3 py-1 rounded-pill small mb-1"><i class="bi bi-gender-ambiguous me-1"></i> {{ $patient->gender }}</span>
+            @endif
         </div>
 
         <div class="mb-4">
@@ -262,10 +267,19 @@ body.theme-dark .sidebar-nav-container {
     <div class="col-md-8 col-lg-9 col-xl-10 p-3 p-xl-4 bg-white">
         <!-- HEADER TOP -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <h5 class="fw-bold text-dark mb-0">{{ $patient->last_name }}, {{ $patient->first_name }}</h5>
-                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-folder2-open me-1"></i> Carpeta: #{{ $patient->code ?: sprintf("%06d", $patient->id) }}</span>
-                <span class="badge bg-light text-secondary border px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-card-text me-1"></i> DNI: {{ $patient->dni }}</span>
+            <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h5 class="fw-bold text-dark mb-0">{{ $patient->last_name }}, {{ $patient->first_name }}</h5>
+                    <span class="badge bg-light text-secondary border px-3 py-1 rounded-pill fw-bold" style="font-size: 0.85rem;"><i class="bi bi-card-text me-1"></i> DNI: {{ $patient->dni }}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold" style="font-size: 0.84rem;">
+                        <i class="bi bi-person-vcard me-1"></i> N° de Paciente: #{{ $patient->patient_number }}
+                    </span>
+                    @if(!empty($patient->gender))
+                        <span class="badge bg-white text-muted border px-2.5 py-1 rounded-pill" style="font-size: 0.78rem;">Sexo: {{ $patient->gender }}</span>
+                    @endif
+                </div>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- Botón El Famoso Ojito para desplegar/scrollear todas las consultas previas arriba -->

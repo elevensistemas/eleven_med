@@ -122,42 +122,85 @@ body.theme-dark .cal-day.available:hover {
 }
 </style>
 
-<!-- Leyenda Global -->
-<div class="d-flex align-items-center justify-content-end flex-wrap gap-3 mb-4">
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #20c997 0%, #198754 100%); box-shadow: 0 2px 6px rgba(32, 201, 151, 0.4);"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Habilitado</small>
+<!-- Barra Superior: Filtro por Tipo de Agenda + Leyenda Global -->
+@php
+    $unitsList = $agendaUnits ?? [];
+    $medCount = collect($unitsList)->where('agenda_type', 'medica')->count();
+    $tecCount = collect($unitsList)->where('agenda_type', 'tecnica')->count();
+@endphp
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold agenda-filter-btn" data-filter="all" onclick="filterAgendasByType('all', this)">
+            <i class="bi bi-grid-fill me-1"></i> Todas las Agendas ({{ count($unitsList) }})
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary bg-white rounded-pill px-3 fw-bold agenda-filter-btn" data-filter="medica" onclick="filterAgendasByType('medica', this)">
+            <i class="bi bi-heart-pulse-fill text-danger me-1"></i> Agendas Médicas ({{ $medCount }})
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-success bg-white rounded-pill px-3 fw-bold agenda-filter-btn" data-filter="tecnica" onclick="filterAgendasByType('tecnica', this)">
+            <i class="bi bi-eyedropper text-success me-1"></i> Agendas Técnicas / Estudios ({{ $tecCount }})
+        </button>
+        <a href="{{ route('agenda.settings') }}" class="btn btn-sm btn-light border rounded-pill px-3 fw-semibold text-secondary">
+            <i class="bi bi-gear-fill me-1"></i> Configurar Horarios
+        </a>
     </div>
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%); border: 2px solid #9333ea;"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Parcialmente Bloqueado</small>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background: #fff3cd; border: 2px solid #ffc107;"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Bloqueado</small>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #ff6b6b 0%, #dc3545 100%); box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Saturado</small>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-        <div style="width:16px; height:16px; border-radius:50%; background-color: transparent; border: 2px solid #ccc;"></div> 
-        <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Sin Consultorio Habitual</small>
+
+    <div class="d-flex align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #20c997 0%, #198754 100%); box-shadow: 0 2px 6px rgba(32, 201, 151, 0.4);"></div> 
+            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Habilitado</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%); border: 2px solid #9333ea;"></div> 
+            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Parcialmente Bloqueado</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div style="width:16px; height:16px; border-radius:50%; background: #fff3cd; border: 2px solid #ffc107;"></div> 
+            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Bloqueado</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div style="width:16px; height:16px; border-radius:50%; background: linear-gradient(135deg, #ff6b6b 0%, #dc3545 100%); box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);"></div> 
+            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Día Saturado</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div style="width:16px; height:16px; border-radius:50%; background-color: transparent; border: 2px solid #ccc;"></div> 
+            <small class="text-muted fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.74rem;">Sin Consultorio Habitual</small>
+        </div>
     </div>
 </div>
 
-<!-- Iterar por Cada Médico Renderizando Agendas Múltiples -->
-@foreach($doctors as $doc)
-<div class="modern-card p-0 mb-4 shadow-sm overflow-hidden" style="border: 2px solid rgba(94, 106, 210, 0.15); border-radius: 20px; box-shadow: 0 10px 40px rgba(94, 106, 210, 0.08) !important;">
-    <div class="px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.08) 0%, transparent 100%); border-bottom: 2px solid rgba(94, 106, 210, 0.1);">
-        <h6 class="fw-bold mb-0 text-dark d-flex align-items-center" style="font-size: 1.1rem;">
-            <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 36px; height: 36px; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);">
-                <i class="bi bi-person-fill" style="font-size: 1.1rem;"></i>
-            </div>
-            Agenda de {{ $doc->name }}
-        </h6>
+<!-- Iterar por Cada Unidad de Agenda (Médicas + Técnicas / Estudios) -->
+@foreach($unitsList as $u)
+@php
+    $uid = $u['uid'];
+    $isTecnica = ($u['agenda_type'] === 'tecnica');
+    $headerGradient = $isTecnica
+        ? 'background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%); border-bottom: 2px solid rgba(16, 185, 129, 0.18);'
+        : 'background: linear-gradient(90deg, rgba(94, 106, 210, 0.08) 0%, transparent 100%); border-bottom: 2px solid rgba(94, 106, 210, 0.1);';
+    $avatarBg = $isTecnica
+        ? 'background: linear-gradient(135deg, #10b981 0%, #059669 100%);'
+        : 'background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);';
+@endphp
+<div class="modern-card p-0 mb-4 shadow-sm overflow-hidden agenda-unit-card" data-agenda-type="{{ $u['agenda_type'] }}" style="border: 2px solid {{ $isTecnica ? 'rgba(16, 185, 129, 0.25)' : 'rgba(94, 106, 210, 0.15)' }}; border-radius: 20px; box-shadow: 0 10px 40px rgba(94, 106, 210, 0.08) !important;">
+    <div class="px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="{{ $headerGradient }}">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <h6 class="fw-bold mb-0 text-dark d-flex align-items-center" style="font-size: 1.08rem;">
+                <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 36px; height: 36px; {{ $avatarBg }}">
+                    <i class="bi {{ $isTecnica ? 'bi-eyedropper' : 'bi-person-fill' }}" style="font-size: 1.05rem;"></i>
+                </div>
+                {{ $u['display_title'] }}
+            </h6>
+            @if($isTecnica)
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                    <i class="bi bi-sliders2-vertical me-1"></i> Técnica / Estudios
+                </span>
+            @else
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                    <i class="bi bi-heart-pulse me-1"></i> Agenda Médica
+                </span>
+            @endif
+        </div>
         <div class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3 fw-bold text-dark shadow-sm" onclick="openDirectBlockModal({{ $doc->id }}, '{{ addslashes($doc->name) }}')">
+            <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3 fw-bold text-dark shadow-sm" onclick="openDirectBlockModal('{{ $uid }}', '{{ addslashes($u['display_title']) }}')">
                 <i class="bi bi-shield-lock-fill me-1"></i> Bloquear Días / Franja
             </button>
         </div>
@@ -167,9 +210,9 @@ body.theme-dark .cal-day.available:hover {
         <!-- Columna Izquierda: Mini Calendario JS -->
         <div class="col-lg-5 p-4 border-end" style="border-right-width: 2px !important; border-color: rgba(94, 106, 210, 0.1) !important;">
             <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom" style="border-color: rgba(94, 106, 210, 0.1) !important;">
-                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:34px; height:34px;" onclick="changeMonth({{ $doc->id }}, -1)"><i class="bi bi-chevron-left"></i></button>
-                <h6 id="monthYearLabel_{{ $doc->id }}" class="mb-0 fw-bold text-dark text-capitalize" style="font-size: 1.05rem;"></h6>
-                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:34px; height:34px;" onclick="changeMonth({{ $doc->id }}, 1)"><i class="bi bi-chevron-right"></i></button>
+                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:34px; height:34px;" onclick="changeMonth('{{ $uid }}', -1)"><i class="bi bi-chevron-left"></i></button>
+                <h6 id="monthYearLabel_{{ $uid }}" class="mb-0 fw-bold text-dark text-capitalize" style="font-size: 1.05rem;"></h6>
+                <button class="btn btn-sm btn-light border-0 rounded-circle shadow-sm" style="width:34px; height:34px;" onclick="changeMonth('{{ $uid }}', 1)"><i class="bi bi-chevron-right"></i></button>
             </div>
             
             <div class="d-grid mb-2" style="grid-template-columns: repeat(7, 1fr);">
@@ -181,7 +224,7 @@ body.theme-dark .cal-day.available:hover {
                 <div class="cal-day-header">Vie</div>
                 <div class="cal-day-header">Sáb</div>
             </div>
-            <div id="miniCalendarGrid_{{ $doc->id }}" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 4px;">
+            <div id="miniCalendarGrid_{{ $uid }}" class="d-grid" style="grid-template-columns: repeat(7, 1fr); gap: 4px;">
                 <!-- Días inyectados -->
             </div>
         </div>
@@ -190,22 +233,21 @@ body.theme-dark .cal-day.available:hover {
         <div class="col-lg-7 d-flex flex-column agenda-timeline-col" style="background: #fafafa; min-height:320px;">
             <div class="px-3 py-2 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm z-1 agenda-timeline-header">
                 <div>
-                    <h6 id="selectedDateLabel_{{ $doc->id }}" class="fw-bold mb-0 text-dark">Agenda Diaria</h6>
-                    <small class="text-muted" style="font-size: 0.75rem;" id="selectedDateSubLabel_{{ $doc->id }}">Seleccione cualquier día en el calendario</small>
+                    <h6 id="selectedDateLabel_{{ $uid }}" class="fw-bold mb-0 text-dark">Agenda Diaria</h6>
+                    <small class="text-muted" style="font-size: 0.75rem;" id="selectedDateSubLabel_{{ $uid }}">Seleccione cualquier día en el calendario</small>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold d-none" id="specialOpenBtn_{{ $doc->id }}" onclick="openSpecialOpeningModal({{ $doc->id }})" title="Habilitar una franja excepcional este día (ej: 2 hs)">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold d-none" id="specialOpenBtn_{{ $uid }}" onclick="openSpecialOpeningModal('{{ $uid }}')" title="Habilitar una franja excepcional este día (ej: 2 hs)">
                         <i class="bi bi-clock-history me-1"></i> Habilitar Franja (ej. 2 hs)
                     </button>
-                    <button class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-bold d-none text-dark" id="blockAgendaBtn_{{ $doc->id }}" onclick="openBlockModal({{ $doc->id }})">
+                    <button class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-bold d-none text-dark" id="blockAgendaBtn_{{ $uid }}" onclick="openBlockModal('{{ $uid }}')">
                         <i class="bi bi-shield-lock-fill me-1"></i> Bloquear Agenda
                     </button>
-                    <div id="dateLoadingSpinner_{{ $doc->id }}" class="spinner-border text-primary spinner-border-sm d-none" role="status"></div>
+                    <div id="dateLoadingSpinner_{{ $uid }}" class="spinner-border text-primary spinner-border-sm d-none" role="status"></div>
                 </div>
             </div>
             
-            <div id="slotsContainer_{{ $doc->id }}" class="p-3 flex-grow-1 overflow-auto" style="max-height: 360px;">
-                <!-- Estado vacío -->
+            <div id="slotsContainer_{{ $uid }}" class="p-3 flex-grow-1 overflow-auto" style="max-height: 360px;">
                 <div class="text-center py-4 opacity-50 text-muted">
                     <i class="bi bi-calendar-x" style="font-size: 4rem;"></i>
                     <h6 class="mt-3 text-dark">Sin selección</h6>
@@ -213,18 +255,18 @@ body.theme-dark .cal-day.available:hover {
                 </div>
             </div>
 
-            <!-- Listado rápido de Bloqueos Activos del Médico (abajo a la derecha) -->
-            <div id="activeBlocksStrip_{{ $doc->id }}" class="px-3 py-2 bg-warning bg-opacity-10 border-top d-none" style="font-size: 0.76rem;"></div>
+            <!-- Listado rápido de Bloqueos Activos de esta Agenda -->
+            <div id="activeBlocksStrip_{{ $uid }}" class="px-3 py-2 bg-warning bg-opacity-10 border-top d-none" style="font-size: 0.76rem;"></div>
             
-            <!-- Phase 17: Express Nearest Slot Footer (Moved inside doctor card) -->
+            <!-- Próximo turno libre -->
             <div class="mt-auto bg-white border-top p-3 d-flex align-items-center justify-content-between shadow-sm z-1 agenda-express-footer" style="border-left: 4px solid #198754;">
                 <div class="d-flex flex-column">
                     <span class="text-success small fw-bold text-uppercase d-flex align-items-center mb-1" style="letter-spacing: 0.5px;"><i class="bi bi-lightning-charge-fill me-2"></i>Próximo turno libre</span>
-                    <span id="nearestSlotText_{{ $doc->id }}" class="text-dark fw-bold" style="font-size: 0.95rem;">
+                    <span id="nearestSlotText_{{ $uid }}" class="text-dark fw-bold" style="font-size: 0.95rem;">
                          <span class="spinner-border spinner-border-sm text-success me-2"></span> Buscando disponibilidad...
                     </span>
                 </div>
-                <button class="btn btn-sm btn-success rounded-pill shadow-sm px-3 d-none fw-bold" id="nearestSlotBtn_{{ $doc->id }}"><i class="bi bi-calendar-plus me-1"></i> Asignar</button>
+                <button class="btn btn-sm btn-success rounded-pill shadow-sm px-3 d-none fw-bold" id="nearestSlotBtn_{{ $uid }}"><i class="bi bi-calendar-plus me-1"></i> Asignar</button>
             </div>
         </div>
     </div>
@@ -241,8 +283,9 @@ body.theme-dark .cal-day.available:hover {
         </div>
         <form action="{{ route('agenda.store') }}" method="POST" id="newAppointmentForm">
             @csrf
-            <!-- Oculto el doctor -->
             <input type="hidden" name="doctor_id" id="formDoctorSelect">
+            <input type="hidden" name="agenda_type" id="formAgendaTypeSelect" value="medica">
+            <input type="hidden" id="formAgendaUidSelect">
             
             <div class="modal-body p-4">
                 <div class="row g-3">
@@ -345,6 +388,8 @@ body.theme-dark .cal-day.available:hover {
         <form action="{{ route('api.agenda.blocks.store') }}" method="POST" id="blockAgendaForm">
             @csrf
             <input type="hidden" name="doctor_id" id="blockDoctorId">
+            <input type="hidden" name="agenda_type" id="blockAgendaType" value="medica">
+            <input type="hidden" id="blockAgendaUid">
             
             <div class="modal-body p-4">
                 <div class="row g-4">
@@ -431,7 +476,7 @@ body.theme-dark .cal-day.available:hover {
             @csrf
             <input type="hidden" id="rescheduleAppointmentId">
             <input type="hidden" id="rescheduleOriginalDate">
-            <input type="hidden" id="rescheduleOriginalDoctorId">
+            <input type="hidden" id="rescheduleOriginalUid">
             <div class="modal-body p-4">
                 <div class="alert alert-info border-0 rounded-3 small py-2 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <span><i class="bi bi-info-circle me-1"></i> Turno actual: <strong id="rescheduleCurrentDetails">--</strong></span>
@@ -444,10 +489,10 @@ body.theme-dark .cal-day.available:hover {
                 </div>
                 <div class="row g-3">
                     <div class="col-md-5">
-                        <label class="form-label text-dark small fw-bold mb-1">Profesional</label>
-                        <select id="rescheduleDoctorId" class="form-select bg-white border rounded-3 shadow-none" onchange="loadRescheduleFreeSlots()">
-                            @foreach($doctors as $doc)
-                                <option value="{{ $doc->id }}">{{ $doc->name }}</option>
+                        <label class="form-label text-dark small fw-bold mb-1">Agenda / Profesional</label>
+                        <select id="rescheduleAgendaUid" class="form-select bg-white border rounded-3 shadow-none" onchange="loadRescheduleFreeSlots()">
+                            @foreach($unitsList as $u)
+                                <option value="{{ $u['uid'] }}">{{ $u['short_option'] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -527,6 +572,8 @@ body.theme-dark .cal-day.available:hover {
         <form id="specialOpeningForm" onsubmit="submitSpecialOpening(event)">
             @csrf
             <input type="hidden" id="specialDoctorId">
+            <input type="hidden" id="specialAgendaType" value="medica">
+            <input type="hidden" id="specialAgendaUid">
             <input type="hidden" id="specialDate">
             <input type="hidden" id="specialActionMode" value="special_open">
             <div class="modal-body p-4">
@@ -664,11 +711,43 @@ body.theme-dark .cal-day.available:hover {
         });
     }
 
-    // Phase 18: Multi-Agenda State Engine
+    // Phase 18: Multi-Agenda State Engine (Médicas + Técnicas / Estudios)
     const doctorStates = {};
 
-    @foreach($doctors as $doc)
-        doctorStates[{{ $doc->id }}] = {
+    function resolveUidParts(rawUid) {
+        const str = String(rawUid || '');
+        if (str.includes('_')) {
+            const [dId, aType] = str.split('_');
+            return { uid: str, doctorId: parseInt(dId, 10), agendaType: aType || 'medica' };
+        }
+        return { uid: `${str}_medica`, doctorId: parseInt(str, 10), agendaType: 'medica' };
+    }
+
+    function filterAgendasByType(type, btnEl) {
+        document.querySelectorAll('.agenda-filter-btn').forEach(b => {
+            b.classList.remove('btn-primary', 'btn-success', 'text-white');
+            if (b.getAttribute('data-filter') === 'tecnica') {
+                b.className = 'btn btn-sm btn-outline-success bg-white rounded-pill px-3 fw-bold agenda-filter-btn';
+            } else {
+                b.className = 'btn btn-sm btn-outline-primary bg-white rounded-pill px-3 fw-bold agenda-filter-btn';
+            }
+        });
+        if (btnEl) {
+            btnEl.className = type === 'tecnica'
+                ? 'btn btn-sm btn-success text-white rounded-pill px-3 fw-bold agenda-filter-btn'
+                : 'btn btn-sm btn-primary text-white rounded-pill px-3 fw-bold agenda-filter-btn';
+        }
+        document.querySelectorAll('.agenda-unit-card').forEach(card => {
+            const cType = card.getAttribute('data-agenda-type') || 'medica';
+            card.style.display = (type === 'all' || cType === type) ? '' : 'none';
+        });
+    }
+
+    @foreach($unitsList as $u)
+        doctorStates['{{ $u['uid'] }}'] = {
+            uid: '{{ $u['uid'] }}',
+            doctorId: {{ $u['doctor_id'] }},
+            agendaType: '{{ $u['agenda_type'] }}',
             currentDate: new Date(),
             selectedDateStr: null
         };
@@ -678,28 +757,34 @@ body.theme-dark .cal-day.available:hover {
     const monthFormatter = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' });
     const fullDateFormatter = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-    function changeMonth(doctorId, dir) {
-        doctorStates[doctorId].currentDate.setMonth(doctorStates[doctorId].currentDate.getMonth() + dir);
-        renderCalendar(doctorId);
+    function changeMonth(uid, dir) {
+        const { uid: key } = resolveUidParts(uid);
+        if (!doctorStates[key]) return;
+        doctorStates[key].currentDate.setMonth(doctorStates[key].currentDate.getMonth() + dir);
+        renderCalendar(key);
     }
 
-    function renderCalendar(doctorId) {
-        const state = doctorStates[doctorId];
+    function renderCalendar(uid) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
+        const state = doctorStates[key];
+        if (!state) return;
         const year = state.currentDate.getFullYear();
         const month = state.currentDate.getMonth() + 1;
 
-        document.getElementById(`monthYearLabel_${doctorId}`).innerText = monthFormatter.format(state.currentDate);
+        document.getElementById(`monthYearLabel_${key}`).innerText = monthFormatter.format(state.currentDate);
 
-        axios.get(`{{ route('api.agenda.availability') }}?doctor_id=${doctorId}&year=${year}&month=${month}`)
+        axios.get(`{{ route('api.agenda.availability') }}?doctor_id=${doctorId}&agenda_type=${agendaType}&year=${year}&month=${month}`)
             .then(res => {
-                drawGrid(doctorId, year, month, res.data);
+                drawGrid(key, year, month, res.data);
             });
     }
 
-    function drawGrid(doctorId, year, month, availabilityMap) {
-        const grid = document.getElementById(`miniCalendarGrid_${doctorId}`);
+    function drawGrid(uid, year, month, availabilityMap) {
+        const { uid: key } = resolveUidParts(uid);
+        const grid = document.getElementById(`miniCalendarGrid_${key}`);
+        if (!grid) return;
         grid.innerHTML = '';
-        const state = doctorStates[doctorId];
+        const state = doctorStates[key];
 
         const firstDay = new Date(year, month - 1, 1);
         const lastDay = new Date(year, month, 0);
@@ -755,14 +840,15 @@ body.theme-dark .cal-day.available:hover {
             div.innerText = day;
             
             // Todos los días son clickeables (incluso días libres por si desea abrir 2 hs excepcionales)
-            div.onclick = (e) => loadDaySlots(doctorId, dateStr, e);
+            div.onclick = (e) => loadDaySlots(key, dateStr, e);
 
             grid.appendChild(div);
         }
     }
 
-    function renderActiveBlocksStrip(doctorId, activeBlocks, currentDateStr) {
-        const strip = document.getElementById(`activeBlocksStrip_${doctorId}`);
+    function renderActiveBlocksStrip(uid, activeBlocks, currentDateStr) {
+        const { uid: key } = resolveUidParts(uid);
+        const strip = document.getElementById(`activeBlocksStrip_${key}`);
         if (!strip) return;
         if (!activeBlocks || activeBlocks.length === 0) {
             strip.classList.add('d-none');
@@ -773,7 +859,7 @@ body.theme-dark .cal-day.available:hover {
         const itemsHtml = activeBlocks.map(b => `
             <span class="badge bg-white text-dark border shadow-sm d-inline-flex align-items-center gap-2 px-2 py-1">
                 <span><i class="bi bi-lock-fill text-warning me-1"></i><strong>${b.reason}:</strong> ${b.label}</span>
-                <button type="button" class="btn btn-link btn-sm p-0 text-danger fw-bold text-decoration-none" title="Anular este bloqueo completo y rehabilitar días habituales" onclick="unblockEntireBlock(${b.id}, ${doctorId}, '${currentDateStr || b.start_date}')">
+                <button type="button" class="btn btn-link btn-sm p-0 text-danger fw-bold text-decoration-none" title="Anular este bloqueo completo y rehabilitar días habituales" onclick="unblockEntireBlock(${b.id}, '${key}', '${currentDateStr || b.start_date}')">
                     <i class="bi bi-x-circle-fill"></i> Desbloquear
                 </button>
             </span>
@@ -781,10 +867,12 @@ body.theme-dark .cal-day.available:hover {
         strip.innerHTML = `<div class="d-flex align-items-center flex-wrap gap-2"><span class="fw-bold text-dark"><i class="bi bi-shield-lock me-1"></i>Bloqueos activos:</span> ${itemsHtml}</div>`;
     }
 
-    function loadDaySlots(doctorId, dateStr, e) {
-        doctorStates[doctorId].selectedDateStr = dateStr;
+    function loadDaySlots(uid, dateStr, e) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
+        if (!doctorStates[key]) return;
+        doctorStates[key].selectedDateStr = dateStr;
         
-        const grid = document.getElementById(`miniCalendarGrid_${doctorId}`);
+        const grid = document.getElementById(`miniCalendarGrid_${key}`);
         if (grid) {
             grid.querySelectorAll('.cal-day').forEach(el => el.classList.remove('selected-day'));
         }
@@ -792,28 +880,28 @@ body.theme-dark .cal-day.available:hover {
              e.target.classList.add('selected-day');
         }
 
-        const blockBtn = document.getElementById(`blockAgendaBtn_${doctorId}`);
+        const blockBtn = document.getElementById(`blockAgendaBtn_${key}`);
         if (blockBtn) blockBtn.classList.remove('d-none');
-        const specialBtn = document.getElementById(`specialOpenBtn_${doctorId}`);
+        const specialBtn = document.getElementById(`specialOpenBtn_${key}`);
         if (specialBtn) specialBtn.classList.remove('d-none');
 
         const [y, m, d] = dateStr.split('-');
         const dateObj = new Date(y, m - 1, d);
         
-        document.getElementById(`selectedDateLabel_${doctorId}`).innerText = fullDateFormatter.format(dateObj);
-        document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = "Cargando tiempos...";
-        document.getElementById(`dateLoadingSpinner_${doctorId}`).classList.remove('d-none');
+        document.getElementById(`selectedDateLabel_${key}`).innerText = fullDateFormatter.format(dateObj);
+        document.getElementById(`selectedDateSubLabel_${key}`).innerText = "Cargando tiempos...";
+        document.getElementById(`dateLoadingSpinner_${key}`).classList.remove('d-none');
         
-        const slotsContainer = document.getElementById(`slotsContainer_${doctorId}`);
+        const slotsContainer = document.getElementById(`slotsContainer_${key}`);
         slotsContainer.innerHTML = '';
 
-        axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${doctorId}&date=${dateStr}`)
+        axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${doctorId}&agenda_type=${agendaType}&date=${dateStr}`)
             .then(res => {
-                document.getElementById(`dateLoadingSpinner_${doctorId}`).classList.add('d-none');
-                renderActiveBlocksStrip(doctorId, res.data.active_doctor_blocks || [], dateStr);
+                document.getElementById(`dateLoadingSpinner_${key}`).classList.add('d-none');
+                renderActiveBlocksStrip(key, res.data.active_doctor_blocks || [], dateStr);
                 
                 if (res.data.slots.length === 0) {
-                     document.getElementById(`selectedDateSubLabel_${doctorId}`).innerText = res.data.message || "Día libre / Sin horario habitual.";
+                     document.getElementById(`selectedDateSubLabel_${key}`).innerText = res.data.message || "Día libre / Sin horario habitual.";
                      let emptyHtml = '';
                      if (res.data.full_day_block) {
                          const blk = res.data.full_day_block;
@@ -823,7 +911,7 @@ body.theme-dark .cal-day.available:hover {
                                  <h6 class="fw-bold mb-1 text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i> Período Bloqueado (${blk.reason})</h6>
                                  <span class="text-dark small">${blk.start} al ${blk.end}</span>
                              </div>
-                             <button class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm" onclick="unblockEntireBlock(${blk.id}, ${doctorId}, '${dateStr}')">
+                             <button class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm" onclick="unblockEntireBlock(${blk.id}, '${key}', '${dateStr}')">
                                  <i class="bi bi-unlock-fill me-1"></i> Anular Bloqueo
                              </button>
                          </div>`;
@@ -833,7 +921,7 @@ body.theme-dark .cal-day.available:hover {
                             <i class="bi bi-calendar-plus fs-1 text-primary opacity-50 d-block mb-2"></i>
                             <h6 class="text-dark fw-bold">${res.data.message || 'Día libre / Sin consultorio habitual'}</h6>
                             <p class="small mb-3">Si desea atender excepcionalmente en este día (por ejemplo 2 horas), habilite una franja horaria:</p>
-                            <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'special_open')">
+                            <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onclick="openSpecialOpeningModal('${key}', '${dateStr}', 'special_open')">
                                 <i class="bi bi-clock-fill me-1"></i> Habilitar Horario Especial (ej. 2 hs)
                             </button>
                         </div>`;
@@ -857,7 +945,7 @@ body.theme-dark .cal-day.available:hover {
                     }
                 });
 
-                document.getElementById(`selectedDateSubLabel_${doctorId}`).innerHTML = 
+                document.getElementById(`selectedDateSubLabel_${key}`).innerHTML = 
                     `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 me-1"><i class="bi bi-calendar-check me-1"></i>Libres: ${totalLibres}</span> ` +
                     (totalBloqueados > 0 ? `<span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1 me-1"><i class="bi bi-lock-fill me-1"></i>Bloq: ${totalBloqueados}</span> ` : '') +
                     `<span class="badge bg-warning bg-opacity-25 text-dark border border-warning border-opacity-50 px-2 py-1 me-1"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Sobreturnos: ${totalExtras}</span> ` +
@@ -865,7 +953,6 @@ body.theme-dark .cal-day.available:hover {
 
                 let html = '';
 
-                // Banner de Día Completamente Bloqueado (con desbloqueo del día, de una franja de ej. 2 hs, o de todo el período)
                 if (res.data.full_day_block) {
                     const blk = res.data.full_day_block;
                     html += `
@@ -876,14 +963,14 @@ body.theme-dark .cal-day.available:hover {
                                 <span class="text-dark small"><strong>Motivo:</strong> ${blk.reason} (${blk.start} al ${blk.end}) · Puede liberar todo el día o habilitar solo algunos horarios abajo.</span>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'unblock_range')">
+                                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="openSpecialOpeningModal('${key}', '${dateStr}', 'unblock_range')">
                                     <i class="bi bi-clock me-1"></i> Habilitar Franja (ej. 2 hs)
                                 </button>
-                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onclick="unblockDayOnly(${doctorId}, '${dateStr}')">
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onclick="unblockDayOnly('${key}', '${dateStr}')">
                                     <i class="bi bi-unlock-fill me-1"></i> Desbloquear Todo el Día
                                 </button>
                                 ${blk.is_multi_day ? `
-                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold bg-white" onclick="unblockEntireBlock(${blk.id}, ${doctorId}, '${dateStr}')">
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold bg-white" onclick="unblockEntireBlock(${blk.id}, '${key}', '${dateStr}')">
                                     <i class="bi bi-trash me-1"></i> Anular Período (${blk.start}-${blk.end})
                                 </button>` : ''}
                             </div>
@@ -899,10 +986,10 @@ body.theme-dark .cal-day.available:hover {
                                 <span class="text-dark small"><strong>Motivo:</strong> ${blk.reason} · <strong>${blk.free_slots}</strong> horarios habilitados y <strong>${blk.blocked_slots}</strong> bloqueados.</span>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary bg-white rounded-pill px-3 fw-bold" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'unblock_range')">
+                                <button type="button" class="btn btn-sm btn-outline-primary bg-white rounded-pill px-3 fw-bold" onclick="openSpecialOpeningModal('${key}', '${dateStr}', 'unblock_range')">
                                     <i class="bi bi-clock me-1"></i> Habilitar Otra Franja
                                 </button>
-                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onclick="unblockDayOnly(${doctorId}, '${dateStr}')">
+                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onclick="unblockDayOnly('${key}', '${dateStr}')">
                                     <i class="bi bi-unlock-fill me-1"></i> Desbloquear Todo el Día
                                 </button>
                             </div>
@@ -914,13 +1001,12 @@ body.theme-dark .cal-day.available:hover {
                     html += `
                     <div class="alert alert-info border-0 rounded-3 py-2 px-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2 small">
                         <span><i class="bi bi-stars text-primary me-1"></i> <strong>Horario especial habilitado en esta fecha</strong></span>
-                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-2 fw-bold" style="font-size:0.72rem;" onclick="removeSpecialOpening(${doctorId}, '${dateStr}')">
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-2 fw-bold" style="font-size:0.72rem;" onclick="removeSpecialOpening('${key}', '${dateStr}')">
                             Quitar horario especial
                         </button>
                     </div>`;
                 }
 
-                // Barra de referencias
                 html += `
                 <div class="d-flex gap-2 mb-3 justify-content-start flex-wrap bg-light p-2 rounded-3 border" style="font-size: 0.75rem;">
                     <span class="text-muted fw-bold text-uppercase me-2 align-self-center" style="font-size: 0.65rem;">Referencias:</span>
@@ -934,7 +1020,7 @@ body.theme-dark .cal-day.available:hover {
 
                     if (slot.status === 'booked') {
                         let sobreTurnoBtn = !isPast ? `
-                            <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
+                            <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
                                 + Sobreturno
                             </button>` : `<span class="badge bg-secondary bg-opacity-10 text-secondary border me-2">Expirado</span>`;
 
@@ -954,12 +1040,12 @@ body.theme-dark .cal-day.available:hover {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
                                 <li><button class="dropdown-item py-2 text-success fw-bold" onclick="openDarEntradaModal(${slot.patient_id}, '${escapedName}', ${doctorId}, '${escapedNotes}')"><i class="bi bi-box-arrow-in-right me-2"></i> Dar Entrada (Sala de Espera)</button></li>
-                                <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${escapedName}', '${dateStr}', '${slot.time}', ${doctorId})"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
+                                <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${escapedName}', '${dateStr}', '${slot.time}', '${key}')"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
                                 <li><button class="dropdown-item py-2 text-success fw-bold" onclick="sendAppointmentWhatsappNow(${slot.appointment_id})"><i class="bi bi-whatsapp me-2"></i> Enviar Recordatorio WhatsApp</button></li>
                                 <li><a class="dropdown-item py-2 text-dark fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2 text-primary"></i> Abrir Historia Clínica</a></li>
-                                <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
+                                <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="markAsNoShow(${slot.appointment_id}, '${key}', '${dateStr}')"><i class="bi bi-person-x-fill me-2"></i> Marcar Ausencia</button></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
+                                <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, '${key}', '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
                             </ul>`;
 
                         const isExtra = slot.is_extra || false;
@@ -1017,9 +1103,9 @@ body.theme-dark .cal-day.available:hover {
                                     <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
-                                    <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${(slot.patient_name || '').replace(/'/g, "\\'")}', '${dateStr}', '${slot.time}', ${doctorId})"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
+                                    <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openRescheduleModal(${slot.appointment_id}, '${(slot.patient_name || '').replace(/'/g, "\\'")}', '${dateStr}', '${slot.time}', '${key}')"><i class="bi bi-arrow-repeat me-2"></i> Reprogramar Turno</button></li>
                                     <li><a class="dropdown-item py-2 text-dark fw-bold" href="/patients/${slot.patient_id}"><i class="bi bi-folder2-open me-2 text-primary"></i> Abrir HC</a></li>
-                                    <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
+                                    <li><button class="dropdown-item py-2 text-danger fw-bold" onclick="cancelAppointment(${slot.appointment_id}, '${key}', '${dateStr}')"><i class="bi bi-trash me-2"></i> Eliminar Turno</button></li>
                                 </ul>
                             </div>
                         </div>`;
@@ -1035,19 +1121,19 @@ body.theme-dark .cal-day.available:hover {
                                 </div>
                             </div>
                             <div class="d-flex align-items-center gap-1 dropdown z-2">
-                                <button class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-none fw-bold" onclick="unblockSingleSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" style="font-size:0.72rem;" title="Desbloquear únicamente el horario ${slot.time}">
+                                <button class="btn btn-sm btn-outline-success rounded-pill px-3 shadow-none fw-bold" onclick="unblockSingleSlot('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})" style="font-size:0.72rem;" title="Desbloquear únicamente el horario ${slot.time}">
                                     <i class="bi bi-unlock-fill me-1"></i> Desbloquear ${slot.time}
                                 </button>
                                 <button class="btn btn-sm btn-light p-1 border-0 rounded-circle shadow-none" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Más opciones sobre este horario bloqueado">
                                     <i class="bi bi-three-dots-vertical fs-5 text-muted"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-1">
-                                    <li><button class="dropdown-item py-2 text-success fw-bold" onclick="unblockSingleSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})"><i class="bi bi-unlock-fill me-2"></i> Desbloquear solo este horario (${slot.time})</button></li>
-                                    <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openSpecialOpeningModal(${doctorId}, '${dateStr}', 'unblock_range', '${slot.time}')"><i class="bi bi-clock me-2"></i> Habilitar franja desde ${slot.time} (ej. 2 hs)</button></li>
-                                    <li><button class="dropdown-item py-2 text-dark fw-bold" onclick="unblockAndBookSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})"><i class="bi bi-calendar-plus me-2 text-success"></i> Liberar y asignar turno en ${slot.time}</button></li>
+                                    <li><button class="dropdown-item py-2 text-success fw-bold" onclick="unblockSingleSlot('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})"><i class="bi bi-unlock-fill me-2"></i> Desbloquear solo este horario (${slot.time})</button></li>
+                                    <li><button class="dropdown-item py-2 text-primary fw-bold" onclick="openSpecialOpeningModal('${key}', '${dateStr}', 'unblock_range', '${slot.time}')"><i class="bi bi-clock me-2"></i> Habilitar franja desde ${slot.time} (ej. 2 hs)</button></li>
+                                    <li><button class="dropdown-item py-2 text-dark fw-bold" onclick="unblockAndBookSlot('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})"><i class="bi bi-calendar-plus me-2 text-success"></i> Liberar y asignar turno en ${slot.time}</button></li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="unblockDayOnly(${doctorId}, '${dateStr}')"><i class="bi bi-calendar-check me-2"></i> Desbloquear todo este día</button></li>
-                                    ${slot.block_id ? `<li><button class="dropdown-item py-2 text-danger fw-bold" onclick="unblockEntireBlock(${slot.block_id}, ${doctorId}, '${dateStr}')"><i class="bi bi-trash me-2"></i> Anular todo el bloqueo (${escapedReason})</button></li>` : ''}
+                                    <li><button class="dropdown-item py-2 text-warning text-dark fw-bold" onclick="unblockDayOnly('${key}', '${dateStr}')"><i class="bi bi-calendar-check me-2"></i> Desbloquear todo este día</button></li>
+                                    ${slot.block_id ? `<li><button class="dropdown-item py-2 text-danger fw-bold" onclick="unblockEntireBlock(${slot.block_id}, '${key}', '${dateStr}')"><i class="bi bi-trash me-2"></i> Anular todo el bloqueo (${escapedReason})</button></li>` : ''}
                                 </ul>
                             </div>
                         </div>`;
@@ -1055,7 +1141,7 @@ body.theme-dark .cal-day.available:hover {
                         if (!isPast) {
                             html += `
                             <div class="slot-card slot-free justify-content-between position-relative pe-2 mb-2">
-                                <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" onclick="openBookingFromExpress('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
                                     <span class="slot-time d-block text-success">${slot.time}</span>
                                     <div>
                                         <h6 class="mb-0 text-success fw-bold">Turno Libre ${slot.is_special ? '<span class="badge bg-info bg-opacity-10 text-primary border ms-1" style="font-size:0.65rem;">Franja Especial</span>' : ''}</h6>
@@ -1063,13 +1149,13 @@ body.theme-dark .cal-day.available:hover {
                                     </div>
                                 </div>
                                 <div class="d-flex align-items-center dropdown z-2">
-                                    <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
+                                    <button class="btn btn-sm text-primary fw-bold px-3 py-1 border-0 me-2" onclick="openBookingFromExpress('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Añadir sobreturno en este horario" style="font-size:0.7rem; border-radius: 20px; background: rgba(94, 106, 210, 0.1);">
                                         + Sobreturno
                                     </button>
-                                    <button class="btn btn-sm text-warning fw-bold px-3 py-1 border-0 me-2" onclick="quickBlockSlot(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Bloquear este turno" style="font-size:0.7rem; border-radius: 20px; background: rgba(253, 126, 20, 0.1);">
+                                    <button class="btn btn-sm text-warning fw-bold px-3 py-1 border-0 me-2" onclick="quickBlockSlot('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})" title="Bloquear este turno" style="font-size:0.7rem; border-radius: 20px; background: rgba(253, 126, 20, 0.1);">
                                         <i class="bi bi-lock-fill"></i> Bloquear
                                     </button>
-                                    <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;" onclick="openBookingFromExpress(${doctorId}, '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
+                                    <button class="btn btn-sm btn-success rounded-circle shadow-sm" style="width:30px; height:30px; padding:0;" onclick="openBookingFromExpress('${key}', '${dateStr}', '${slot.time}', ${res.data.slot_duration})">
                                         <i class="bi bi-plus text-white"></i>
                                     </button>
                                 </div>
@@ -1092,58 +1178,57 @@ body.theme-dark .cal-day.available:hover {
                 slotsContainer.innerHTML = html;
             });
     }
-    // Phase 17: Express Slots Loader (Integrated into Doctor Cards)
+
     function loadNearestSlots() {
-        // Pre-cleaning UI to show we are searching
-        const allDocIds = Object.keys(doctorStates);
-        allDocIds.forEach(id => {
-            const textEl = document.getElementById(`nearestSlotText_${id}`);
-            const btnEl = document.getElementById(`nearestSlotBtn_${id}`);
+        const allUids = Object.keys(doctorStates);
+        allUids.forEach(uid => {
+            const textEl = document.getElementById(`nearestSlotText_${uid}`);
+            const btnEl = document.getElementById(`nearestSlotBtn_${uid}`);
             if (textEl) textEl.innerHTML = `<span class="spinner-border spinner-border-sm text-success me-2"></span> Buscando disponibilidad...`;
             if (btnEl) btnEl.classList.add('d-none');
         });
 
         axios.get(`{{ route('api.agenda.nearest') }}`)
             .then(res => {
-                // If the entire system has 0 slots
-                if(res.data.length === 0) {
-                    allDocIds.forEach(id => {
-                        const textEl = document.getElementById(`nearestSlotText_${id}`);
-                        if (textEl) textEl.innerHTML = `<i class="bi bi-x-circle text-danger me-1"></i> Agenda Saturada (2+ meses)`;
+                if (res.data.length === 0) {
+                    allUids.forEach(uid => {
+                        const textEl = document.getElementById(`nearestSlotText_${uid}`);
+                        if (textEl) textEl.innerHTML = `<i class="bi bi-x-circle text-muted me-1"></i> Sin horarios configurados o agenda llena`;
                     });
                     return;
                 }
                 
-                // Track which doctors got a slot
-                const foundDocs = new Set();
+                const foundUids = new Set();
                 
                 res.data.forEach(slot => {
-                    foundDocs.add(String(slot.doctor_id));
-                    const textEl = document.getElementById(`nearestSlotText_${slot.doctor_id}`);
-                    const btnEl = document.getElementById(`nearestSlotBtn_${slot.doctor_id}`);
+                    const slotUid = slot.uid || `${slot.doctor_id}_${slot.agenda_type || 'medica'}`;
+                    foundUids.add(slotUid);
+                    const textEl = document.getElementById(`nearestSlotText_${slotUid}`);
+                    const btnEl = document.getElementById(`nearestSlotBtn_${slotUid}`);
                     
                     if (textEl && btnEl) {
                         textEl.innerHTML = `${slot.formatted_date} <span class="ms-1" style="color: #666; font-size: 0.9em;">| ${slot.time} hs</span>`;
                         btnEl.classList.remove('d-none');
-                        // Bind click to open assignment modal dynamically
                         btnEl.onclick = function() {
-                            openBookingFromExpress(slot.doctor_id, slot.date, slot.time, slot.slot_duration);
+                            openBookingFromExpress(slotUid, slot.date, slot.time, slot.slot_duration);
                         };
                     }
                 });
 
-                // Loop over all doctors, if they have no slots block it
-                allDocIds.forEach(id => {
-                    if (!foundDocs.has(String(id))) {
-                        const textEl = document.getElementById(`nearestSlotText_${id}`);
-                        if (textEl) textEl.innerHTML = `<i class="bi bi-x-circle text-danger me-1"></i> Totalmente ocupado/a o inactivo`;
+                allUids.forEach(uid => {
+                    if (!foundUids.has(uid)) {
+                        const textEl = document.getElementById(`nearestSlotText_${uid}`);
+                        if (textEl) textEl.innerHTML = `<i class="bi bi-info-circle text-muted me-1"></i> Sin horarios configurados aún (ir a Configurar Horarios)`;
                     }
                 });
             });
     }
 
-    function openBookingFromExpress(doctorId, date, time, duration) {
+    function openBookingFromExpress(uid, date, time, duration) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         document.getElementById('formDoctorSelect').value = doctorId;
+        document.getElementById('formAgendaTypeSelect').value = agendaType;
+        document.getElementById('formAgendaUidSelect').value = key;
         document.getElementById('formDateSelect').value = date;
         document.getElementById('formTimeSelect').value = time;
         document.getElementById('formDurationSelect').value = duration;
@@ -1152,7 +1237,6 @@ body.theme-dark .cal-day.available:hover {
         modal.show();
     }
 
-    // Interceptar form de guardado de turnos
     document.getElementById('newAppointmentForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const btn = document.getElementById('submitAppointmentBtn');
@@ -1163,6 +1247,7 @@ body.theme-dark .cal-day.available:hover {
 
         const formData = new FormData(this);
         const data = Object.fromEntries(formData.entries());
+        const targetUid = document.getElementById('formAgendaUidSelect').value || `${data.doctor_id}_${data.agenda_type || 'medica'}`;
 
         axios.post(this.action, data)
             .then(res => {
@@ -1170,21 +1255,11 @@ body.theme-dark .cal-day.available:hover {
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 if(modal) modal.hide();
 
-                const doctorId = data.doctor_id;
                 const dateStr = data.date;
+                renderCalendar(targetUid);
+                loadDaySlots(targetUid, dateStr);
+                if (typeof loadNearestSlots === 'function') loadNearestSlots();
 
-                // 1. Refrescar el mini-calendario (por si el día ahora está 'full' / rojo)
-                renderCalendar(doctorId);
-
-                // 2. Refrescar la columna derecha de horarios del doctor y fecha seleccionada
-                loadDaySlots(doctorId, dateStr);
-
-                // 3. Volver a buscar próximos libres disponibles a nivel general
-                if (typeof loadNearestSlots === 'function') {
-                    loadNearestSlots();
-                }
-
-                // Limpiar el estado del botón y modal para futuros usos
                 clearModalPatientSelection();
                 btn.removeAttribute('disabled');
                 btn.innerHTML = originalText;
@@ -1196,29 +1271,31 @@ body.theme-dark .cal-day.available:hover {
             });
     });
 
-    function cancelAppointment(id, doctorId, dateStr) {
+    function cancelAppointment(id, uid, dateStr) {
         if(!confirm('¿Estás seguro de que deseas eliminar este turno y liberar el horario?')) return;
+        const { uid: key } = resolveUidParts(uid);
         
         axios.delete(`/api/appointments/${id}`, {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
         })
         .then(res => {
-            renderCalendar(doctorId);
-            loadDaySlots(doctorId, dateStr);
+            renderCalendar(key);
+            loadDaySlots(key, dateStr);
             if (typeof loadNearestSlots === 'function') loadNearestSlots();
         })
         .catch(err => alert('Ocurrió un error al intentar eliminar el turno. Verifique su conexión.'));
     }
 
-    function markAsNoShow(id, doctorId, dateStr) {
+    function markAsNoShow(id, uid, dateStr) {
         if(!confirm('¿Confirmar que el paciente NO se presentó a su turno (Ausencia)?')) return;
+        const { uid: key } = resolveUidParts(uid);
         
         axios.patch(`/api/appointments/${id}/no-show`, {}, {
             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
         })
         .then(res => {
-            renderCalendar(doctorId);
-            loadDaySlots(doctorId, dateStr);
+            renderCalendar(key);
+            loadDaySlots(key, dateStr);
             spawnToast('Turno Actualizado', 'El paciente fue marcado como ausente.', 'exclamation-triangle-fill', 'warning text-dark');
         })
         .catch(err => alert('Ocurrió un error al registrar la ausencia.'));
@@ -1275,9 +1352,12 @@ body.theme-dark .cal-day.available:hover {
         });
     }
 
-    function openDirectBlockModal(doctorId, doctorName) {
+    function openDirectBlockModal(uid, titleLabel) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         document.getElementById('blockDoctorId').value = doctorId;
-        document.getElementById('blockDoctorNameLabel').innerText = `Médico: ${doctorName}`;
+        document.getElementById('blockAgendaType').value = agendaType;
+        document.getElementById('blockAgendaUid').value = key;
+        document.getElementById('blockDoctorNameLabel').innerText = titleLabel;
         
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('blockDate').value = today;
@@ -1289,8 +1369,11 @@ body.theme-dark .cal-day.available:hover {
         modal.show();
     }
 
-    function quickBlockSlot(doctorId, date, time, duration) {
+    function quickBlockSlot(uid, date, time, duration) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         document.getElementById('blockDoctorId').value = doctorId;
+        document.getElementById('blockAgendaType').value = agendaType;
+        document.getElementById('blockAgendaUid').value = key;
         document.getElementById('blockDate').value = date;
         document.getElementById('blockTypeSelect').value = 'slot';
         
@@ -1311,11 +1394,14 @@ body.theme-dark .cal-day.available:hover {
         modal.show();
     }
 
-    function openBlockModal(doctorId) {
-        const dateStr = doctorStates[doctorId].selectedDateStr;
+    function openBlockModal(uid) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
+        const dateStr = doctorStates[key]?.selectedDateStr;
         if (!dateStr) return;
         
         document.getElementById('blockDoctorId').value = doctorId;
+        document.getElementById('blockAgendaType').value = agendaType;
+        document.getElementById('blockAgendaUid').value = key;
         document.getElementById('blockDate').value = dateStr;
         document.getElementById('blockEndDate').value = dateStr;
         document.getElementById('blockTypeSelect').value = 'day';
@@ -1328,7 +1414,6 @@ body.theme-dark .cal-day.available:hover {
         modal.show();
     }
 
-    // Interceptar form de guardado de bloqueos
     const blockAgendaForm = document.getElementById('blockAgendaForm');
     if (blockAgendaForm) {
         blockAgendaForm.addEventListener('submit', function(e) {
@@ -1341,6 +1426,7 @@ body.theme-dark .cal-day.available:hover {
 
             const formData = new FormData(this);
             const data = Object.fromEntries(formData.entries());
+            const targetUid = document.getElementById('blockAgendaUid').value || `${data.doctor_id}_${data.agenda_type || 'medica'}`;
 
             axios.post(this.action, data)
                 .then(res => {
@@ -1348,12 +1434,9 @@ body.theme-dark .cal-day.available:hover {
                     const modal = bootstrap.Modal.getInstance(modalEl);
                     if (modal) modal.hide();
 
-                    const doctorId = data.doctor_id;
                     const dateStr = data.date;
-
-                    // Refresh
-                    renderCalendar(doctorId);
-                    loadDaySlots(doctorId, dateStr);
+                    renderCalendar(targetUid);
+                    loadDaySlots(targetUid, dateStr);
                     if (typeof loadNearestSlots === 'function') loadNearestSlots();
 
                     btn.removeAttribute('disabled');
@@ -1372,15 +1455,18 @@ body.theme-dark .cal-day.available:hover {
         return { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') };
     }
 
-    function refreshDoctorAgendaUI(doctorId, dateStr) {
-        renderCalendar(doctorId);
-        if (dateStr) loadDaySlots(doctorId, dateStr);
+    function refreshDoctorAgendaUI(uid, dateStr) {
+        const { uid: key } = resolveUidParts(uid);
+        renderCalendar(key);
+        if (dateStr) loadDaySlots(key, dateStr);
         if (typeof loadNearestSlots === 'function') loadNearestSlots();
     }
 
-    function unblockSingleSlot(doctorId, dateStr, timeStr, duration) {
+    function unblockSingleSlot(uid, dateStr, timeStr, duration) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
             doctor_id: doctorId,
+            agenda_type: agendaType,
             date: dateStr,
             mode: 'slot',
             start_time: timeStr,
@@ -1390,30 +1476,34 @@ body.theme-dark .cal-day.available:hover {
             if (typeof spawnToast === 'function') {
                 spawnToast('Horario Habilitado', `Se desbloqueó el horario ${timeStr} hs.`, 'unlock-fill', 'success text-white');
             }
-            refreshDoctorAgendaUI(doctorId, dateStr);
+            refreshDoctorAgendaUI(key, dateStr);
         })
         .catch(err => alert(err.response?.data?.message || 'Error al desbloquear el horario.'));
     }
 
-    function unblockAndBookSlot(doctorId, dateStr, timeStr, duration) {
+    function unblockAndBookSlot(uid, dateStr, timeStr, duration) {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
             doctor_id: doctorId,
+            agenda_type: agendaType,
             date: dateStr,
             mode: 'slot',
             start_time: timeStr,
             duration: duration || 20
         }, { headers: csrfHeader() })
         .then(() => {
-            refreshDoctorAgendaUI(doctorId, dateStr);
-            openBookingFromExpress(doctorId, dateStr, timeStr, duration || 20);
+            refreshDoctorAgendaUI(key, dateStr);
+            openBookingFromExpress(key, dateStr, timeStr, duration || 20);
         })
         .catch(err => alert(err.response?.data?.message || 'Error al liberar el horario.'));
     }
 
-    function unblockDayOnly(doctorId, dateStr) {
+    function unblockDayOnly(uid, dateStr) {
         if (!confirm('¿Desbloquear todos los horarios habituales de ESTE DÍA? (Los demás días bloqueados del período se mantendrán intactos).')) return;
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
             doctor_id: doctorId,
+            agenda_type: agendaType,
             date: dateStr,
             mode: 'day'
         }, { headers: csrfHeader() })
@@ -1421,34 +1511,38 @@ body.theme-dark .cal-day.available:hover {
             if (typeof spawnToast === 'function') {
                 spawnToast('Día Habilitado', 'Se habilitaron todos los horarios de este día.', 'check-circle-fill', 'success text-white');
             }
-            refreshDoctorAgendaUI(doctorId, dateStr);
+            refreshDoctorAgendaUI(key, dateStr);
         })
         .catch(err => alert(err.response?.data?.message || 'Error al desbloquear el día.'));
     }
 
-    function unblockEntireBlock(blockId, doctorId, dateStr) {
-        if (!confirm('¿Anular este bloqueo completo y rehabilitar todos los días y horarios habituales del médico?')) return;
+    function unblockEntireBlock(blockId, uid, dateStr) {
+        if (!confirm('¿Anular este bloqueo completo y rehabilitar todos los días y horarios habituales de esta agenda?')) return;
+        const { uid: key } = resolveUidParts(uid);
         axios.delete(`/api/agenda/blocks/${blockId}`, { headers: csrfHeader() })
         .then(() => {
             if (typeof spawnToast === 'function') {
                 spawnToast('Bloqueo Anulado', 'Toda la agenda habitual fue rehabilitada.', 'unlock-fill', 'success text-white');
             }
-            refreshDoctorAgendaUI(doctorId, dateStr || doctorStates[doctorId]?.selectedDateStr);
+            refreshDoctorAgendaUI(key, dateStr || doctorStates[key]?.selectedDateStr);
         })
         .catch(() => alert('Ocurrió un error al intentar anular el bloqueo.'));
     }
 
-    function unblockSlot(blockId, doctorId, dateStr) {
-        unblockEntireBlock(blockId, doctorId, dateStr);
+    function unblockSlot(blockId, uid, dateStr) {
+        unblockEntireBlock(blockId, uid, dateStr);
     }
 
-    function openSpecialOpeningModal(doctorId, dateStr, actionMode = 'special_open', defaultStart = '10:00') {
-        const targetDate = dateStr || doctorStates[doctorId]?.selectedDateStr;
+    function openSpecialOpeningModal(uid, dateStr, actionMode = 'special_open', defaultStart = '10:00') {
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
+        const targetDate = dateStr || doctorStates[key]?.selectedDateStr;
         if (!targetDate) {
             alert('Seleccione primero un día en el calendario.');
             return;
         }
         document.getElementById('specialDoctorId').value = doctorId;
+        document.getElementById('specialAgendaType').value = agendaType;
+        document.getElementById('specialAgendaUid').value = key;
         document.getElementById('specialDate').value = targetDate;
         document.getElementById('specialActionMode').value = actionMode;
         document.getElementById('specialStartTime').value = defaultStart;
@@ -1469,6 +1563,8 @@ body.theme-dark .cal-day.available:hover {
     function submitSpecialOpening(e) {
         e.preventDefault();
         const doctorId = parseInt(document.getElementById('specialDoctorId').value, 10);
+        const agendaType = document.getElementById('specialAgendaType').value || 'medica';
+        const key = document.getElementById('specialAgendaUid').value || `${doctorId}_${agendaType}`;
         const dateStr = document.getElementById('specialDate').value;
         const mode = document.getElementById('specialActionMode').value;
         const startTime = document.getElementById('specialStartTime').value;
@@ -1479,6 +1575,7 @@ body.theme-dark .cal-day.available:hover {
         const req = (mode === 'unblock_range')
             ? axios.post(`{{ route('api.agenda.blocks.unblock_range') }}`, {
                 doctor_id: doctorId,
+                agenda_type: agendaType,
                 date: dateStr,
                 mode: 'time_range',
                 start_time: startTime,
@@ -1486,6 +1583,7 @@ body.theme-dark .cal-day.available:hover {
               }, { headers: csrfHeader() })
             : axios.post(`{{ route('api.agenda.special_opening.store') }}`, {
                 doctor_id: doctorId,
+                agenda_type: agendaType,
                 date: dateStr,
                 start_time: startTime,
                 end_time: endTime
@@ -1498,27 +1596,27 @@ body.theme-dark .cal-day.available:hover {
             if (typeof spawnToast === 'function') {
                 spawnToast('Franja Habilitada', `Horarios de ${startTime} a ${endTime} hs habilitados.`, 'check-circle-fill', 'success text-white');
             }
-            refreshDoctorAgendaUI(doctorId, dateStr);
+            refreshDoctorAgendaUI(key, dateStr);
         }).catch(err => {
             btn.disabled = false;
             alert(err.response?.data?.message || 'Verifique que la hora fin sea posterior a la de inicio.');
         });
     }
 
-    function removeSpecialOpening(doctorId, dateStr) {
+    function removeSpecialOpening(uid, dateStr) {
         if (!confirm('¿Quitar el horario especial habilitado en esta fecha?')) return;
+        const { uid: key, doctorId, agendaType } = resolveUidParts(uid);
         axios.delete(`{{ route('api.agenda.special_opening.destroy') }}`, {
             headers: csrfHeader(),
-            data: { doctor_id: doctorId, date: dateStr }
+            data: { doctor_id: doctorId, agenda_type: agendaType, date: dateStr }
         }).then(() => {
-            refreshDoctorAgendaUI(doctorId, dateStr);
+            refreshDoctorAgendaUI(key, dateStr);
         }).catch(() => alert('Error al quitar horario especial.'));
     }
 
     // Init Call
     document.addEventListener('DOMContentLoaded', () => {
-        // Init all calendars
-        Object.keys(doctorStates).forEach(doctorId => renderCalendar(doctorId));
+        Object.keys(doctorStates).forEach(uid => renderCalendar(uid));
         
         // Init nearest Express Slots (Phase 17)
         loadNearestSlots(); 
@@ -1639,11 +1737,12 @@ body.theme-dark .cal-day.available:hover {
         });
     }
 
-    function openRescheduleModal(appointmentId, patientName, currentDate, currentTime, doctorId) {
+    function openRescheduleModal(appointmentId, patientName, currentDate, currentTime, uid) {
+        const { uid: key } = resolveUidParts(uid);
         document.getElementById('rescheduleAppointmentId').value = appointmentId;
         document.getElementById('rescheduleOriginalDate').value = currentDate;
-        document.getElementById('rescheduleOriginalDoctorId').value = doctorId;
-        document.getElementById('rescheduleDoctorId').value = doctorId;
+        document.getElementById('rescheduleOriginalUid').value = key;
+        document.getElementById('rescheduleAgendaUid').value = key;
         document.getElementById('reschedulePatientLabel').innerText = `Paciente: ${patientName}`;
 
         const [cy, cm, cd] = (currentDate || '').split('-');
@@ -1664,7 +1763,8 @@ body.theme-dark .cal-day.available:hover {
     }
 
     function loadRescheduleFreeSlots() {
-        const docId = document.getElementById('rescheduleDoctorId').value;
+        const uidVal = document.getElementById('rescheduleAgendaUid').value;
+        const { doctorId: docId, agendaType } = resolveUidParts(uidVal);
         const dateVal = document.getElementById('rescheduleNewDate').value;
         const box = document.getElementById('rescheduleFreeSlotsContainer');
         const overBox = document.getElementById('rescheduleOverbookSlotsContainer');
@@ -1674,7 +1774,7 @@ body.theme-dark .cal-day.available:hover {
         box.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span> Cargando horarios disponibles del día...</span>';
         if (overBox) overBox.innerHTML = '<span class="text-muted small">Consultando...</span>';
 
-        axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${docId}&date=${dateVal}`)
+        axios.get(`{{ route('api.agenda.slots') }}?doctor_id=${docId}&agenda_type=${agendaType}&date=${dateVal}`)
             .then(res => {
                 const slots = (res.data && res.data.slots) ? res.data.slots : [];
                 const freeSlots = slots.filter(s => s.status === 'free' && !s.is_past);
@@ -1740,9 +1840,10 @@ body.theme-dark .cal-day.available:hover {
     function submitRescheduleAppointment(e) {
         e.preventDefault();
         const apptId = document.getElementById('rescheduleAppointmentId').value;
-        const origDoctorId = parseInt(document.getElementById('rescheduleOriginalDoctorId').value, 10);
+        const origUid = document.getElementById('rescheduleOriginalUid').value;
         const origDate = document.getElementById('rescheduleOriginalDate').value;
-        const doctorId = parseInt(document.getElementById('rescheduleDoctorId').value, 10);
+        const targetUid = document.getElementById('rescheduleAgendaUid').value;
+        const { doctorId, agendaType } = resolveUidParts(targetUid);
         const newDate = document.getElementById('rescheduleNewDate').value;
         const newTime = document.getElementById('rescheduleNewTime').value;
         const reason = document.getElementById('rescheduleReason').value;
@@ -1757,6 +1858,7 @@ body.theme-dark .cal-day.available:hover {
             date: newDate,
             time: newTime,
             doctor_id: doctorId,
+            agenda_type: agendaType,
             reason: reason,
             is_overbooked: isOverbooked,
             send_whatsapp: sendWhatsapp
@@ -1776,19 +1878,18 @@ body.theme-dark .cal-day.available:hover {
                 alert('Turno reprogramado exitosamente.');
             }
             
-            // Refrescar mini-calendario y grilla horaria sin riesgo de errores JS
             try {
-                if (origDoctorId && origDoctorId !== doctorId && doctorStates[origDoctorId]) {
-                    renderCalendar(origDoctorId);
-                    if (origDate) loadDaySlots(origDoctorId, origDate);
+                if (origUid && origUid !== targetUid && doctorStates[origUid]) {
+                    renderCalendar(origUid);
+                    if (origDate) loadDaySlots(origUid, origDate);
                 }
-                if (doctorStates[doctorId]) {
+                if (doctorStates[targetUid]) {
                     const [ny, nm, nd] = newDate.split('-');
                     if (ny && nm && nd) {
-                        doctorStates[doctorId].currentDate = new Date(parseInt(ny, 10), parseInt(nm, 10) - 1, parseInt(nd, 10));
+                        doctorStates[targetUid].currentDate = new Date(parseInt(ny, 10), parseInt(nm, 10) - 1, parseInt(nd, 10));
                     }
-                    renderCalendar(doctorId);
-                    loadDaySlots(doctorId, newDate);
+                    renderCalendar(targetUid);
+                    loadDaySlots(targetUid, newDate);
                 }
                 if (typeof loadNearestSlots === 'function') {
                     loadNearestSlots();

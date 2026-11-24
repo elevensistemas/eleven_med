@@ -44,6 +44,27 @@ Route::get('/run-seeders', function (\Illuminate\Http\Request $request) {
     }
 })->withoutMiddleware('web');
 
+Route::get('/run-cortalezzi-setup', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'Trinitotolueno2015') {
+        abort(403, 'Unauthorized action.');
+    }
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $migrateOut = \Illuminate\Support\Facades\Artisan::output();
+        $setupOut = \App\Services\LegacyElevenImporter::provisionClinicUsersAndSample();
+        return response()->json([
+            'success' => true,
+            'migrations' => $migrateOut,
+            'setup' => $setupOut,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'trace' => $e->getFile() . ':' . $e->getLine(),
+        ], 500);
+    }
+})->withoutMiddleware('web');
+
 // Outbound Cloud Bridge for Clinic PC WhatsApp Connector (.BAT -> Hostinger without port forwarding)
 Route::post('/api/whatsapp-bridge/sync', [App\Http\Controllers\WhatsappConfigController::class, 'bridgeSync'])->withoutMiddleware('web');
 
@@ -60,9 +81,12 @@ Route::get('/storage/patients/{patient}/studies/{filename}', function ($patient,
 
 Route::middleware('auth')->group(function () {
     Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    Route::get('/api/dashboard/chart-data', [App\Http\Controllers\HomeController::class, 'chartData'])->name('api.dashboard.chart_data');
+    Route::post('/mi-perfil/cambiar-password', [App\Http\Controllers\UserController::class, 'changeOwnPassword'])->name('profile.changePassword');
     Route::resource('users', App\Http\Controllers\UserController::class);
     Route::post('users/{user}/reset-password', [App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.resetPassword');
     Route::get('/configuracion', [App\Http\Controllers\ConfigController::class, 'index'])->name('config.index');
+    Route::post('/configuracion/import-legacy-sample', [App\Http\Controllers\ConfigController::class, 'importLegacySample'])->name('config.import.legacySample');
     Route::post('/configuracion/obras-sociales', [App\Http\Controllers\ConfigController::class, 'storeObraSocial'])->name('config.obras_sociales.store');
     Route::delete('/configuracion/obras-sociales/{obraSocial}', [App\Http\Controllers\ConfigController::class, 'destroyObraSocial'])->name('config.obras_sociales.destroy');
     Route::delete('/configuracion/ai-memory/{user}', [App\Http\Controllers\ConfigController::class, 'clearAiMemory'])->name('config.ai_memory.clear');
