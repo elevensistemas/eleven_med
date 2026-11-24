@@ -69,21 +69,25 @@ class LegacyElevenImporter
         }
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 1. Asegurar que el Dr. Cortalezzi tenga rol médico + administrador (para poder cambiar su propia clave)
-        $cortalezziDoctor = User::where('email', 'like', '%cortalezzi%')
-            ->orWhere('name', 'like', '%Cortalezzi%')
-            ->first();
+        // 1. Asegurar que todas las cuentas titulares del Dr. Cortalezzi tengan rol médico + administrador (para poder cambiar su propia clave)
+        $cortalezziAccounts = User::whereIn('email', [
+            'admin@cortalezzi.com',
+            'juan@cortalezzi.com',
+            'cortalezzivision@gmail.com',
+        ])->get();
 
-        if ($cortalezziDoctor) {
-            if (!$cortalezziDoctor->hasRole('médico')) {
-                $cortalezziDoctor->assignRole('médico');
+        foreach ($cortalezziAccounts as $acc) {
+            if (!$acc->hasRole('médico') && $acc->email !== 'admin@cortalezzi.com') {
+                $acc->assignRole('médico');
             }
-            if (!$cortalezziDoctor->hasRole('administrador')) {
-                $cortalezziDoctor->assignRole('administrador');
+            if (!$acc->hasRole('administrador')) {
+                $acc->assignRole('administrador');
             }
-        } else {
-            $cortalezziDoctor = User::role('médico')->first() ?: User::first();
         }
+
+        $cortalezziDoctor = User::whereIn('email', ['juan@cortalezzi.com', 'cortalezzivision@gmail.com', 'medico@cortalezzi.com'])->first()
+            ?: User::role('médico')->first()
+            ?: User::first();
 
         // 2. Crear / asegurar accesos de Sonia y María para Intercomunicador y Agendas Técnicas
         $sonia = User::firstOrCreate(
