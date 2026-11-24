@@ -310,10 +310,14 @@ class LegacyElevenImporter
                 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fallbackDate) || str_starts_with($fallbackDate, '0000')) {
                     $fallbackDate = substr($createdAt, 0, 10);
                 }
-                $eyeInfer = 'AO';
-                if (preg_match('/\bod\b/i', $desc)) $eyeInfer = 'OD';
-                elseif (preg_match('/\boi\b/i', $desc)) $eyeInfer = 'OI';
-                $entries[] = ['eye' => $eyeInfer, 'date' => $fallbackDate];
+                if (preg_match('/\bao\b/i', $desc)) {
+                    $entries[] = ['eye' => 'OD', 'date' => $fallbackDate];
+                    $entries[] = ['eye' => 'OI', 'date' => $fallbackDate];
+                } elseif (preg_match('/\boi\b/i', $desc)) {
+                    $entries[] = ['eye' => 'OI', 'date' => $fallbackDate];
+                } else {
+                    $entries[] = ['eye' => 'OD', 'date' => $fallbackDate];
+                }
             }
 
             foreach ($entries as $ent) {
