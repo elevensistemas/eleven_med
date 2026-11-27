@@ -84,22 +84,49 @@
                 </a>
             </div>
 
-            <!-- 4. INTEGRACIÓN HISTÓRICA VIEJO ELEVEN -->
-            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-1" style="border: 1.5px solid rgba(16, 185, 129, 0.25) !important;">
+            <!-- 4. INTEGRACIÓN COMPLETA VIEJO ELEVEN (BACKUP .SQL + ESTUDIOS + CORRELATIVIDAD) -->
+            <div class="d-flex flex-column p-3 border rounded-4 bg-light mb-1" style="border: 1.5px solid rgba(16, 185, 129, 0.3) !important;">
                 <div class="d-flex align-items-center mb-2">
                     <div class="text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm me-3 flex-shrink-0" style="width: 44px; height: 44px; background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
                         <i class="bi bi-arrow-left-right fs-5"></i>
                     </div>
                     <div>
-                        <h6 class="fw-bold text-dark mb-1">Integración de Historial Viejo Eleven</h6>
-                        <small class="text-muted d-block" style="line-height: 1.3;">Integra fichas históricas con su N° de Paciente correlativo original, consultas previas (PIO, AV, BMC, OBI) y cirugías OD/OI.</small>
+                        <h6 class="fw-bold text-dark mb-1">Integración Completa Viejo Eleven (Base + Estudios + N° Correlativo)</h6>
+                        <small class="text-muted d-block" style="line-height: 1.3;">
+                            Suba el backup <code>.SQL</code> actualizado del Viejo Eleven para integrar todas las historias completas, cirugías y registros de estudios. Los archivos pesados de imágenes/PDFs se copian por FTP en <code>/public_html/uploads/legacy_studies/</code>.
+                        </small>
                     </div>
                 </div>
-                <form action="{{ route('config.import.legacySample') }}" method="POST" class="m-0">
+
+                <!-- Subir Backup .SQL Completo -->
+                <form action="{{ route('config.import.legacySql') }}" method="POST" enctype="multipart/form-data" class="mb-3 p-2.5 bg-white rounded-3 border">
                     @csrf
-                    <button type="submit" class="btn text-white fw-bold p-2 shadow-sm rounded-pill btn-sm w-100" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); border: none;">
-                        <i class="bi bi-cloud-check-fill me-1"></i> Verificar / Sincronizar Muestra Histórica Viejo Eleven
-                    </button>
+                    <label class="form-label small fw-bold text-dark mb-1"><i class="bi bi-filetype-sql text-success me-1"></i> Cargar Backup Completo Viejo Eleven (.SQL)</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <input type="file" name="legacy_sql_file" accept=".sql,.txt" class="form-control form-control-sm flex-grow-1" required>
+                        <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 fw-bold">
+                            <i class="bi bi-cloud-upload-fill me-1"></i> Importar Todo
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Ajuste de Piso Correlativo N° Paciente y URL Puente de Estudios -->
+                <form action="{{ route('config.legacy.settings') }}" method="POST" class="p-2.5 bg-white rounded-3 border">
+                    @csrf
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-5">
+                            <label class="form-label small fw-bold text-muted mb-1" style="font-size: 0.74rem;">Último N° Viejo Eleven (Piso)</label>
+                            <input type="number" name="legacy_patient_number_floor" value="{{ $systemSettings['legacy_patient_number_floor'] ?? 3000 }}" class="form-control form-control-sm fw-bold text-primary" min="0">
+                        </div>
+                        <div class="col-sm-7">
+                            <label class="form-label small fw-bold text-muted mb-1" style="font-size: 0.74rem;">URL Base Estudios Viejo Eleven (Opcional)</label>
+                            <input type="text" name="legacy_studies_base_url" value="{{ $systemSettings['legacy_studies_base_url'] ?? '' }}" class="form-control form-control-sm" placeholder="https://.../uploads/estudios">
+                        </div>
+                        <div class="col-12 d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted" style="font-size: 0.73rem;">Próximo N° de Paciente nuevo: <strong class="text-primary">#{{ $nextPatientNumber ?? '3001' }}</strong></small>
+                            <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">Guardar Numeración</button>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>

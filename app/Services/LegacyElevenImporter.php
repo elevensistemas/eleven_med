@@ -158,7 +158,24 @@ class LegacyElevenImporter
             }
         }
 
-        // 3. Cargar los 6 pacientes reales de muestra del Viejo Eleven
+        // 3. Asegurar piso correlativo del Viejo Eleven (>= 3000) y renumerar fichas de prueba sin código (#1..#5) para evitar duplicados con Viejo Eleven
+        $settingsPath = storage_path('app/system_settings.json');
+        $settings = Patient::getSystemSettings();
+        if (empty($settings['legacy_patient_number_floor']) || (int)$settings['legacy_patient_number_floor'] < 3000) {
+            $settings['legacy_patient_number_floor'] = 3000;
+            @file_put_contents($settingsPath, json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        }
+
+        $unnumberedTestPatients = Patient::where(function ($q) {
+            $q->whereNull('code')->orWhere('code', '');
+        })->orderBy('id')->get();
+
+        foreach ($unnumberedTestPatients as $tp) {
+            $tp->code = Patient::nextCorrelativeNumber();
+            $tp->save();
+        }
+
+        // 4. Cargar los 6 pacientes reales de muestra del Viejo Eleven
         $jsonPath = database_path('seeders/legacy_sample_6.json');
         $importedSummary = [];
         $doctorId = $cortalezziDoctor ? $cortalezziDoctor->id : 1;
@@ -354,5 +371,324 @@ class LegacyElevenImporter
             'visits_added' => $visitsAdded,
             'surgeries_added' => $surgeriesAdded,
         ];
+    }
+
+    /**
+     * Importa un Backup .SQL completo del Viejo Eleven (Pacientes con su N° original, Consultas completas, Cirugías OD/OI y Estudios `pacientes_estudios`).
+     */
+    public static function importFullSqlDump(string $sqlFilePath, ?int $defaultDoctorId = null): array
+    {
+        @set_time_limit(600);
+        @ini_set('memory_limit', '768M');
+
+        if (!file_exists($sqlFilePath)) {
+            throw new \RuntimeException('No se encontró el archivo .SQL subido.');
+        }
+
+        $sql = file_get_contents($sqlFilePath);
+        if (!$defaultDoctorId) {
+            $doc = User::whereIn('email', ['juan@cortalezzi.com', 'cortalezzivision@gmail.com', 'medico@cortalezzi.com'])->first()
+                ?: User::role('médico')->first()
+                ?: User::first();
+            $defaultDoctorId = $doc ? $doc->id : 1;
+        }
+
+        // 1. Obras Sociales del Viejo Eleven (id => nombre)
+        $osMap = [];
+        if (preg_match_all('/INSERT INTO `obras_sociales`.*?VALUES\s*(.*?);/s', $sql, $osBlocks)) {
+            foreach ($osBlocks[1] as $blk) {
+                foreach (self::splitSqlTuples($blk) as $tuple) {
+                    $cols = str_getcsv($tuple, ',', "'", "\\");
+                    if (count($cols) >= 2) {
+                        $osMap[(int)$cols[0]] = trim((string)$cols[1]);
+                    }
+                }
+            }
+        }
+
+        // 2. Pacientes (legacy_id => new patient_id)
+        $legacyToNewPatientId = [];
+        $patientsImported = 0;
+        $maxLegacyNumber = 0;
+
+        if (preg_match_all('/INSERT INTO `pacientes`.*?VALUES\s*(.*?);/s', $sql, $pacBlocks)) {
+            foreach ($pacBlocks[1] as $blk) {
+                foreach (self::splitSqlTuples($blk) as $tuple) {
+                    $c = str_getcsv($tuple, ',', "'", "\\");
+                    if (count($c) < 13) continue;
+                    $estado = isset($c[19]) ? (int)$c[19] : 1;
+                    if ($estado === 0) continue;
+
+                    $legId = (int)$c[0];
+                    if ($legId > $maxLegacyNumber) $maxLegacyNumber = $legId;
+
+                    $rawCode = trim((string)($c[12] ?? ''));
+                    if ($rawCode === 'NULL') $rawCode = '';
+                    if (ctype_digit($rawCode) && (int)$rawCode < 1000000 && (int)$rawCode > $maxLegacyNumber) {
+                        $maxLegacyNumber = (int)$rawCode;
+                    }
+                    $assignedCode = ($rawCode !== '') ? $rawCode : (string)$legId;
+
+                    $osId = (int)($c[6] ?? 0);
+                    $osName = $osMap[$osId] ?? null;
+
+                    $cleanNull = fn($v) => ($v === null || trim((string)$v) === '' || trim((string)$v) === 'NULL') ? null : trim((string)$v);
+
+                    $res = self::upsertLegacyPatientRecord([
+                        'legacy_id' => $legId,
+                        'code' => $assignedCode,
+                        'first_name' => $cleanNull($c[2]) ?: 'Sin Nombre',
+                        'last_name' => $cleanNull($c[3]) ?: 'Sin Apellido',
+                        'date_of_birth' => $cleanNull($c[4]),
+                        'dni' => $cleanNull($c[5]) ?: ('LEG-' . $legId),
+                        'obra_social' => $osName,
+                        'plan' => $cleanNull($c[7] ?? null),
+                        'affiliate_number' => $cleanNull($c[8] ?? null),
+                        'address' => $cleanNull($c[9] ?? null),
+                        'phone' => $cleanNull($c[10] ?? null),
+                        'email' => $cleanNull($c[11] ?? null),
+                        'profession' => $cleanNull($c[17] ?? null),
+                        'recommendation' => $cleanNull($c[18] ?? null),
+                        'medical_notes' => $cleanNull($c[23] ?? null),
+                        'created_at' => $cleanNull($c[21] ?? ($c[13] ?? null)),
+                        'visits' => [],
+                        'surgeries' => [],
+                    ], $defaultDoctorId);
+
+                    if ($res && !empty($res['id'])) {
+                        $legacyToNewPatientId[$legId] = (int)$res['id'];
+                        $patientsImported++;
+                    }
+                }
+            }
+        }
+
+        // Actualizar piso correlativo automáticamente si el backup superó el piso actual
+        if ($maxLegacyNumber > 0) {
+            $settings = Patient::getSystemSettings();
+            if ($maxLegacyNumber > (int)($settings['legacy_patient_number_floor'] ?? 0)) {
+                $settings['legacy_patient_number_floor'] = $maxLegacyNumber;
+                @file_put_contents(storage_path('app/system_settings.json'), json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            }
+        }
+
+        // 3. Consultas / Evoluciones (`pacientes_diagnosticos`)
+        $visitsImported = 0;
+        if (preg_match_all('/INSERT INTO `pacientes_diagnosticos`.*?VALUES\s*(.*?);/s', $sql, $diagBlocks)) {
+            foreach ($diagBlocks[1] as $blk) {
+                foreach (self::splitSqlTuples($blk) as $tuple) {
+                    $c = str_getcsv($tuple, ',', "'", "\\");
+                    if (count($c) < 12) continue;
+                    $estado = isset($c[12]) ? (int)$c[12] : 1;
+                    if ($estado === 0) continue;
+
+                    $legPacId = (int)$c[2];
+                    $newPatientId = $legacyToNewPatientId[$legPacId] ?? null;
+                    if (!$newPatientId) continue;
+
+                    $vDateStr = trim((string)($c[10] ?? ''));
+                    if ($vDateStr === '' || $vDateStr === 'NULL' || str_starts_with($vDateStr, '0000')) {
+                        $f = trim((string)($c[8] ?? ''));
+                        $vDateStr = ($f !== '' && $f !== 'NULL' && !str_starts_with($f, '0000')) ? ($f . ' 10:00:00') : now()->toDateTimeString();
+                    }
+                    try {
+                        $vCreated = Carbon::parse($vDateStr);
+                    } catch (\Throwable $e) {
+                        continue;
+                    }
+
+                    $exists = Visit::where('patient_id', $newPatientId)
+                        ->where('created_at', $vCreated->toDateTimeString())
+                        ->exists();
+
+                    if (!$exists) {
+                        $cleanField = fn($v) => ($v === null || trim((string)$v) === '' || trim((string)$v) === 'NULL') ? null : trim((string)$v);
+                        $ex = self::parseExamen($c[7] ?? '');
+                        $visit = new Visit([
+                            'patient_id' => $newPatientId,
+                            'doctor_id' => $defaultDoctorId,
+                            'is_open' => false,
+                            'diagnostico' => $cleanField($c[3] ?? null),
+                            'motivo_consulta' => $cleanField($c[4] ?? null),
+                            'antecedentes_oftalmologicos' => $cleanField($c[5] ?? null),
+                            'tratamiento_oftalmologico' => $cleanField($c[6] ?? null),
+                            'pio' => $ex['pio'],
+                            'bmc' => $ex['bmc'],
+                            'obi' => $ex['obi'],
+                            'av_od_lejos' => $ex['av_od_lejos'],
+                            'av_oi_lejos' => $ex['av_oi_lejos'],
+                            'av_od_cerca' => $ex['av_od_cerca'],
+                            'av_oi_cerca' => $ex['av_oi_cerca'],
+                            'otros_examen' => $ex['otros_examen'],
+                        ]);
+                        $visit->timestamps = false;
+                        $visit->created_at = $vCreated;
+                        $visit->updated_at = $vCreated;
+                        $visit->save();
+                        $visitsImported++;
+                    }
+                }
+            }
+        }
+
+        // 4. Cirugías (`surgeries`)
+        $surgeriesImported = 0;
+        if (preg_match_all('/INSERT INTO `surgeries`.*?VALUES\s*(.*?);/s', $sql, $surgBlocks)) {
+            foreach ($surgBlocks[1] as $blk) {
+                foreach (self::splitSqlTuples($blk) as $tuple) {
+                    $c = str_getcsv($tuple, ',', "'", "\\");
+                    if (count($c) < 6) continue;
+                    $status = isset($c[8]) ? (int)$c[8] : 1;
+                    if ($status === 0) continue;
+
+                    $legPacId = (int)$c[1];
+                    $newPatientId = $legacyToNewPatientId[$legPacId] ?? null;
+                    if (!$newPatientId) continue;
+
+                    $dOd = trim((string)($c[2] ?? ''));
+                    $dOi = trim((string)($c[3] ?? ''));
+                    if ($dOd === 'NULL' || str_starts_with($dOd, '0000')) $dOd = '';
+                    if ($dOi === 'NULL' || str_starts_with($dOi, '0000')) $dOi = '';
+                    $desc = trim((string)($c[4] ?? ''));
+                    if ($desc === 'NULL') $desc = '';
+
+                    $entries = [];
+                    if ($dOd !== '' && $dOi !== '') {
+                        $entries[] = ['eye' => 'OD', 'date' => $dOd];
+                        $entries[] = ['eye' => 'OI', 'date' => $dOi];
+                    } elseif ($dOd !== '') {
+                        $entries[] = ['eye' => 'OD', 'date' => $dOd];
+                    } elseif ($dOi !== '') {
+                        $entries[] = ['eye' => 'OI', 'date' => $dOi];
+                    } else {
+                        $fb = substr(trim((string)($c[5] ?? '')), 0, 10);
+                        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fb) || str_starts_with($fb, '0000')) {
+                            $fb = now()->toDateString();
+                        }
+                        if (preg_match('/\boi\b/i', $desc)) $entries[] = ['eye' => 'OI', 'date' => $fb];
+                        else $entries[] = ['eye' => 'OD', 'date' => $fb];
+                    }
+
+                    foreach ($entries as $ent) {
+                        $existsSg = PatientSurgery::where('patient_id', $newPatientId)
+                            ->whereDate('surgery_date', $ent['date'])
+                            ->where('eye', $ent['eye'])
+                            ->where('notes', $desc ?: 'Cirugía histórica')
+                            ->exists();
+                        if (!$existsSg) {
+                            PatientSurgery::create([
+                                'patient_id' => $newPatientId,
+                                'doctor_id' => $defaultDoctorId,
+                                'eye' => $ent['eye'],
+                                'surgery_date' => $ent['date'],
+                                'notes' => $desc ?: 'Cirugía histórica',
+                            ]);
+                            $surgeriesImported++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Estudios Históricos (`pacientes_estudios`)
+        $studiesImported = 0;
+        if (preg_match_all('/INSERT INTO `pacientes_estudios`.*?VALUES\s*(.*?);/s', $sql, $estBlocks)) {
+            foreach ($estBlocks[1] as $blk) {
+                foreach (self::splitSqlTuples($blk) as $tuple) {
+                    $c = str_getcsv($tuple, ',', "'", "\\");
+                    if (count($c) < 6) continue;
+                    $estado = isset($c[7]) ? (int)$c[7] : 1;
+                    if ($estado === 0) continue;
+
+                    $legPacId = (int)$c[1];
+                    $newPatientId = $legacyToNewPatientId[$legPacId] ?? null;
+                    if (!$newPatientId) continue;
+
+                    $nombreEstudio = trim((string)($c[2] ?? ''));
+                    if ($nombreEstudio === 'NULL') $nombreEstudio = '';
+                    $archivo = trim((string)($c[3] ?? ''));
+                    if ($archivo === '' || $archivo === 'NULL') continue;
+
+                    $filePath = 'legacy_studies/' . $archivo;
+                    $existsSt = \App\Models\PatientStudy::where('patient_id', $newPatientId)
+                        ->where('file_path', $filePath)
+                        ->exists();
+
+                    if (!$existsSt) {
+                        $ext = strtolower(pathinfo($archivo, PATHINFO_EXTENSION) ?: 'jpg');
+                        $stDateStr = trim((string)($c[5] ?? ($c[4] ?? '')));
+                        $stCreated = ($stDateStr !== '' && $stDateStr !== 'NULL' && !str_starts_with($stDateStr, '0000'))
+                            ? Carbon::parse($stDateStr)
+                            : now();
+
+                        $st = new \App\Models\PatientStudy([
+                            'patient_id' => $newPatientId,
+                            'file_path' => $filePath,
+                            'file_type' => $ext,
+                            'original_name' => $nombreEstudio !== '' ? ($nombreEstudio . '.' . $ext) : $archivo,
+                            'study_type' => $nombreEstudio !== '' ? strtoupper($nombreEstudio) : 'Estudio Viejo Eleven',
+                            'notes' => 'Importado del archivo histórico Viejo Eleven',
+                            'uploaded_by' => $defaultDoctorId,
+                        ]);
+                        $st->timestamps = false;
+                        $st->created_at = $stCreated;
+                        $st->updated_at = $stCreated;
+                        $st->save();
+                        $studiesImported++;
+                    }
+                }
+            }
+        }
+
+        return [
+            'patients_processed' => $patientsImported,
+            'visits_imported' => $visitsImported,
+            'surgeries_imported' => $surgeriesImported,
+            'studies_imported' => $studiesImported,
+            'max_legacy_number' => $maxLegacyNumber,
+        ];
+    }
+
+    /**
+     * Divide de forma segura los registros `( ... ), ( ... )` de un bloque INSERT MySQL respetando comillas y escapes.
+     */
+    protected static function splitSqlTuples(string $valuesBlock): array
+    {
+        $tuples = [];
+        $len = strlen($valuesBlock);
+        $inQuote = false;
+        $escaped = false;
+        $depth = 0;
+        $start = null;
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $valuesBlock[$i];
+            if ($escaped) {
+                $escaped = false;
+                continue;
+            }
+            if ($ch === '\\') {
+                $escaped = true;
+                continue;
+            }
+            if ($ch === "'") {
+                $inQuote = !$inQuote;
+                continue;
+            }
+            if (!$inQuote) {
+                if ($ch === '(') {
+                    if ($depth === 0) $start = $i + 1;
+                    $depth++;
+                } elseif ($ch === ')') {
+                    $depth--;
+                    if ($depth === 0 && $start !== null) {
+                        $tuples[] = substr($valuesBlock, $start, $i - $start);
+                        $start = null;
+                    }
+                }
+            }
+        }
+
+        return $tuples;
     }
 }

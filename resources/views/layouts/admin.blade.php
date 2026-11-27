@@ -2,8 +2,14 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#5e6ad2">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cortalezzi">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
 
     <title>{{ config('app.name', 'Cortalezzi') }} - @yield('title', 'Admin Panel')</title>
 
@@ -175,7 +181,9 @@
             background: rgba(255, 255, 255, 0.15);
             border-radius: 12px;
             overflow: hidden;
-            width: 400px;
+            flex: 1 1 180px;
+            min-width: 150px;
+            max-width: 420px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
@@ -403,29 +411,176 @@
             border-color: #334155 !important;
         }
 
-        /* Responsive Topbar Tweaks */
-        @media (max-width: 1200px) {
-            .omnibar-search {
-                width: 300px;
-            }
+        /* ==============================================================
+           MENÚ PRINCIPAL COLAPSABLE (MODO ICONO + TEXTO MÍNIMO) & MÓVIL
+           ============================================================== */
+        .nav-mini-text {
+            display: none;
+            font-size: 0.6rem;
+            font-weight: 700;
+            line-height: 1.05;
+            text-align: center;
+            margin-top: 2px;
+            letter-spacing: -0.2px;
         }
-        @media (max-width: 992px) {
-            #omnibar-clock {
-                font-size: 0.75rem !important;
-                padding: 0.3rem 0.5rem !important;
-                gap: 0.3rem !important;
-            }
-            .omnibar-search input {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.85rem;
-            }
-            .omnibar-icon {
-                width: 36px;
-                height: 36px;
-                font-size: 1rem;
+        .sidebar-toggle-btn {
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Estado Reducido del Menú Principal (Ideal en Celular Horizontal y Escritorio Compacto) */
+        body.sidebar-collapsed .sidebar {
+            width: 66px !important;
+            left: 0.35rem !important;
+            top: 0.45rem !important;
+            height: calc(100vh - 0.9rem) !important;
+            border-radius: 16px !important;
+        }
+        body.sidebar-collapsed .main-content {
+            margin-left: 74px !important;
+            padding: 0.6rem 0.9rem 1.5rem 0.7rem !important;
+        }
+        body.sidebar-collapsed .sidebar .brand-container {
+            padding: 0.65rem 0.25rem 0.5rem 0.25rem !important;
+        }
+        body.sidebar-collapsed .sidebar .brand-wordmark,
+        body.sidebar-collapsed .sidebar .brand-subtitle-vision,
+        body.sidebar-collapsed .sidebar .nav-full-text {
+            display: none !important;
+        }
+        body.sidebar-collapsed .sidebar .nav-mini-text {
+            display: block !important;
+        }
+        body.sidebar-collapsed .sidebar .nav-sidebar {
+            margin-top: 0.35rem !important;
+        }
+        body.sidebar-collapsed .sidebar .nav-sidebar .nav-link {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 1px !important;
+            padding: 0.42rem 0.2rem !important;
+            margin: 2px 5px !important;
+            border-radius: 12px !important;
+        }
+        body.sidebar-collapsed .sidebar .nav-sidebar .nav-link i {
+            font-size: 1.15rem !important;
+            margin: 0 !important;
+        }
+        body.sidebar-collapsed .sidebar .nav-sidebar .nav-link .badge {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            font-size: 0.58rem !important;
+            padding: 2px 4px !important;
+            margin: 0 !important;
+        }
+
+        /* Ajustes Responsivos para Celulares (Horizontal y Vertical) y Tablets */
+        @media (max-width: 1180px) {
+            .sidebar {
+                left: 0.35rem;
+                top: 0.45rem;
+                height: calc(100vh - 0.9rem);
             }
             .main-content {
-                padding: 1rem;
+                padding: 0.55rem 0.8rem 1.2rem 0.8rem;
+            }
+            .topbar {
+                padding: 0.45rem 0.75rem !important;
+                margin-bottom: 0.7rem !important;
+                border-radius: 14px !important;
+                top: 0.35rem !important;
+                gap: 0.45rem;
+            }
+            /* Ocultar el reloj/fecha largo en pantallas chicas para que NUNCA oculte el buscador de DNI/Apellido */
+            #omnibar-clock {
+                display: none !important;
+            }
+            .omnibar-search {
+                min-width: 145px !important;
+                border-radius: 10px;
+            }
+            .omnibar-search input {
+                padding: 0.38rem 0.65rem !important;
+                font-size: 0.85rem !important;
+            }
+            .omnibar-search button {
+                padding: 0 0.65rem !important;
+                font-size: 0.95rem !important;
+            }
+            .omnibar-icon {
+                width: 33px !important;
+                height: 33px !important;
+                font-size: 0.95rem !important;
+                border-radius: 9px !important;
+            }
+            .user-dropdown img {
+                width: 33px !important;
+                height: 33px !important;
+                margin-right: 0.25rem !important;
+            }
+            /* Botones flotantes Chat e IA compactos y siempre dentro de pantalla */
+            #floatingAIBtn {
+                width: 42px !important;
+                height: 42px !important;
+                right: 10px !important;
+                bottom: 58px !important;
+            }
+            #floatingAIBtn i { font-size: 1.2rem !important; }
+            #floatingChatBtn {
+                width: 42px !important;
+                height: 42px !important;
+                right: 10px !important;
+                bottom: 10px !important;
+            }
+            #floatingChatBtn i { font-size: 1.1rem !important; margin-top: 0 !important; }
+            #floatingChatWidget, #floatingAIWidget {
+                width: min(340px, calc(100vw - 20px)) !important;
+                height: min(420px, 82vh) !important;
+                right: 10px !important;
+                bottom: 10px !important;
+            }
+        }
+
+        /* En Celular Vertical (< 600px): ocultar sidebar al borde 0px cuando está colapsada para dar 100% de ancho */
+        @media (max-width: 599.98px) {
+            body.sidebar-collapsed .sidebar {
+                transform: translateX(-120%);
+            }
+            body.sidebar-collapsed .main-content {
+                margin-left: 0 !important;
+                padding: 0.45rem 0.5rem 1.2rem 0.5rem !important;
+            }
+            body:not(.sidebar-collapsed) .sidebar {
+                width: 225px !important;
+                z-index: 2000;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            }
+            body:not(.sidebar-collapsed) .main-content {
+                margin-left: 0 !important;
+            }
+        }
+
+        #mobileLandscapeBanner {
+            display: none;
+        }
+        @media (max-width: 600px) and (orientation: portrait) {
+            #mobileLandscapeBanner:not(.dismissed) {
+                display: flex !important;
             }
         }
         
@@ -448,56 +603,89 @@
 </head>
 <body class="{{ rtrim(' ' . '<script>document.write(localStorage.getItem("theme") === "dark" ? "theme-dark" : "")</script>') }}">
 
-    <!-- Sidebar -->
-    <aside class="sidebar d-flex flex-column">
-        <div class="brand-container">
-            <div class="brand-logo-main">
-                <i class="bi bi-eye-fill" style="font-size: 1.8rem; filter: drop-shadow(0 0 6px rgba(181, 164, 255, 0.6));"></i>
-                CORTALEZZI
+    <!-- Aviso compacto cuando el celular está en vertical (sugiere horizontal + pantalla completa sin barra) -->
+    <div id="mobileLandscapeBanner" class="align-items-center justify-content-between gap-2 px-3 py-1.5 text-white small" style="background: linear-gradient(90deg, #1e3c72 0%, #5e6ad2 100%); font-size: 0.74rem; z-index: 2100;">
+        <span><i class="bi bi-phone-landscape me-1"></i> <strong>Vista Celular:</strong> Gire el teléfono en <strong>horizontal</strong> (y en Safari toque <em>Compartir → Agregar a inicio</em> para pantalla completa sin barra).</span>
+        <button type="button" class="btn btn-sm text-white p-0 ms-2 border-0" onclick="this.parentElement.classList.add('dismissed'); sessionStorage.setItem('hide_landscape_tip','1');"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <!-- Sidebar Principal Colapsable -->
+    <aside class="sidebar d-flex flex-column" id="mainAppSidebar">
+        <div class="brand-container position-relative">
+            <div class="d-flex align-items-center justify-content-between w-100 px-1">
+                <div class="brand-logo-main mx-auto" onclick="toggleMainSidebar()" style="cursor: pointer;" title="Clic para reducir o expandir el menú principal">
+                    <i class="bi bi-eye-fill" style="font-size: 1.65rem; filter: drop-shadow(0 0 6px rgba(181, 164, 255, 0.6));"></i>
+                    <span class="brand-wordmark">CORTALEZZI</span>
+                </div>
+                <button type="button" class="sidebar-toggle-btn brand-wordmark ms-1" onclick="toggleMainSidebar()" title="Reducir menú a iconos" style="width: 26px; height: 26px; font-size: 0.8rem;">
+                    <i class="bi bi-chevron-bar-left"></i>
+                </button>
             </div>
             <div class="brand-subtitle-vision">Vision</div>
         </div>
-        <div class="nav flex-column nav-sidebar mt-4 flex-grow-1" id="sortable-sidebar">
-            <a href="{{ url('/home') }}" class="nav-link {{ request()->is('home') ? 'active' : '' }}" data-id="dashboard">
-                <i class="bi bi-grid"></i> Dashboard
+        <div class="nav flex-column nav-sidebar mt-3 flex-grow-1" id="sortable-sidebar">
+            <a href="{{ url('/home') }}" class="nav-link {{ request()->is('home') ? 'active' : '' }}" data-id="dashboard" title="Dashboard">
+                <i class="bi bi-grid"></i>
+                <span class="nav-full-text">Dashboard</span>
+                <span class="nav-mini-text">Inicio</span>
             </a>
-            <a href="{{ route('users.index') }}" class="nav-link {{ request()->is('users*') ? 'active' : '' }}" data-id="users">
-                <i class="bi bi-people"></i> Usuarios & Roles
+            <a href="{{ route('users.index') }}" class="nav-link {{ request()->is('users*') ? 'active' : '' }}" data-id="users" title="Usuarios & Roles">
+                <i class="bi bi-people"></i>
+                <span class="nav-full-text">Usuarios & Roles</span>
+                <span class="nav-mini-text">Usuarios</span>
             </a>
-            <a href="{{ route('patients.index') }}" class="nav-link {{ request()->routeIs('patients.*') && !request()->routeIs('patients.duplicates*') ? 'active' : '' }}" data-id="patients">
-                <i class="bi bi-person-vcard"></i> Pacientes
+            <a href="{{ route('patients.index') }}" class="nav-link {{ request()->routeIs('patients.*') && !request()->routeIs('patients.duplicates*') ? 'active' : '' }}" data-id="patients" title="Pacientes">
+                <i class="bi bi-person-vcard"></i>
+                <span class="nav-full-text">Pacientes</span>
+                <span class="nav-mini-text">Pacientes</span>
             </a>
-            <a href="{{ route('patients.duplicates') }}" class="nav-link {{ request()->routeIs('patients.duplicates*') ? 'active' : '' }}" style="padding-left: 2.5rem; font-size: 0.9em;" data-id="patients_duplicates">
-                <i class="bi bi-intersect text-primary"></i> Fichas Duplicadas
+            <a href="{{ route('patients.duplicates') }}" class="nav-link {{ request()->routeIs('patients.duplicates*') ? 'active' : '' }}" style="padding-left: 2.2rem; font-size: 0.88em;" data-id="patients_duplicates" title="Fichas Duplicadas">
+                <i class="bi bi-intersect text-primary"></i>
+                <span class="nav-full-text">Fichas Duplicadas</span>
+                <span class="nav-mini-text">Duplic.</span>
             </a>
             @php
                 $queueCount = \App\Models\Patient::whereHas('assignments', function ($q) {
                     $q->whereDate('started_at', \Carbon\Carbon::today())->where('status', 'in_progress');
                 })->count();
             @endphp
-            <a href="{{ route('console.index') }}" class="nav-link {{ request()->is('console*') ? 'active' : '' }} fw-bold text-primary" data-id="console">
-                <i class="bi bi-display"></i> Consola Pacientes 
+            <a href="{{ route('console.index') }}" class="nav-link {{ request()->is('console*') ? 'active' : '' }} fw-bold text-primary" data-id="console" title="Consola Pacientes">
+                <i class="bi bi-display"></i>
+                <span class="nav-full-text">Consola Pacientes</span>
+                <span class="nav-mini-text">Consola</span>
                 @if($queueCount > 0)
                     <span class="badge bg-danger rounded-pill ms-2 pulse-badge" style="font-size: 0.75rem; padding: 0.35em 0.65em;">{{ $queueCount }}</span>
                 @endif
             </a>
-            <a href="{{ route('agenda.index') }}" class="nav-link {{ request()->is('agenda') ? 'active' : '' }}" data-id="agenda">
-                <i class="bi bi-calendar-check"></i> Agenda Médica
+            <a href="{{ route('agenda.index') }}" class="nav-link {{ request()->is('agenda') ? 'active' : '' }}" data-id="agenda" title="Agenda Médica y Técnica">
+                <i class="bi bi-calendar-check"></i>
+                <span class="nav-full-text">Agenda Médica</span>
+                <span class="nav-mini-text">Agenda</span>
             </a>
-            <a href="{{ route('agenda.settings') }}" class="nav-link {{ request()->is('agenda/settings') ? 'active' : '' }}" style="padding-left: 2.5rem; font-size: 0.9em;" data-id="agenda_settings">
-                <i class="bi bi-gear-fill"></i> Crear Agenda
+            <a href="{{ route('agenda.settings') }}" class="nav-link {{ request()->is('agenda/settings') ? 'active' : '' }}" style="padding-left: 2.2rem; font-size: 0.88em;" data-id="agenda_settings" title="Crear / Configurar Agenda">
+                <i class="bi bi-gear-fill"></i>
+                <span class="nav-full-text">Crear Agenda</span>
+                <span class="nav-mini-text">Horarios</span>
             </a>
-            <a href="{{ route('news.index') }}" class="nav-link {{ request()->is('noticias*') ? 'active' : '' }}" data-id="news">
-                <i class="bi bi-newspaper"></i> Noticias Médicas
+            <a href="{{ route('news.index') }}" class="nav-link {{ request()->is('noticias*') ? 'active' : '' }}" data-id="news" title="Noticias Médicas">
+                <i class="bi bi-newspaper"></i>
+                <span class="nav-full-text">Noticias Médicas</span>
+                <span class="nav-mini-text">Noticias</span>
             </a>
-            <a href="{{ route('config.index') }}" class="nav-link {{ request()->is('configuracion') ? 'active' : '' }}" data-id="config">
-                <i class="bi bi-sliders"></i> Módulo Configuración
+            <a href="{{ route('config.index') }}" class="nav-link {{ request()->is('configuracion') ? 'active' : '' }}" data-id="config" title="Módulo Configuración">
+                <i class="bi bi-sliders"></i>
+                <span class="nav-full-text">Módulo Configuración</span>
+                <span class="nav-mini-text">Config.</span>
             </a>
-            <a href="{{ route('whatsapp.index') }}" class="nav-link {{ request()->routeIs('whatsapp.*') ? 'active' : '' }}" style="padding-left: 2.5rem; font-size: 0.9em;" data-id="whatsapp_config">
-                <i class="bi bi-whatsapp text-success"></i> Recordatorios WhatsApp
+            <a href="{{ route('whatsapp.index') }}" class="nav-link {{ request()->routeIs('whatsapp.*') ? 'active' : '' }}" style="padding-left: 2.2rem; font-size: 0.88em;" data-id="whatsapp_config" title="Recordatorios WhatsApp">
+                <i class="bi bi-whatsapp text-success"></i>
+                <span class="nav-full-text">Recordatorios WhatsApp</span>
+                <span class="nav-mini-text">WhatsApp</span>
             </a>
-            <a href="{{ route('chatit.index') }}" class="nav-link {{ request()->routeIs('chatit.index') ? 'active' : '' }} mt-2" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.05) 0%, transparent 100%);" data-id="chatit">
-                <i class="bi bi-asterisk text-primary"></i> <span class="fw-bold text-primary">Chat IA</span>
+            <a href="{{ route('chatit.index') }}" class="nav-link {{ request()->routeIs('chatit.index') ? 'active' : '' }} mt-1" style="background: linear-gradient(90deg, rgba(94, 106, 210, 0.05) 0%, transparent 100%);" data-id="chatit" title="Chat IA">
+                <i class="bi bi-asterisk text-primary"></i>
+                <span class="fw-bold text-primary nav-full-text">Chat IA</span>
+                <span class="nav-mini-text">Chat IA</span>
             </a>
         </div>
 
@@ -507,14 +695,19 @@
     <main class="main-content">
         <!-- Phase 20 Omnibar -->
         <header class="topbar">
-            <!-- Left: Omnibar Search -->
-            <form action="{{ route('global.search') }}" method="GET" class="omnibar-search">
-                <input type="text" name="q" placeholder="DNI o Nombre / Apellido del paciente..." required>
-                <button type="submit" title="Buscar paciente"><i class="bi bi-search"></i></button>
-            </form>
+            <!-- Left: Botón Menú Colapsable + Buscador Siempre Visible -->
+            <div class="d-flex align-items-center gap-2 flex-grow-1 me-2" style="min-width: 0;">
+                <button type="button" class="sidebar-toggle-btn" onclick="toggleMainSidebar()" title="Mostrar / Reducir menú principal">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+                <form action="{{ route('global.search') }}" method="GET" class="omnibar-search">
+                    <input type="text" name="q" placeholder="Buscar DNI o Apellido..." required>
+                    <button type="submit" title="Buscar paciente"><i class="bi bi-search"></i></button>
+                </form>
+            </div>
 
             <!-- Right: Utilities -->
-            <div class="d-flex align-items-center gap-2 gap-md-3" id="sortable-topbar">
+            <div class="d-flex align-items-center gap-1 gap-md-2 flex-shrink-0" id="sortable-topbar">
                 
                 <!-- Date/Time Badge (Elegante) -->
                 <div id="omnibar-clock" data-id="clock" class="d-flex text-nowrap" style="background: rgba(255, 255, 255, 0.15); color: #ffffff; padding: 0.4rem 0.8rem; border-radius: 12px; font-weight: 600; font-size: 0.85rem; align-items: center; gap: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(5px);">
@@ -1022,12 +1215,31 @@
                 }
 
                 function setTranslate(xPos, yPos, el) {
-                    el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
+                    // Garantizar que los botones flotantes jamás queden fuera de campo en pantallas móviles o al rotar
+                    const rectW = el.offsetWidth || 44;
+                    const rectH = el.offsetHeight || 44;
+                    const maxLeftMove = -(window.innerWidth - rectW - 16);
+                    const maxUpMove = -(window.innerHeight - rectH - 16);
+                    const clampedX = Math.min(8, Math.max(maxLeftMove, xPos || 0));
+                    const clampedY = Math.min(8, Math.max(maxUpMove, yPos || 0));
+                    el.style.transform = "translate3d(" + clampedX + "px, " + clampedY + "px, 0)";
                 }
             }
 
             makeDraggable(document.getElementById('floatingAIBtn'), 'aiBtnPos');
             makeDraggable(document.getElementById('floatingChatBtn'), 'chatBtnPos');
+
+            window.addEventListener('resize', () => {
+                ['floatingAIBtn', 'floatingChatBtn'].forEach((btnId, idx) => {
+                    const el = document.getElementById(btnId);
+                    const key = idx === 0 ? 'aiBtnPos' : 'chatBtnPos';
+                    if (!el) return;
+                    if (window.innerWidth <= 1180) {
+                        el.style.transform = 'none';
+                        localStorage.removeItem(key);
+                    }
+                });
+            });
 
             const msgContainer = document.getElementById('aiChatMessages');
             if (aiChatHistory.length > 0) {
@@ -1585,6 +1797,37 @@
             let tBtn = document.querySelector('#themeToggleBtn i');
             if(tBtn) tBtn.className = 'bi bi-sun-fill text-warning';
         }
+
+        // Control del Menú Principal Colapsable (Modo Iconos + Texto Mínimo) + Orientación Móvil
+        function toggleMainSidebar(forceCollapsed = null) {
+            const willCollapse = (forceCollapsed !== null)
+                ? forceCollapsed
+                : !document.body.classList.contains('sidebar-collapsed');
+            document.body.classList.toggle('sidebar-collapsed', willCollapse);
+            localStorage.setItem('main_sidebar_collapsed', willCollapse ? '1' : '0');
+        }
+
+        (function initResponsiveSidebarAndLandscape() {
+            const savedSidebar = localStorage.getItem('main_sidebar_collapsed');
+            // En celulares/tablets (<= 1180px) iniciar SIEMPRE reducido a iconos para aprovechar toda la pantalla sin achicar letra
+            if (window.innerWidth <= 1180) {
+                document.body.classList.add('sidebar-collapsed');
+            } else if (savedSidebar === '1') {
+                document.body.classList.add('sidebar-collapsed');
+            }
+
+            if (sessionStorage.getItem('hide_landscape_tip') === '1') {
+                const b = document.getElementById('mobileLandscapeBanner');
+                if (b) b.classList.add('dismissed');
+            }
+
+            // Si corre como Web App instalada (standalone), solicitar horizontal por defecto cuando el navegador lo soporte
+            if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            }
+        })();
     </script>
     @if(Auth::check() && Auth::user()->hasRole('administrador'))
     <!-- Modal Exclusivo Administradores: Cambiar mi Contraseña de Entrada -->

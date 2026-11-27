@@ -187,13 +187,118 @@ body.theme-dark .sidebar-nav-container {
     background-color: rgba(0, 0, 0, 0.2) !important;
     border-color: rgba(255, 255, 255, 0.05) !important;
 }
+
+/* Modo Reducido / Icono + Texto Mínimo para Menú Secundario de Ficha (Ideal en Celular y Pantallas Compactas) */
+.patient-inner-sidebar {
+    transition: all 0.25s ease;
+}
+.patient-main-panel {
+    transition: all 0.25s ease;
+}
+.sidebar-mini-label {
+    display: none;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.05;
+    margin-top: 2px;
+    text-align: center;
+}
+#patientContainerRow.ficha-sidebar-collapsed > .patient-inner-sidebar {
+    flex: 0 0 64px !important;
+    width: 64px !important;
+    max-width: 64px !important;
+    padding: 8px 4px !important;
+}
+#patientContainerRow.ficha-sidebar-collapsed > .patient-main-panel {
+    flex: 1 1 calc(100% - 64px) !important;
+    width: calc(100% - 64px) !important;
+    max-width: calc(100% - 64px) !important;
+}
+#patientContainerRow.ficha-sidebar-collapsed .ficha-hide-when-collapsed {
+    display: none !important;
+}
+#patientContainerRow.ficha-sidebar-collapsed #patientAvatarBox {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 1.1rem !important;
+    margin-bottom: 4px !important;
+}
+#patientContainerRow.ficha-sidebar-collapsed .ficha-mini-num-badge {
+    display: inline-block !important;
+    font-size: 0.64rem;
+    padding: 2px 5px;
+}
+#patientContainerRow.ficha-sidebar-collapsed .sidebar-nav-container {
+    padding: 5px 3px !important;
+}
+#patientContainerRow.ficha-sidebar-collapsed .sidebar-link {
+    flex-direction: column;
+    justify-content: center;
+    padding: 6px 2px !important;
+    margin-bottom: 4px !important;
+    border-radius: 0.6rem;
+    text-align: center;
+}
+#patientContainerRow.ficha-sidebar-collapsed .sidebar-link i {
+    margin-right: 0 !important;
+    font-size: 1.05rem !important;
+    width: auto;
+}
+#patientContainerRow.ficha-sidebar-collapsed .sidebar-link .sidebar-full-label {
+    display: none !important;
+}
+#patientContainerRow.ficha-sidebar-collapsed .sidebar-link .sidebar-mini-label {
+    display: block !important;
+}
+
+@media (max-width: 992px) {
+    .patient-container {
+        border-radius: 0.9rem;
+        min-height: auto;
+    }
+    .patient-main-panel {
+        padding: 0.65rem 0.75rem !important;
+    }
+}
+@media (max-width: 575.98px) {
+    /* En celular vertical: apilar el menú secundario como barra horizontal deslizable arriba */
+    #patientContainerRow.ficha-sidebar-collapsed > .patient-inner-sidebar {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-right: none;
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+        padding: 6px 8px !important;
+    }
+    #patientContainerRow.ficha-sidebar-collapsed > .patient-main-panel {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    #patientContainerRow.ficha-sidebar-collapsed .sidebar-nav-container {
+        flex-direction: row !important;
+        overflow-x: auto;
+        white-space: nowrap;
+        gap: 4px !important;
+    }
+    #patientContainerRow.ficha-sidebar-collapsed .sidebar-link {
+        min-width: 54px;
+        margin-bottom: 0 !important;
+    }
+}
 </style>
 
-<div class="row g-0 patient-container">
-    <!-- Inner Sidebar (Izquierda) -->
+<div class="row g-0 patient-container" id="patientContainerRow">
+    <!-- Inner Sidebar (Izquierda - Colapsable a Icono + Texto Mínimo) -->
     <div class="col-md-4 col-lg-3 col-xl-2 patient-inner-sidebar p-3 d-flex flex-column">
-        <div class="d-flex flex-column align-items-center text-center mb-4 pb-2 border-bottom border-light">
-            <div class="icon-box rounded-circle shadow-sm text-white d-flex align-items-center justify-content-center mb-3" id="patientAvatarBox" style="width: 70px; height: 70px; font-size: 2rem; cursor: pointer; overflow: hidden; position: relative; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);" data-bs-toggle="modal" data-bs-target="#photoOptionsModal" onmouseover="document.getElementById('avatarOverlay').style.opacity=1" onmouseout="document.getElementById('avatarOverlay').style.opacity=0">
+        <div class="d-flex justify-content-end w-100 mb-1">
+            <button type="button" id="btnToggleFichaSidebar" onclick="toggleFichaInnerSidebar()" class="btn btn-sm btn-light border rounded-pill px-2 py-0.5 text-primary fw-bold shadow-sm d-flex align-items-center gap-1" style="font-size: 0.7rem;" title="Reducir o expandir este menú lateral de la ficha">
+                <i class="bi bi-layout-sidebar-inset" id="iconToggleFichaSidebar"></i>
+                <span class="ficha-hide-when-collapsed">Reducir</span>
+            </button>
+        </div>
+        <div class="d-flex flex-column align-items-center text-center mb-3 pb-2 border-bottom border-light">
+            <div class="icon-box rounded-circle shadow-sm text-white d-flex align-items-center justify-content-center mb-2" id="patientAvatarBox" style="width: 70px; height: 70px; font-size: 2rem; cursor: pointer; overflow: hidden; position: relative; background: linear-gradient(135deg, #5e6ad2 0%, #7e448b 100%);" data-bs-toggle="modal" data-bs-target="#photoOptionsModal" onmouseover="document.getElementById('avatarOverlay').style.opacity=1" onmouseout="document.getElementById('avatarOverlay').style.opacity=0">
                 @if($patient->photo_path)
                     @if(Str::startsWith($patient->photo_path, 'uploads/'))
                         <img src="{{ asset($patient->photo_path) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;" id="patientAvatarImage">
@@ -209,25 +314,26 @@ body.theme-dark .sidebar-nav-container {
                     <i class="bi bi-camera"></i>
                 </div>
             </div>
+            <span class="badge bg-primary text-white rounded-pill d-none ficha-mini-num-badge" title="N° Paciente #{{ $patient->patient_number }}">#{{ $patient->patient_number }}</span>
             <input type="file" id="patientPhotoInput" accept="image/*" hidden>
             @if($patient->photo_path)
-            <form action="{{ route('patients.removePhoto', $patient) }}" method="POST" class="mb-2">
+            <form action="{{ route('patients.removePhoto', $patient) }}" method="POST" class="mb-2 ficha-hide-when-collapsed">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-none p-0" style="font-size: 0.8rem;"><i class="bi bi-trash me-1"></i>Quitar foto</button>
             </form>
             @endif
-            <h5 class="fw-bold mb-1 text-dark" style="font-size: 1.1rem; line-height: 1.3; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
-            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold mb-2" style="font-size: 0.86rem;" title="Número de Paciente correlativo institucional">
+            <h5 class="fw-bold mb-1 text-dark ficha-hide-when-collapsed" style="font-size: 1.05rem; line-height: 1.25; letter-spacing: -0.3px;">{{ $patient->first_name }} {{ $patient->last_name }}</h5>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-1 rounded-pill fw-bold mb-1 ficha-hide-when-collapsed" style="font-size: 0.84rem;" title="Número de Paciente correlativo institucional">
                 <i class="bi bi-hash"></i> N° Paciente: {{ $patient->patient_number }}
             </span>
-            <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-sm mb-1"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
+            <span class="badge bg-white text-secondary border px-3 py-1.5 rounded-pill shadow-sm mb-1 ficha-hide-when-collapsed"><i class="bi bi-card-text me-1"></i> D.N.I: {{ $patient->dni }}</span>
             @if(!empty($patient->gender))
-                <span class="badge bg-light text-dark border px-3 py-1 rounded-pill small mb-1"><i class="bi bi-gender-ambiguous me-1"></i> {{ $patient->gender }}</span>
+                <span class="badge bg-light text-dark border px-3 py-1 rounded-pill small mb-1 ficha-hide-when-collapsed"><i class="bi bi-gender-ambiguous me-1"></i> {{ $patient->gender }}</span>
             @endif
         </div>
 
-        <div class="mb-4">
+        <div class="mb-3 ficha-hide-when-collapsed">
             <div class="d-flex justify-content-between align-items-center ms-1 mb-1">
                 <span class="text-uppercase text-primary fw-bold" style="letter-spacing: 0.4px; font-size: 0.75rem;"><i class="bi bi-journal-text me-1"></i>Comentarios Médicos</span>
                 <small id="saveMedicalNotesFeedback" class="text-muted fst-italic" style="font-size: 0.68rem;">Solo consultorio</small>
@@ -239,23 +345,23 @@ body.theme-dark .sidebar-nav-container {
         </div>
 
         <nav class="nav flex-column gap-1 flex-grow-1 sidebar-nav-container">
-            <a href="{{ route('patients.index') }}" class="sidebar-link"><i class="bi bi-arrow-left"></i> Volver a Lista</a>
-            <a href="{{ route('patient.visits.create', $patient) }}" class="sidebar-link"><i class="bi bi-person-plus"></i> Nueva Visita</a>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('cirugias-tab')"><i class="bi bi-bandaid"></i> Cirugías</button>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('asignacion-tab')"><i class="bi bi-person-badge"></i> Asignar Médico</button>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent" data-bs-toggle="modal" data-bs-target="#uploadStudyModal"><i class="bi bi-cloud-arrow-up"></i> Subir Estudio</button>
-            <a href="{{ route('patients.edit', $patient) }}" class="sidebar-link"><i class="bi bi-pencil"></i> Editar Perfil</a>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('comentarios-tab')"><i class="bi bi-chat-left-text"></i> Comentarios</button>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('historial-tab')"><i class="bi bi-journal-medical"></i> Historia Clínica</button>
-            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="alert('Módulo de Recetas en construcción.')"><i class="bi bi-file-earmark-medical"></i> Generar Receta</button>
-            <button class="sidebar-link border-0 w-100 text-start" style="background: linear-gradient(135deg, rgba(94,106,210,0.1) 0%, rgba(126,68,139,0.1) 100%); color: #7e448b;" data-bs-toggle="modal" data-bs-target="#aiAnalysisModal"><i class="bi bi-stars text-warning"></i> Asistente IA</button>
+            <a href="{{ route('patients.index') }}" class="sidebar-link" title="Volver a Lista"><i class="bi bi-arrow-left"></i><span class="sidebar-full-label">Volver a Lista</span><span class="sidebar-mini-label">Lista</span></a>
+            <a href="{{ route('patient.visits.create', $patient) }}" class="sidebar-link" title="Nueva Visita"><i class="bi bi-person-plus"></i><span class="sidebar-full-label">Nueva Visita</span><span class="sidebar-mini-label">Visita</span></a>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('cirugias-tab')" title="Cirugías"><i class="bi bi-bandaid"></i><span class="sidebar-full-label">Cirugías</span><span class="sidebar-mini-label">Cirugías</span></button>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('asignacion-tab')" title="Asignar Médico"><i class="bi bi-person-badge"></i><span class="sidebar-full-label">Asignar Médico</span><span class="sidebar-mini-label">Médico</span></button>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" data-bs-toggle="modal" data-bs-target="#uploadStudyModal" title="Subir Estudio"><i class="bi bi-cloud-arrow-up"></i><span class="sidebar-full-label">Subir Estudio</span><span class="sidebar-mini-label">Estudio</span></button>
+            <a href="{{ route('patients.edit', $patient) }}" class="sidebar-link" title="Editar Perfil"><i class="bi bi-pencil"></i><span class="sidebar-full-label">Editar Perfil</span><span class="sidebar-mini-label">Editar</span></a>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('comentarios-tab')" title="Comentarios"><i class="bi bi-chat-left-text"></i><span class="sidebar-full-label">Comentarios</span><span class="sidebar-mini-label">Notas</span></button>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="activateBottomTab('historial-tab')" title="Historia Clínica"><i class="bi bi-journal-medical"></i><span class="sidebar-full-label">Historia Clínica</span><span class="sidebar-mini-label">HC</span></button>
+            <button class="sidebar-link border-0 w-100 text-start bg-transparent" onclick="alert('Módulo de Recetas en construcción.')" title="Generar Receta"><i class="bi bi-file-earmark-medical"></i><span class="sidebar-full-label">Generar Receta</span><span class="sidebar-mini-label">Receta</span></button>
+            <button class="sidebar-link border-0 w-100 text-start" style="background: linear-gradient(135deg, rgba(94,106,210,0.1) 0%, rgba(126,68,139,0.1) 100%); color: #7e448b;" data-bs-toggle="modal" data-bs-target="#aiAnalysisModal" title="Asistente IA"><i class="bi bi-stars text-warning"></i><span class="sidebar-full-label">Asistente IA</span><span class="sidebar-mini-label">IA</span></button>
             
             @if(auth()->user()->hasRole('administrador'))
-            <div class="mt-auto pt-4">
+            <div class="mt-auto pt-3">
                 <form action="{{ route('patients.destroy', $patient) }}" method="POST">
                     @csrf @method('DELETE')
-                    <button type="submit" class="sidebar-link text-danger border-0 w-100 text-start bg-transparent" onclick="return confirm('¿Está seguro de eliminar este paciente de forma permanente? Esta acción es irreversible y requiere privilegios de administrador.');">
-                        <i class="bi bi-trash"></i> Eliminar Paciente
+                    <button type="submit" class="sidebar-link text-danger border-0 w-100 text-start bg-transparent" title="Eliminar Paciente" onclick="return confirm('¿Está seguro de eliminar este paciente de forma permanente? Esta acción es irreversible y requiere privilegios de administrador.');">
+                        <i class="bi bi-trash"></i><span class="sidebar-full-label">Eliminar Paciente</span><span class="sidebar-mini-label">Borrar</span>
                     </button>
                 </form>
             </div>
@@ -264,7 +370,7 @@ body.theme-dark .sidebar-nav-container {
     </div>
 
     <!-- Contenido Principal (Derecha) -->
-    <div class="col-md-8 col-lg-9 col-xl-10 p-3 p-xl-4 bg-white">
+    <div class="col-md-8 col-lg-9 col-xl-10 p-3 p-xl-4 bg-white patient-main-panel">
         <!-- HEADER TOP -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
@@ -455,21 +561,6 @@ body.theme-dark .sidebar-nav-container {
                             $fichaTopTimeline = $fichaTopTimeline->sortByDesc('timestamp')->values();
                             $seenLatestVisit = false;
                         @endphp
-
-                        @if($patient->surgeries && $patient->surgeries->count() > 0)
-                            <div class="mb-3 p-2 px-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25">
-                                <div class="fw-bold text-danger small text-uppercase mb-1"><i class="bi bi-bandaid-fill me-1"></i> Resumen de Cirugías ({{ $patient->surgeries->count() }}) — También intercaladas cronológicamente abajo</div>
-                                <div class="d-flex flex-wrap gap-2">
-                                    @foreach($patient->surgeries->sortByDesc('surgery_date') as $surg)
-                                        <span class="badge bg-white text-dark border shadow-sm px-3 py-2 text-wrap text-start" style="font-size: 0.8rem; font-weight: 500;">
-                                            <strong class="{{ $surg->eye === 'OD' ? 'text-danger' : 'text-primary' }}">Ojo {{ $surg->eye }}</strong>
-                                            ({{ $surg->surgery_date ? $surg->surgery_date->format('d/m/Y') : '-' }}):
-                                            <span class="fw-bold">{{ $surg->notes }}</span>
-                                        </span>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
 
                         @if($fichaTopTimeline->count() > 0)
                             <div class="d-flex flex-column gap-3" id="fichaTopVisitsList">
@@ -2263,5 +2354,26 @@ document.getElementById('patientPhotoInput')?.addEventListener('change', functio
             feedback.className = 'text-danger fw-bold';
         });
     }
+
+    function toggleFichaInnerSidebar(forceState = null) {
+        const row = document.getElementById('patientContainerRow');
+        if (!row) return;
+        const willCollapse = (forceState !== null) ? forceState : !row.classList.contains('ficha-sidebar-collapsed');
+        row.classList.toggle('ficha-sidebar-collapsed', willCollapse);
+        localStorage.setItem('ficha_inner_sidebar_collapsed', willCollapse ? '1' : '0');
+        const btn = document.getElementById('btnToggleFichaSidebar');
+        if (btn) {
+            btn.title = willCollapse ? 'Expandir menú lateral de la ficha y Comentarios Médicos' : 'Reducir menú lateral a iconos';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedPref = localStorage.getItem('ficha_inner_sidebar_collapsed');
+        // Reducir automáticamente una vez abierta la ficha (por defecto en pantallas <= 1366px o si el usuario no eligió expandirla)
+        if (window.innerWidth <= 1180 || savedPref === '1' || savedPref === null) {
+            const row = document.getElementById('patientContainerRow');
+            if (row) row.classList.add('ficha-sidebar-collapsed');
+        }
+    });
 </script>
 @endsection

@@ -62,10 +62,35 @@ class Patient extends Model
     }
 
     /**
-     * Calcula el próximo Número de Paciente correlativo respetando la numeración histórica de Viejo Eleven.
+     * Lee o actualiza la configuración global liviana del sistema (piso correlativo Viejo Eleven, URL puente de estudios, etc.)
+     */
+    public static function getSystemSettings(): array
+    {
+        $defaults = [
+            'legacy_patient_number_floor' => 3000,
+            'legacy_studies_base_url' => '',
+        ];
+        try {
+            $path = storage_path('app/system_settings.json');
+            if (file_exists($path)) {
+                $decoded = json_decode(file_get_contents($path), true);
+                if (is_array($decoded)) {
+                    return array_merge($defaults, $decoded);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback a defaults
+        }
+        return $defaults;
+    }
+
+    /**
+     * Calcula el próximo Número de Paciente correlativo respetando el piso del Viejo Eleven para evitar números duplicados.
      */
     public static function nextCorrelativeNumber(): string
     {
+        $settings = static::getSystemSettings();
+        $legacyFloor = max(0, (int)($settings['legacy_patient_number_floor'] ?? 3000));
         $maxId = (int)(static::max('id') ?? 0);
         $maxCode = 0;
 
@@ -81,10 +106,10 @@ class Patient extends Model
                 }
             }
         } catch (\Throwable $e) {
-            // Fallback a maxId
+            // Fallback
         }
 
-        return (string)(max($maxId, $maxCode) + 1);
+        return (string)(max($legacyFloor, $maxId, $maxCode) + 1);
     }
 
     /**

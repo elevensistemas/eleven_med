@@ -87,6 +87,8 @@ Route::middleware('auth')->group(function () {
     Route::post('users/{user}/reset-password', [App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.resetPassword');
     Route::get('/configuracion', [App\Http\Controllers\ConfigController::class, 'index'])->name('config.index');
     Route::post('/configuracion/import-legacy-sample', [App\Http\Controllers\ConfigController::class, 'importLegacySample'])->name('config.import.legacySample');
+    Route::post('/configuracion/import-legacy-sql', [App\Http\Controllers\ConfigController::class, 'importLegacySql'])->name('config.import.legacySql');
+    Route::post('/configuracion/legacy-settings', [App\Http\Controllers\ConfigController::class, 'updateLegacySettings'])->name('config.legacy.settings');
     Route::post('/configuracion/obras-sociales', [App\Http\Controllers\ConfigController::class, 'storeObraSocial'])->name('config.obras_sociales.store');
     Route::delete('/configuracion/obras-sociales/{obraSocial}', [App\Http\Controllers\ConfigController::class, 'destroyObraSocial'])->name('config.obras_sociales.destroy');
     Route::delete('/configuracion/ai-memory/{user}', [App\Http\Controllers\ConfigController::class, 'clearAiMemory'])->name('config.ai_memory.clear');

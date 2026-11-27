@@ -176,28 +176,7 @@
             $ojitoTimeline = $ojitoTimeline->sortByDesc('timestamp')->values();
         @endphp
         <div class="card-body p-3" style="max-height: 30vh; min-height: 195px; overflow-y: auto; resize: vertical;" id="ojitoScrollViewport">
-            {{-- Resumen Quirúrgico Destacado Arriba + Intercalado Cronológico Abajo --}}
-            @if($allSurgeries && $allSurgeries->count() > 0)
-                <div class="mb-3 p-2 px-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25">
-                    <div class="fw-bold text-danger small text-uppercase mb-1">
-                        <i class="bi bi-bandaid-fill me-1"></i> Resumen de Cirugías ({{ $allSurgeries->count() }}) — También intercaladas por fecha en la línea de tiempo abajo
-                    </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        @foreach($allSurgeries->sortByDesc('surgery_date') as $surg)
-                            <span class="badge bg-white text-dark border shadow-sm px-3 py-2 text-wrap text-start" style="font-size: 0.8rem; font-weight: 500;">
-                                <strong class="{{ $surg->eye === 'OD' ? 'text-danger' : 'text-primary' }}">Ojo {{ $surg->eye }}</strong>
-                                ({{ $surg->surgery_date ? $surg->surgery_date->format('d/m/Y') : '-' }}):
-                                <span class="fw-bold">{{ $surg->notes }}</span>
-                                @if($surg->doctor)
-                                    <em class="text-muted">— Dr. {{ $surg->doctor->name }}</em>
-                                @endif
-                            </span>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            {{-- Línea de Tiempo Unificada y Scrolleable (Consultas + Cirugías en Orden Cronológico) --}}
+            {{-- Línea de Tiempo Unificada y Scrolleable (Consultas + Cirugías Intercaladas en Orden Cronológico) --}}
             @if($ojitoTimeline->count() > 0)
                 <div class="d-flex flex-column gap-3" id="ojitoVisitsList">
                     @foreach($ojitoTimeline as $entry)

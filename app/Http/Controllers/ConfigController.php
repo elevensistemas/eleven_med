@@ -68,7 +68,9 @@ class ConfigController extends Controller
             }
         }
 
-        return view('config.index', compact('obrasSociales', 'aiMemories'));
+        $systemSettings = Patient::getSystemSettings();
+        $nextPatientNumber = Patient::nextCorrelativeNumber();
+        return view('config.index', compact('obrasSociales', 'aiMemories', 'systemSettings', 'nextPatientNumber'));
     }
 
     /**
@@ -575,5 +577,42 @@ class ConfigController extends Controller
         $res = \App\Services\LegacyElevenImporter::provisionClinicUsersAndSample();
         $cnt = count($res['sample_patients'] ?? []);
         return back()->with('success', "Se integraron exitosamente {$cnt} pacientes históricos del Viejo Eleven con todas sus consultas y cirugías previas.");
+    }
+
+    /**
+     * Actualiza el piso correlativo de N° de Paciente del Viejo Eleven y la URL puente opcional de estudios antiguos.
+     */
+    public function updateLegacySettings(Request $request)
+    {
+        $validated = $request->validate([
+            'legacy_patient_number_floor' => 'required|integer|min:0|max:999999',
+            'legacy_studies_base_url' => 'nullable|string|max:500',
+        ]);
+
+        $settings = Patient::getSystemSettings();
+        $settings['legacy_patient_number_floor'] = (int)$validated['legacy_patient_number_floor'];
+        $settings['legacy_studies_base_url'] = trim((string)($validated['legacy_studies_base_url'] ?? ''));
+
+        @file_put_contents(storage_path('app/system_settings.json'), json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        return back()->with('success', 'Numeración correlativa y parámetros de estudios del Viejo Eleven actualizados. Próximo N° de paciente nuevo: #' . Patient::nextCorrelativeNumber());
+    }
+
+    /**
+     * Importa un archivo .SQL completo del Viejo Eleven (Pacientes + Consultas + Cirugías + Estudios).
+     */
+    public function importLegacySql(Request $request)
+    {
+        $request->validate([
+            'legacy_sql_file' => 'required|file|max:102400', // hasta 100 MB
+        ]);
+
+        $tmpPath = $request->file('legacy_sql_file')->getRealPath();
+        $stats = \App\Services\LegacyElevenImporter::importFullSqlDump($tmpPath, auth()->id());
+
+        return back()->with(
+            'success',
+            "Backup del Viejo Eleven integrado con éxito: {$stats['patients_processed']} pacientes procesados, {$stats['visits_imported']} consultas nuevas sumadas, {$stats['surgeries_imported']} cirugías sumadas y {$stats['studies_imported']} estudios vinculados. Próximo N° correlativo: #" . Patient::nextCorrelativeNumber()
+        );
     }
 }
